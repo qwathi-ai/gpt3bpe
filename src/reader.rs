@@ -1,8 +1,6 @@
-use std::{ 
-	fs::File, 
-	io::{self, prelude::*}, 
-	rc::Rc 
-};
+use std::fs::File;
+use std::rc::Rc;
+use std::io::{self, prelude::*};
 
 fn new_buffer() -> Rc<String> {
 	Rc::new(String::with_capacity(1024)) // Tweakable capacity
@@ -27,7 +25,6 @@ impl Iterator for StreamReader {
 	type Item = io::Result<Rc<String>>;
 
 	fn next(&mut self) -> Option<Self::Item> {
-		// Create reference to the data instead of creating a new copy.
 		let buffer = match Rc::get_mut(&mut self.buffer) {
 			Some(buffer) => {
 				buffer.clear();

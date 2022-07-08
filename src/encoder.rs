@@ -134,7 +134,6 @@ fn bpe(unicodes: &Vec<String>, vocab: &HashMap<Pair, usize>) -> Vec<String> {
     bpe_tokens
 }
 
-#[derive()]
 pub(crate) struct GPTEncoder {
     pub vocab: HashMap<Pair, usize>,
     pub encoder: HashMap<String, usize>,

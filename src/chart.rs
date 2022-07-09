@@ -1,10 +1,10 @@
 use crate::state;
 
 #[derive(Debug)]
-pub (crate) struct Chart {}
+pub struct Chart {}
 
 impl Chart {
-	pub fn new (tokens: Vec<&str>) -> Self {
+	pub fn new (tokens: &Vec<&str>) -> Self {
 		Self{}
 	}
 

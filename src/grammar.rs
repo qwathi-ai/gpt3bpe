@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-pub (crate) struct Grammar {
+pub struct Grammar {
 	lexicon: HashMap<String, Vec<Vec<String>>>
 }
 

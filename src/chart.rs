@@ -1,7 +1,9 @@
 use crate::state;
 
 #[derive(Debug)]
-pub struct Chart {}
+pub struct Chart {
+	
+}
 
 impl Chart {
 	pub fn new (tokens: &Vec<&str>) -> Self {
@@ -17,6 +19,6 @@ impl Chart {
 	}
 
 	pub fn get(&self, index: usize) -> state::State {
-		state::State::new("S", vec![],0,0,0)
+		state::State::new("S", &vec![],0,0,0)
 	}
 }

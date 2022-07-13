@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use crate::grammar;
 use crate::chart;
 
@@ -7,7 +9,7 @@ pub struct State {
 }
 
 impl State {
-	pub fn new (lhs: &str, rhs: Vec<String>, dot: usize, left: usize, right: usize) -> Self {
+	pub fn new (lhs: &str, rhs: &Vec<String>, dot: usize, left: usize, right: usize) -> Self {
 		Self {complete: false, changed: false}
 	}
 	pub fn non_terminal(&self, grammar: &grammar::Grammar) -> bool {

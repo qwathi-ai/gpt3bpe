@@ -166,12 +166,12 @@ impl GPTEncoder {
             unicodes.insert(*b, y[i].to_owned());
             deunicodes.insert(y[i].to_owned(), *b);
         }
-        let cache = HashMap::new();
         let mut decoder = HashMap::new();
         for (k, v) in encoder.iter() {
             decoder.insert(v.clone(), k.clone());
         }
-
+        
+        let cache = HashMap::new();
         Self {
             encoder,
             decoder,

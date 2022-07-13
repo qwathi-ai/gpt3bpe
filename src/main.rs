@@ -11,7 +11,7 @@ fn main() {
     let gpt = factory::gpt();
     let mut encoder = encoder::GPTEncoder::new(vocab.to_owned(), gpt.to_owned());
 
-    let stream = reader::StreamReader::open("test_gpt.txt").expect("Could not open file!");
+    let stream = reader::StreamReader::open("gpt.txt").expect("Could not open file!");
     for buffer in stream {
         let text = buffer.unwrap();
         println!("text => {:?}", &text);

@@ -1,39 +1,52 @@
 use std::collections::HashMap;
 use std::collections::HashSet;
 
+pub type Rule = HashSet<Vec<String>>;
+#[derive()]
 pub struct Grammar {
-	lexicon: HashMap<String, HashSet<Vec<String>>>
+	lexicon: HashMap<String, Rule>
 }
 
-fn parse_rule (rule: &str) -> (String, HashSet<Vec<String>>){
 
-	// let re: Regex = Regex::new(
-    //     r"(?u)'s|'t|'re|'ve|'m|'l l|'d| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(\S)|\s+",
-    // )
-    // .unwrap();
-    // let mut tokens: Vec<&str> = vec![];
-    // for mat in re.find_iter(text) {
-    //     tokens.push(mat.as_str())
-    // }
-    // tokens
-	("A".to_string(), HashSet::new())
+fn string_to_rule (rule: &str) -> (String, Rule) {
+	let tuple = rule.split("->").collect::<Vec<&str>>();
+	let lhs = tuple[0].trim();
+	let rhss = tuple[1].trim();
+
+	let mut rhs:HashSet<Vec<String>> = HashSet::new();
+	// "A -> B C | D"
+	// "B C | D" -> ["B C", "D"]
+	// {... "A": [["B", "C"], ["D"]] ...}
+	rhss.split("|")
+	.for_each(|part| {
+		let part = part.split(" ")
+		.filter(|s|*s != "")
+		.map(|s| s.trim().to_string())
+		.collect::<Vec<String>>();
+
+		rhs.insert(part);
+	});
+	(lhs.to_string(), rhs)
 }
-impl Grammar {
+
+
+impl Grammar{
 	pub fn new () -> Self {
 		Self {lexicon: HashMap::new()}
 	}
 
-	pub fn add(&mut self, rule: &str) -> (String, HashSet<Vec<String>>, HashSet<Vec<String>>) {
-		let (key, mut set) = parse_rule(rule);
-		let old = self.lexicon.get(&key).unwrap();
+	pub fn add(&mut self, rule: &str) -> (String, Rule, Rule) {
+		let (key, mut set) = string_to_rule(&*rule.clone());
+		let hs: Rule = HashSet::new();
+		let old = self.lexicon.get(&key).unwrap_or_else(|| { &hs });
 		for part in old {
 			set.insert(part.to_vec());
 		};
-		let old = self.lexicon.insert(key.clone(), set.clone()).unwrap();
+		let old = self.lexicon.insert(key.clone(), set.clone()).unwrap_or_else(|| { hs });
 		(key, old, set)
 	}
 
-	pub fn rhs(&self, root: &str) -> &HashSet<Vec<String>> {
-		self.lexicon.get(root).unwrap()
+	pub fn rhs(&self, root: &str) -> Option<&Rule> {
+		self.lexicon.get(root)
 	}
 }

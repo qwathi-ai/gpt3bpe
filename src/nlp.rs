@@ -1,10 +1,16 @@
 use std::rc::Rc;
 
+use crate::factory;
 use crate::grammar;
 use crate::chart;
 use crate::reader;
 use crate::state;
 use unicode_segmentation::UnicodeSegmentation;
+
+fn tokenize(text: &str) -> Vec<&str> {
+	UnicodeSegmentation::split_word_bounds(text)
+	.collect::<Vec<&str>>()
+}
 
 pub fn parse(tokens: Vec<&str>, grammar: &grammar::Grammar, root: String) -> chart::Chart {
 
@@ -41,25 +47,9 @@ pub fn parse(tokens: Vec<&str>, grammar: &grammar::Grammar, root: String) -> cha
     chart
 }  
 
-fn tokenize(text: &str) -> Vec<&str> {
-	UnicodeSegmentation::split_word_bounds(text)
-	.collect::<Vec<&str>>()
-}
-
-fn get_grammar()-> grammar::Grammar {
-	let mut grammar = grammar::Grammar::new();
-    let stream = reader::StreamReader::open("grammar.txt").expect("Could not open file!");
-    for buffer in stream {
-
-        let text = buffer.unwrap();
-        println!("text => {:?}", &text);
-        let (key, old, new) = grammar.add(&text.as_str());
-    };
-	grammar
-}
 
 pub fn nlp() {
-    let grammar = get_grammar();
+    let grammar = factory::get_grammar();
     let stream = reader::StreamReader::open("nlp.txt").expect("Could not open file!");
     for buffer in stream {
 

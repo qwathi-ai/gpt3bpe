@@ -3,13 +3,14 @@ use std::collections::HashSet;
 use crate::grammar;
 use crate::chart;
 
+#[derive(Clone)]
 pub struct State {
 	pub complete: bool,
 	pub changed: bool
 }
 
 impl State {
-	pub fn new (lhs: &str, rhs: &Vec<String>, dot: usize, left: usize, right: usize) -> Self {
+	pub fn new (lhs: &str, rhs: &grammar::Rule, dot: usize, left: usize, right: usize) -> Self {
 		Self {complete: false, changed: false}
 	}
 	pub fn non_terminal(&self, grammar: &grammar::Grammar) -> bool {

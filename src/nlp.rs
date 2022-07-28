@@ -5,15 +5,8 @@ use crate::grammar;
 use crate::chart;
 use crate::reader;
 use crate::state;
-use unicode_segmentation::UnicodeSegmentation;
 
-fn tokenize(text: &str) -> Vec<&str> {
-	UnicodeSegmentation::split_word_bounds(text)
-	.collect::<Vec<&str>>()
-}
-
-pub fn parse(tokens: Vec<&str>, grammar: &grammar::Grammar, root: String) -> chart::Chart {
-
+pub fn parse(tokens: Vec<String>, grammar: &grammar::Grammar, root: String) -> chart::Chart {
 	let chart = chart::Chart::new(&tokens);
 	let rhs = grammar.rhs(&root);
 	for rule in rhs {
@@ -46,17 +39,3 @@ pub fn parse(tokens: Vec<&str>, grammar: &grammar::Grammar, root: String) -> cha
     }
     chart
 }  
-
-
-pub fn nlp() {
-    let grammar = factory::get_grammar();
-    let stream = reader::StreamReader::open("nlp.txt").expect("Could not open file!");
-    for buffer in stream {
-
-        let text = buffer.unwrap();
-        println!("text => {:?}", &text);
-        let tokens = tokenize(&text.as_str());
-        println!("tokens => {:?}", &tokens);
-        parse((*tokens).to_vec(), &grammar, "S".to_string());
-    };
-}

@@ -8,7 +8,7 @@ pub struct Chart {
 }
 
 impl Chart {
-	pub fn new (tokens: &Vec<&str>) -> Self {
+	pub fn new (tokens: &Vec<String>) -> Self {
 		Self{}
 	}
 

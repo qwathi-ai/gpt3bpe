@@ -25,9 +25,9 @@ pub fn get_grammar()-> grammar::Grammar {
     for buffer in stream {
 
         let text = buffer.unwrap();
-        println!("text => {:?}", &text);
+        println!("rule => {:?}", &text);
         let (key, old, new) = grammar.add(&text.as_str());
-        println!("key => {:?} \nold => {:?}\nnew => {:?}", key, old, new);
+        println!("key => {:?} \nold => {:?}\nnew => {:?}\n\n", key, old, new);
     };
 	grammar
 }

@@ -1,20 +1,22 @@
+use std::io::BufRead;
 use std::fs::File;
 use std::rc::Rc;
-use std::io::{self, prelude::*};
+use std::io::BufReader;
+use std::io::Result;
 
 fn new_buffer() -> Rc<String> {
 	Rc::new(String::with_capacity(1024)) // Tweakable capacity
 }
 
 pub(crate) struct StreamReader {
-	reader: io::BufReader<File>,
+	reader: BufReader<File>,
 	pub buffer: Rc<String>
 }
 
 impl StreamReader {
-	pub fn open(path: impl AsRef<std::path::Path>) -> io::Result<Self> {
+	pub fn open(path: impl AsRef<std::path::Path>) -> Result<Self> {
 		let file = File::open(path)?;
-		let reader = io::BufReader::new(file);
+		let reader = BufReader::new(file);
 		let buffer = new_buffer();
 
 		Ok(Self { reader, buffer })
@@ -22,7 +24,7 @@ impl StreamReader {
 }
 
 impl Iterator for StreamReader {
-	type Item = io::Result<Rc<String>>;
+	type Item = Result<Rc<String>>;
 
 	fn next(&mut self) -> Option<Self::Item> {
 		let buffer = match Rc::get_mut(&mut self.buffer) {

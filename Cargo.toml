@@ -21,6 +21,7 @@ include = ["/src", "COPYRIGHT", "/examples", "!/examples/big_example"]
 
 [lints.rust]
 unsafe_code = "forbid"
+missing_docs = "warn"
 
 # [badges]
 # The `maintenance` table indicates the status of the maintenance of

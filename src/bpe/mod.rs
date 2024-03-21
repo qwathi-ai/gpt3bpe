@@ -6,6 +6,16 @@ use std::mem::swap;
 use unicode_segmentation::UnicodeSegmentation;
 
 lazy_static! {
+    /// Creates a person with the given name.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// // You can have rust code between fences inside the comments
+    /// // If you pass --test to `rustdoc`, it will even test it for you!
+    /// use amile::Person;
+    /// let person = Person::new("name");
+    /// ```
     #[derive(Debug)]
     static ref ENCODER: BTreeMap<String, i32>  ={
         let mut encoder = std::collections::BTreeMap::new();
@@ -19,7 +29,16 @@ lazy_static! {
         }
         encoder
     };
-
+/// Creates a person with the given name.
+///
+/// # Examples
+///
+/// ```
+/// // You can have rust code between fences inside the comments
+/// // If you pass --test to `rustdoc`, it will even test it for you!
+/// use amile::Person;
+/// let person = Person::new("name");
+/// ```
     static ref DECODER: BTreeMap<i32, String> = {
         let mut decode = std::collections::BTreeMap::new();
         for (key, value) in ENCODER.iter() {
@@ -31,13 +50,32 @@ lazy_static! {
     };
 }
 
+/// Creates a person with the given name.
+///
+/// # Examples
+///
+/// ```
+/// // You can have rust code between fences inside the comments
+/// // If you pass --test to `rustdoc`, it will even test it for you!
+/// use amile::Person;
+/// let person = Person::new("name");
+/// ```
 fn encode_key(key: &str) -> Option<i32> {
     match ENCODER.get(&key.to_string()) {
         Some(encoding) => Some(encoding.to_owned()),
         None => None,
     }
 }
-
+/// Creates a person with the given name.
+///
+/// # Examples
+///
+/// ```
+/// // You can have rust code between fences inside the comments
+/// // If you pass --test to `rustdoc`, it will even test it for you!
+/// use amile::Person;
+/// let person = Person::new("name");
+/// ```
 fn encode_pair(pair: &[String; 2]) -> Option<i32> {
     let key = String::from(format!("{} {}", pair[0], pair[1]));
     match ENCODER.get(&key.to_string()) {
@@ -45,20 +83,47 @@ fn encode_pair(pair: &[String; 2]) -> Option<i32> {
         None => None,
     }
 }
-
+/// Creates a person with the given name.
+///
+/// # Examples
+///
+/// ```
+/// // You can have rust code between fences inside the comments
+/// // If you pass --test to `rustdoc`, it will even test it for you!
+/// use amile::Person;
+/// let person = Person::new("name");
+/// ```
 fn decode_value(value: &i32) -> Option<String> {
     match DECODER.get(&value) {
         Some(encoding) => Some(encoding.to_owned()),
         None => None,
     }
 }
-
+/// Creates a person with the given name.
+///
+/// # Examples
+///
+/// ```
+/// // You can have rust code between fences inside the comments
+/// // If you pass --test to `rustdoc`, it will even test it for you!
+/// use amile::Person;
+/// let person = Person::new("name");
+/// ```
 fn split(part: &String) -> Vec<String> {
     UnicodeSegmentation::graphemes(part.as_str(), true)
         .map(|g| g.to_string())
         .collect()
 }
-
+/// Creates a person with the given name.
+///
+/// # Examples
+///
+/// ```
+/// // You can have rust code between fences inside the comments
+/// // If you pass --test to `rustdoc`, it will even test it for you!
+/// use amile::Person;
+/// let person = Person::new("name");
+/// ```
 fn can_join(pair: &[String; 2], comparison: &[String; 2]) -> bool {
     let pair_left = split(&pair[0]);
     let pair_right = split(&pair[1]);
@@ -67,11 +132,29 @@ fn can_join(pair: &[String; 2], comparison: &[String; 2]) -> bool {
 
     pair_left.last() == comparison_left.last() && pair_right.first() == comparison_right.first()
 }
-
+/// Creates a person with the given name.
+///
+/// # Examples
+///
+/// ```
+/// // You can have rust code between fences inside the comments
+/// // If you pass --test to `rustdoc`, it will even test it for you!
+/// use amile::Person;
+/// let person = Person::new("name");
+/// ```
 fn join(pair: &[String; 2]) -> String {
     pair.to_vec().iter().map(|part| part.to_owned()).collect()
 }
-
+/// Creates a person with the given name.
+///
+/// # Examples
+///
+/// ```
+/// // You can have rust code between fences inside the comments
+/// // If you pass --test to `rustdoc`, it will even test it for you!
+/// use amile::Person;
+/// let person = Person::new("name");
+/// ```
 fn zip(pairs: &Vec<[String; 2]>) -> Vec<String> {
     let mut parts = vec![];
 
@@ -90,14 +173,32 @@ fn zip(pairs: &Vec<[String; 2]>) -> Vec<String> {
     }
     parts.to_vec()
 }
-
+/// Creates a person with the given name.
+///
+/// # Examples
+///
+/// ```
+/// // You can have rust code between fences inside the comments
+/// // If you pass --test to `rustdoc`, it will even test it for you!
+/// use amile::Person;
+/// let person = Person::new("name");
+/// ```
 pub fn unzip(parts: &Vec<String>) -> Vec<[String; 2]> {
     parts
         .windows(2)
         .map(|pair| [pair[0].to_owned(), pair[1].to_owned()])
         .collect()
 }
-
+/// Creates a person with the given name.
+///
+/// # Examples
+///
+/// ```
+/// // You can have rust code between fences inside the comments
+/// // If you pass --test to `rustdoc`, it will even test it for you!
+/// use amile::Person;
+/// let person = Person::new("name");
+/// ```
 fn merge(grapheme: &Vec<String>, pair: &[String; 2]) -> Vec<String> {
     let pairs = unzip(&grapheme);
     let mut binding = pairs.to_vec();
@@ -131,7 +232,16 @@ fn merge(grapheme: &Vec<String>, pair: &[String; 2]) -> Vec<String> {
     }
     resolver.to_vec()
 }
-
+/// Creates a person with the given name.
+///
+/// # Examples
+///
+/// ```
+/// // You can have rust code between fences inside the comments
+/// // If you pass --test to `rustdoc`, it will even test it for you!
+/// use amile::Person;
+/// let person = Person::new("name");
+/// ```
 pub fn encode(grapheme: &Vec<String>) -> Vec<i32> {
     let mut encoding = vec![];
     let mut pairs = unzip(&grapheme);
@@ -197,7 +307,16 @@ pub fn encode(grapheme: &Vec<String>) -> Vec<i32> {
     }
     encoding.to_vec()
 }
-
+/// Creates a person with the given name.
+///
+/// # Examples
+///
+/// ```
+/// // You can have rust code between fences inside the comments
+/// // If you pass --test to `rustdoc`, it will even test it for you!
+/// use amile::Person;
+/// let person = Person::new("name");
+/// ```
 pub fn decode(encoding: &Vec<i32>) -> Vec<String> {
     let mut decoding = vec![];
     for value in encoding.iter() {

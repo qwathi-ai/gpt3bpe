@@ -5,6 +5,16 @@ use std::collections::HashMap;
 use unicode_segmentation::UnicodeSegmentation;
 
 lazy_static! {
+    /// Creates a person with the given name.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// // You can have rust code between fences inside the comments
+    /// // If you pass --test to `rustdoc`, it will even test it for you!
+    /// use doc::Person;
+    /// let person = Person::new("name");
+    /// ```
     #[derive(Debug)]
     static ref ENCODING: [u16;188] = {
         [
@@ -21,6 +31,16 @@ lazy_static! {
             253, 254, 255,
         ]
     };
+    /// Creates a person with the given name.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// // You can have rust code between fences inside the comments
+    /// // If you pass --test to `rustdoc`, it will even test it for you!
+    /// use doc::Person;
+    /// let person = Person::new("name");
+    /// ```
     #[derive(Debug)]
     static ref ENCODER: HashMap<u16, String> = {
         let mut x = ENCODING.to_vec();
@@ -33,7 +53,6 @@ lazy_static! {
                 n += 1;
             };
         };
-        // println!("{:?}",y);
         let mut unicodes = HashMap::new();
         for (i, c) in x.iter().enumerate() {
             let decoded = String::from_utf16(&[y[i]]).unwrap();
@@ -41,7 +60,16 @@ lazy_static! {
         };
         unicodes
     };
-
+    /// Creates a person with the given name.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// // You can have rust code between fences inside the comments
+    /// // If you pass --test to `rustdoc`, it will even test it for you!
+    /// use doc::Person;
+    /// let person = Person::new("name");
+    /// ```
     #[derive(Debug)]
     static ref DECODER: HashMap<String, u16> = {
 
@@ -52,17 +80,35 @@ lazy_static! {
         decoder
     };
 }
-
 const WORD_RE: &str =
     r"(?u)'s|'t|'re|'ve|'m|'l l|'d| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(\S)|\s+";
 
+/// Creates a person with the given name.
+///
+/// # Examples
+///
+/// ```
+/// // You can have rust code between fences inside the comments
+/// // If you pass --test to `rustdoc`, it will even test it for you!
+/// use amile::Person;
+/// let person = Person::new("name");
+/// ```
 fn bytes_to_string(c: u8) -> String {
     match ENCODER.get(&(c as u16)) {
         Some(ch) => ch.to_string(),
         None => panic!("ERROR: Encoding value for {:?} not found!", c),
     }
 }
-
+/// Creates a person with the given name.
+///
+/// # Examples
+///
+/// ```
+/// // You can have rust code between fences inside the comments
+/// // If you pass --test to `rustdoc`, it will even test it for you!
+/// use amile::Person;
+/// let person = Person::new("name");
+/// ```
 pub fn tokens(ngram: &str) -> Vec<String> {
     UnicodeSegmentation::graphemes(ngram, true)
         .flat_map(|symbol| {
@@ -74,7 +120,16 @@ pub fn tokens(ngram: &str) -> Vec<String> {
         })
         .collect::<Vec<String>>()
 }
-
+/// Creates a person with the given name.
+///
+/// # Examples
+///
+/// ```
+/// // You can have rust code between fences inside the comments
+/// // If you pass --test to `rustdoc`, it will even test it for you!
+/// use amile::Person;
+/// let person = Person::new("name");
+/// ```
 pub fn encode(text: &str) -> String {
     Regex::new(WORD_RE)
         .unwrap()
@@ -82,7 +137,16 @@ pub fn encode(text: &str) -> String {
         .flat_map(|m| -> Vec<String> { tokens(m.as_str()) })
         .collect::<String>()
 }
-
+/// Creates a person with the given name.
+///
+/// # Examples
+///
+/// ```
+/// // You can have rust code between fences inside the comments
+/// // If you pass --test to `rustdoc`, it will even test it for you!
+/// use amile::Person;
+/// let person = Person::new("name");
+/// ```
 fn string_to_bytes(c: &str) -> Vec<u16> {
     match DECODER.get(c) {
         // Some(ch) => ch.to_be_bytes().to_vec(),
@@ -90,13 +154,32 @@ fn string_to_bytes(c: &str) -> Vec<u16> {
         None => panic!("ERROR: Encoding value for {:?} not found!", c),
     }
 }
-
+/// Creates a person with the given name.
+///
+/// # Examples
+///
+/// ```
+/// // You can have rust code between fences inside the comments
+/// // If you pass --test to `rustdoc`, it will even test it for you!
+/// use amile::Person;
+/// let person = Person::new("name");
+/// ```
 pub fn decode(text: &str) -> String {
     let bytes = UnicodeSegmentation::graphemes(text, true)
         .flat_map(|token| string_to_bytes(token))
         .collect::<Vec<u16>>();
     String::from_utf16(&bytes).unwrap()
 }
+/// Creates a person with the given name.
+///
+/// # Examples
+///
+/// ```
+/// // You can have rust code between fences inside the comments
+/// // If you pass --test to `rustdoc`, it will even test it for you!
+/// use amile::Person;
+/// let person = Person::new("name");
+/// ```
 pub fn ngram(tokens: &Vec<String>) -> String {
     tokens
         .iter()
@@ -106,7 +189,16 @@ pub fn ngram(tokens: &Vec<String>) -> String {
         })
         .collect::<String>()
 }
-
+/// Creates a person with the given name.
+///
+/// # Examples
+///
+/// ```
+/// // You can have rust code between fences inside the comments
+/// // If you pass --test to `rustdoc`, it will even test it for you!
+/// use amile::Person;
+/// let person = Person::new("name");
+/// ```
 pub fn words(text: &str) -> Vec<&str> {
     Regex::new(WORD_RE)
         .unwrap()

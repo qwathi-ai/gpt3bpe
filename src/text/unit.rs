@@ -1,6 +1,5 @@
 #[cfg(test)]
 mod tests {
-
     #[test]
     fn tokens() {
         let tests = vec![

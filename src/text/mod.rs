@@ -6,8 +6,8 @@ use unicode_segmentation::UnicodeSegmentation;
 
 lazy_static! {
     #[derive(Debug)]
-    static ref ENCODER: HashMap<u16, String> = {
-        let mut x = vec![
+    static ref ENCODING: [u16;188] = {
+        [
             33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54,
             55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76,
             77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98,
@@ -19,33 +19,36 @@ lazy_static! {
             219, 220, 221, 222, 223, 224, 225, 226, 227, 228, 229, 230, 231, 232, 233, 234, 235,
             236, 237, 238, 239, 240, 241, 242, 243, 244, 245, 246, 247, 248, 249, 250, 251, 252,
             253, 254, 255,
-        ];
-
+        ]
+    };
+    #[derive(Debug)]
+    static ref ENCODER: HashMap<u16, String> = {
+        let mut x = ENCODING.to_vec();
         let mut y: Vec<u16> = x.clone();
-        let mut n: u8 = 0;
-
+        let mut n: u16 = 0;
         for i in 0..=256 {
             if !x.contains(&i) {
                 x.push(i);
-                y.push(256 + Into::<u16>::into(n));
+                y.push(256 + n);
                 n += 1;
             };
         };
-
+        // println!("{:?}",y);
         let mut unicodes = HashMap::new();
-
         for (i, c) in x.iter().enumerate() {
             let decoded = String::from_utf16(&[y[i]]).unwrap();
             unicodes.insert(*c, decoded.to_owned());
         };
         unicodes
     };
+
     #[derive(Debug)]
     static ref DECODER: HashMap<String, u16> = {
+
         let mut decoder = HashMap::new();
         for (key, value) in ENCODER.iter() {
             decoder.insert(value.to_owned(), key.to_owned());
-        }
+        };
         decoder
     };
 }
@@ -53,49 +56,54 @@ lazy_static! {
 const WORD_RE: &str =
     r"(?u)'s|'t|'re|'ve|'m|'l l|'d| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(\S)|\s+";
 
-fn bytes_to_unicode(c: u8) -> String {
+fn bytes_to_string(c: u8) -> String {
     match ENCODER.get(&(c as u16)) {
         Some(ch) => ch.to_string(),
         None => panic!("ERROR: Encoding value for {:?} not found!", c),
     }
 }
 
-fn unicode_to_bytes(c: &str) -> u16 {
-    match DECODER.get(c) {
-        Some(ch) => ch.to_owned(),
-        None => panic!("ERROR: Decoding value for {:?} not found!", c),
-    }
-}
-
-fn encode(token: &str) -> Vec<String> {
-    UnicodeSegmentation::graphemes(token, true)
+pub fn tokens(ngram: &str) -> Vec<String> {
+    UnicodeSegmentation::graphemes(ngram, true)
         .flat_map(|symbol| {
             symbol
                 .chars()
                 .flat_map(|c| String::from(c).into_bytes())
-                .map(|c| bytes_to_unicode(c).to_owned())
+                .map(|c| bytes_to_string(c).to_owned())
                 .collect::<Vec<String>>()
         })
         .collect::<Vec<String>>()
 }
 
-pub fn grapheme(text: &str) -> Vec<String> {
+pub fn encode(text: &str) -> String {
     Regex::new(WORD_RE)
         .unwrap()
         .find_iter(text)
-        .flat_map(|m| encode(m.as_str()))
-        .collect()
+        .flat_map(|m| -> Vec<String> { tokens(m.as_str()) })
+        .collect::<String>()
 }
 
-pub fn write(graphemes: &Vec<String>) -> String {
-    graphemes
+fn string_to_bytes(c: &str) -> Vec<u16> {
+    match DECODER.get(c) {
+        // Some(ch) => ch.to_be_bytes().to_vec(),
+        Some(ch) => vec![*ch],
+        None => panic!("ERROR: Encoding value for {:?} not found!", c),
+    }
+}
+
+pub fn decode(text: &str) -> String {
+    let bytes = UnicodeSegmentation::graphemes(text, true)
+        .flat_map(|token| string_to_bytes(token))
+        .collect::<Vec<u16>>();
+    String::from_utf16(&bytes).unwrap()
+}
+pub fn ngram(tokens: &Vec<String>) -> String {
+    tokens
         .iter()
-        .map(|grapheme| {
-            UnicodeSegmentation::graphemes(grapheme.as_str(), false)
-                .map(|graph| unicode_to_bytes(graph))
-                .collect::<Vec<u16>>()
+        .map(|token| -> String {
+            // println!("token:    {:?}    decoded:    {:?}", token, decode(token));
+            decode(token)
         })
-        .flat_map(|bytes| String::from_utf16(&bytes))
         .collect::<String>()
 }
 

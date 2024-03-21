@@ -198,7 +198,7 @@ pub fn encode(grapheme: &Vec<String>) -> Vec<i32> {
     encoding.to_vec()
 }
 
-pub fn decode(encoding: Vec<i32>) -> Vec<String> {
+pub fn decode(encoding: &Vec<i32>) -> Vec<String> {
     let mut decoding = vec![];
     for value in encoding.iter() {
         if let Some(decoded) = decode_value(value) {

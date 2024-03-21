@@ -18,7 +18,7 @@ mod tests {
         for (text, target) in tests {
             let mut encoding = vec![];
             for token in crate::text::words(text) {
-                let lexeme = crate::bpe::encode(&crate::text::grapheme(&token));
+                let lexeme = crate::bpe::encode(&crate::text::tokens(&token));
                 println!("{:?} => {:?}\n", token, &lexeme);
                 encoding = [encoding, lexeme].concat();
             }
@@ -41,7 +41,8 @@ mod tests {
         ];
 
         for (text, target) in tests {
-            assert_eq!(crate::text::write(&crate::bpe::decode(target)), text)
+            // println!("{:?}", crate::bpe::decode(&target));
+            assert_eq!(crate::text::ngram(&crate::bpe::decode(&target)), text)
         }
     }
 }

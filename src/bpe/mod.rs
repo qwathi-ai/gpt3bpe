@@ -32,25 +32,16 @@ lazy_static! {
 }
 
 fn encode_key(key: &str) -> Option<i32> {
-    match ENCODER.get(&key.to_string()) {
-        Some(encoding) => Some(encoding.to_owned()),
-        None => None,
-    }
+    ENCODER.get(&key.to_string()).copied()
 }
 
 fn encode_pair(pair: &[String; 2]) -> Option<i32> {
     let key = String::from(format!("{} {}", pair[0], pair[1]));
-    match ENCODER.get(&key.to_string()) {
-        Some(encoding) => Some(encoding.to_owned()),
-        None => None,
-    }
+    ENCODER.get(&key.to_string()).copied()
 }
 
 fn decode_value(value: &i32) -> Option<String> {
-    match DECODER.get(&value) {
-        Some(encoding) => Some(encoding.to_owned()),
-        None => None,
-    }
+    DECODER.get(&value).cloned()
 }
 
 fn split(part: &String) -> Vec<String> {
@@ -132,9 +123,9 @@ fn merge(grapheme: &Vec<String>, pair: &[String; 2]) -> Vec<String> {
     resolver.to_vec()
 }
 
-pub fn encode(grapheme: &Vec<String>) -> Vec<i32> {
+pub fn encode(grapheme: &Vec<&str>) -> Vec<i32> {
     let mut encoding = vec![];
-    let mut pairs = unzip(&grapheme);
+    let mut pairs = unzip(&grapheme.iter().map(|graph| graph.to_string()).collect());
 
     if pairs.is_empty() {
         for key in grapheme {
@@ -150,7 +141,11 @@ pub fn encode(grapheme: &Vec<String>) -> Vec<i32> {
 
     let mut cache = HashSet::new();
     let mut bigrams = vec![];
-    let mut graph = grapheme.to_vec();
+    let mut graph = grapheme
+        .iter()
+        .map(|graph| graph.to_string())
+        .collect::<Vec<String>>()
+        .to_vec();
 
     'pair: loop {
         for pair in pairs.to_vec() {

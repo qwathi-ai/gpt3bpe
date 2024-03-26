@@ -1,37 +1,35 @@
 mod bpe;
+mod error;
 mod text;
-use std::ffi::CStr;
 
 #[no_mangle]
-#[allow(clippy::not_unsafe_ptr_arg_deref)]
-fn buffer_to_string(buf: *const u8) -> &'static str {
-    let string = unsafe { CStr::from_ptr(buf as *const i8) };
-    string.to_str().unwrap()
+fn read(buffer: *const u8, length: usize) -> &'static [u8] {
+    unsafe { std::slice::from_raw_parts(buffer, length) }
 }
 
 #[no_mangle]
-fn string_to_buffer(str: String) -> *const u8 {
-    str.as_bytes().as_ptr() as *const u8
+pub extern "C" fn text_encode(buffer: *const u8, length: usize) -> *const u8 {
+    let slice = read(buffer, length);
+    crate::text::encode(slice).unwrap().as_ptr()
 }
 
 #[no_mangle]
-pub extern "C" fn text_encode(text: *const u8) -> *const u8 {
-    let input = String::from(buffer_to_string(text));
-    let encoding = crate::text::encode(&input);
-    string_to_buffer(encoding)
+pub extern "C" fn text_decode(buffer: *const u8, length: usize) -> *const u8 {
+    let slice = read(buffer, length);
+    crate::text::decode(slice).unwrap().as_ptr()
 }
 
-#[no_mangle]
-pub extern "C" fn text_decode(text: *const u8) -> *const u8 {
-    let input = String::from(buffer_to_string(text));
-    let decoding = crate::text::decode(&input);
-    string_to_buffer(decoding)
-}
+// #[no_mangle]
+// pub extern "C" fn text_decode(text: *const u8) -> *const u8 {
+//     let input = String::from(buffer_to_string(text));
+//     let decoding = crate::text::decode(&input);
+//     string_to_buffer(decoding)
+// }
 
-pub extern "C" fn text_ngram(text: &Vec<String>) -> *const u8 {
-    let output = crate::text::ngram(text);
-    string_to_buffer(output)
-}
+// pub extern "C" fn text_ngram(text: &Vec<String>) -> *const u8 {
+//     let output = crate::text::ngram(text);
+//     string_to_buffer(output)
+// }
 
 // #[no_mangle]
 // pub extern "C" fn text_tokens(text: *const u8) -> Vec<String> {

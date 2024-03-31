@@ -55,15 +55,14 @@ lazy_static! {
 const WORD_RE: &str =
     r"(?u)'s|'t|'re|'ve|'m|'l l|'d| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(\S)|\s+";
 
-fn read(mut bytes: &[u8]) -> Result<String, crate::error::ERROR> {
+pub fn read(mut bytes: &[u8]) -> Result<String, crate::error::ERROR> {
     let mut buffer = String::new();
     let size = bytes.read_to_string(&mut buffer)?;
     println!("DEBUG | bytes read: {:?}", size);
-
     Ok(buffer)
 }
 
-pub fn symbols(ngram: &str) -> Result<Vec<String>, crate::error::ERROR> {
+pub fn tokens(ngram: &str) -> Result<Vec<String>, crate::error::ERROR> {
     let symbol_to_chars = |symbol: &str| -> Vec<String> {
         symbol
             .chars()
@@ -84,12 +83,12 @@ pub fn symbols(ngram: &str) -> Result<Vec<String>, crate::error::ERROR> {
 
 pub fn encode(bytes: &[u8]) -> Result<Vec<u8>, crate::error::ERROR> {
     let text = read(bytes)?;
-    println!("DEBUG | text: {:?}", text);
+    // println!("DEBUG | text: {:?}", text);
 
     let regex = Regex::new(WORD_RE)?;
     Ok(regex
         .find_iter(&text)
-        .flat_map(|m| -> Vec<String> { symbols(m.as_str()).unwrap() })
+        .flat_map(|m| -> Vec<String> { tokens(m.as_str()).unwrap() })
         .flat_map(|m| -> Vec<u8> { m.into_bytes() })
         .collect::<Vec<u8>>())
 }
@@ -110,10 +109,10 @@ pub fn ngram(tokens: &Vec<&str>) -> Result<String, crate::error::ERROR> {
 
 pub fn decode(bytes: &[u8]) -> Result<Vec<u8>, crate::error::ERROR> {
     let text = read(bytes)?;
-    println!("DEBUG | text: {:?}", text);
+    // println!("DEBUG | text: {:?}", text);
 
     let tokens = UnicodeSegmentation::graphemes(text.as_str(), true).collect::<Vec<&str>>();
     let _gram = ngram(&tokens)?;
-    println!("DEBUG | ngram: {:?}", _gram);
+    // println!("DEBUG | ngram: {:?}", _gram);
     Ok(_gram.into_bytes())
 }

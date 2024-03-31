@@ -19,6 +19,8 @@ edition = "2021"        # The edition of the target.
 crate-type = ["cdylib"] # The crate types to generate.
 # required-features = []  # Features required to build this target (N/A for lib).
 
+[build]
+profiler = true
 
 [dependencies]
 lazy_static = "1.4.0"

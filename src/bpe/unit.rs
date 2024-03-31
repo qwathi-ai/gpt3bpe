@@ -11,6 +11,13 @@ mod tests {
         );
         assert_eq!(
             crate::bpe::encode(&vec![
+                "T", "h", "i", "s", "Ġ", "i", "s", "Ġ", "s", "o", "m", "e", "Ġ", "t", "e", "x",
+                "t", "."
+            ]),
+            vec![1212, 318, 617, 2420, 13]
+        );
+        assert_eq!(
+            crate::bpe::encode(&vec![
                 "i", "n", "d", "i", "v", "i", "s", "i", "b", "l", "e", "Ġ", "v", "a", "l", "u",
                 "e", "s"
             ]),

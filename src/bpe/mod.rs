@@ -20,34 +20,28 @@ lazy_static! {
         encoder
     };
 
-    static ref DECODER: BTreeMap<i32, String> = {
-        let mut decode = std::collections::BTreeMap::new();
-        for (key, value) in ENCODER.iter() {
-            if key.split_whitespace().collect::<Vec<&str>>().len() == 1 {
-                decode.insert(value.to_owned(), key.to_owned());
-            }
-        }
-        decode
-    };
+    // static ref DECODER: BTreeMap<i32, String> = {
+    //     let mut decode = std::collections::BTreeMap::new();
+    //     for (key, value) in ENCODER.iter() {
+    //         if key.split_whitespace().collect::<Vec<&str>>().len() == 1 {
+    //             decode.insert(value.to_owned(), *key);
+    //         }
+    //     }
+    //     decode
+    // };
 }
 
-fn encode_key(key: &str) -> Option<i32> {
-    ENCODER.get(&key.to_string()).copied()
-}
-
-fn encode_pair(pair: &[String; 2]) -> Option<i32> {
+fn encode_pair(pair: Vec<String>) -> Option<&'static i32> {
     let key = String::from(format!("{} {}", pair[0], pair[1]));
-    ENCODER.get(&key.to_string()).copied()
+    ENCODER.get(key.as_str())
 }
 
-fn decode_value(value: &i32) -> Option<String> {
-    DECODER.get(&value).cloned()
-}
+// fn decode_value(value: &i32) -> Option<String> {
+//     DECODER.get(&value).copied()
+// }
 
-fn split(part: &String) -> Vec<String> {
-    UnicodeSegmentation::graphemes(part.as_str(), true)
-        .map(|g| g.to_string())
-        .collect()
+fn split(part: &str) -> Vec<&str> {
+    UnicodeSegmentation::graphemes(part, true).collect()
 }
 
 fn can_join(pair: &[String; 2], comparison: &[String; 2]) -> bool {
@@ -60,7 +54,7 @@ fn can_join(pair: &[String; 2], comparison: &[String; 2]) -> bool {
 }
 
 fn join(pair: &[String; 2]) -> String {
-    pair.to_vec().iter().map(|part| part.to_owned()).collect()
+    pair.iter().map(|part| part.to_owned()).collect()
 }
 
 fn zip(pairs: &Vec<[String; 2]>) -> Vec<String> {
@@ -125,12 +119,12 @@ fn merge(grapheme: &Vec<String>, pair: &[String; 2]) -> Vec<String> {
 
 pub fn encode(grapheme: &Vec<&str>) -> Vec<i32> {
     let mut encoding = vec![];
-    let mut pairs = unzip(&grapheme.iter().map(|graph| graph.to_string()).collect());
+    let mut graph: Vec<String> = grapheme.iter().map(|g| g.to_string()).collect();
 
-    if pairs.is_empty() {
+    if unzip(&graph).is_empty() {
         for key in grapheme {
-            match encode_key(&key) {
-                Some(value) => encoding.push(value),
+            match ENCODER.get(*key) {
+                Some(value) => encoding.push(*value),
                 None => {
                     panic!("ERROR: Encoding value for {:?} not found!", &key);
                 }
@@ -141,64 +135,58 @@ pub fn encode(grapheme: &Vec<&str>) -> Vec<i32> {
 
     let mut cache = HashSet::new();
     let mut bigrams = vec![];
-    let mut graph = grapheme
-        .iter()
-        .map(|graph| graph.to_string())
-        .collect::<Vec<String>>()
-        .to_vec();
 
-    'pair: loop {
-        for pair in pairs.to_vec() {
-            if !cache.contains(&pair) {
-                if let Some(rank) = encode_pair(&pair) {
-                    bigrams.push((rank, [pair[0].to_owned(), pair[1].to_owned()]));
+    loop {
+        for [left, right] in unzip(&graph) {
+            if !cache.contains(&[left.clone(), right.clone()]) {
+                if let Some(rank) = encode_pair(vec![left.clone(), right.clone()]) {
+                    bigrams.push((rank, [left.clone(), right.clone()]));
                 };
-                cache.insert(pair);
+                cache.insert([left, right]);
             };
         }
 
         if bigrams.is_empty() {
-            break 'pair;
+            break;
         }
 
         bigrams.sort_by(|a, b| a.0.cmp(&b.0));
 
-        'bigram: while let Some((_rank, bigram)) = bigrams.pop() {
-            let graph_clone = merge(&graph, &bigram);
-
-            let mut encodings_clone = vec![];
-            for key in graph_clone.iter() {
-                if let Some(value) = encode_key(&key) {
-                    encodings_clone.push(value);
+        while let Some((_rank, bigram)) = bigrams.pop() {
+            while &merge(&graph, &bigram) != &graph {
+                graph = merge(&graph, &bigram);
+            }
+            encoding = vec![];
+            for key in graph.iter() {
+                if let Some(value) = ENCODER.get(key.as_str()) {
+                    encoding.push(*value);
                 } else {
-                    continue 'bigram;
+                    panic!("ERROR: Encoding value for {:?} not found!", &key);
                 }
             }
-            graph = graph_clone;
-            encoding = encodings_clone;
-            pairs = unzip(&graph);
             println!(
-                "grapheme:    {:?}\npairs:    {:?}\nbigrams:  {:?}\nencoding:   {:?}\n",
-                graph, pairs, bigrams, encoding
+                "bigrams:  {:?}\n\nbigram:  {:?}\n\npairs:    {:?}\n\ngrapheme:    {:?}\n\nencoding:   {:?}\n\n",
+                bigrams,
+                (_rank,bigram),
+                unzip(&graph),
+                graph,
+                encoding
             );
-            if pairs.is_empty() {
-                break 'pair;
-            };
         }
 
         if graph.len() <= 1 {
-            break 'pair;
+            break;
         }
     }
     encoding.to_vec()
 }
 
-pub fn decode(encoding: &Vec<i32>) -> Vec<String> {
-    let mut decoding = vec![];
-    for value in encoding.iter() {
-        if let Some(decoded) = decode_value(value) {
-            decoding.push(decoded.to_owned());
-        }
-    }
-    decoding
-}
+// pub fn decode(encoding: &Vec<i32>) -> Vec<String> {
+//     let mut decoding = vec![];
+//     for value in encoding.iter() {
+//         if let Some(decoded) = decode_value(value) {
+//             decoding.push(decoded.to_owned());
+//         }
+//     }
+//     decoding
+// }

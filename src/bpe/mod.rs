@@ -9,7 +9,7 @@ lazy_static! {
     #[derive(Debug)]
     static ref ENCODER: BTreeMap<String, i32>  ={
         let mut encoder = std::collections::BTreeMap::new();
-        let file = std::fs::File::open("src/bpe/lookup.jsonl").expect("Unable to open file lookup.jsonl");
+        let file = std::fs::File::open("src/bpe/lookup.jsonl").expect("[ERROR]: Unable to open file lookup.jsonl");
         let file = std::io::BufReader::new(file);
 
         for (_idx, line) in std::io::BufRead::lines(file).enumerate() {
@@ -60,10 +60,8 @@ pub fn decode(encoding: &Vec<i32>) -> Result<Vec<String>, crate::error::ERROR> {
     match decoding.len() == encoding.len() {
         true => Ok(decoding),
         false => panic!(
-            "{}",
-            crate::error::BytePairDecodingError {
-                grapheme: encoding.to_vec()
-            }
+            "[ERROR]: integer in grapheme {:?} could not be decoded.",
+            encoding
         ),
     }
 }
@@ -152,8 +150,8 @@ pub fn encode(grapheme: &Vec<&str>) -> Result<Vec<i32>, crate::error::ERROR> {
     let mut encoding = match _encode(&graph) {
         Some(value) => value,
         None => panic!(
-            "{}",
-            crate::error::BytePairEncodingError { grapheme: graph }
+            "[ERROR]: character in grapheme {:?} could not be encoded.",
+            graph
         ),
     };
 

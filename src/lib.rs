@@ -9,16 +9,18 @@ fn read<T>(buffer: *const T, length: usize) -> &'static [T] {
 #[no_mangle]
 pub extern "C" fn text_encode(buffer: *const u8, length: usize) -> *const i32 {
     let slice = read(buffer, length);
-    let ngram = crate::text::read(slice).unwrap();
-    let tokens = crate::text::tokens(&ngram).unwrap();
-    crate::bpe::encode(
+    let ngram = crate::text::read_bytes(slice).unwrap();
+    let tokens = crate::text::grapheme(&ngram).unwrap();
+    let encode = crate::bpe::encode(
         &tokens
             .iter()
             .map(|token| token.as_str())
             .collect::<Vec<&str>>(),
     )
-    .unwrap()
-    .as_ptr()
+    .unwrap();
+
+    println!("[DEBUG]:  {:?}  -> {:?}", length, encode);
+    encode.as_ptr()
 }
 
 #[no_mangle]
@@ -26,32 +28,8 @@ pub extern "C" fn text_decode(buffer: *const i32, length: usize) -> *const u8 {
     let slice = read(buffer, length);
     let binding = crate::bpe::decode(&slice.to_vec()).unwrap();
     let tokens = binding.iter().map(|token| token.as_str()).collect();
-    crate::text::ngram(&tokens).unwrap().as_bytes().as_ptr()
+    let decode = crate::text::ngram(&tokens).unwrap();
+
+    println!("[DEBUG]: {:?} <- {:?}", length, slice);
+    decode.as_bytes().as_ptr()
 }
-
-// // #[no_mangle]
-// // pub extern "C" fn text_decode(text: *const u8) -> *const u8 {
-// //     let input = String::from(buffer_to_string(text));
-// //     let decoding = crate::text::decode(&input);
-// //     string_to_buffer(decoding)
-// // }
-
-// // pub extern "C" fn text_ngram(text: &Vec<String>) -> *const u8 {
-// //     let output = crate::text::ngram(text);
-// //     string_to_buffer(output)
-// // }
-
-// // #[no_mangle]
-// // pub extern "C" fn text_tokens(text: *const u8) -> Vec<String> {
-// //     let input = String::from(buffer_to_string(text));
-// //     crate::text::tokens(&input)
-// // }
-
-// // #[no_mangle]
-// // pub extern "C" fn text_words(text: *const u8) -> Vec<String> {
-//     let input = String::from(buffer_to_string(text));
-//     crate::text::words(&input)
-//         .iter()
-//         .map(|t| t.to_string())
-//         .collect()
-// }

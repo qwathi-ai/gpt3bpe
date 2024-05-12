@@ -12,27 +12,11 @@ mod tests {
         );
         assert_eq!(
             crate::bpe::encode(&vec![
-                "N", "o", "w", "Ġ", "y", "o", "u", "Ġ", "s", "e", "e", "Ġ", "m", "e", ",", "Ġ",
-                "n", "o", "w", "Ġ", "y", "o", "u", "Ġ", "d", "o", "Ġ", "n", "o", "t", "."
-            ])
-            .unwrap(),
-            vec![3844, 345, 766, 502, 11, 783, 345, 466, 407, 13]
-        );
-        assert_eq!(
-            crate::bpe::encode(&vec![
-                "T", "h", "i", "s", "Ġ", "i", "s", "Ġ", "s", "o", "m", "e", "Ġ", "t", "e", "x",
-                "t", "."
-            ])
-            .unwrap(),
-            vec![1212, 318, 617, 2420, 13]
-        );
-        assert_eq!(
-            crate::bpe::encode(&vec![
                 "i", "n", "d", "i", "v", "i", "s", "i", "b", "l", "e", "Ġ", "v", "a", "l", "u",
                 "e", "s"
             ])
             .unwrap(),
-            vec![521, 452, 12843, 3815]
+            vec![521, 452, 12843, 1988, 82]
         );
         assert_eq!(
             crate::bpe::encode(&vec![
@@ -41,7 +25,10 @@ mod tests {
                 "l", "c", "a", "n", "o", "c", "o", "n", "i", "o", "s", "i", "s"
             ])
             .unwrap(),
-            vec![521, 452, 12843, 3815]
+            vec![
+                47, 25668, 261, 25955, 859, 291, 4951, 22163, 72, 6359, 2403, 66, 709, 349, 5171,
+                420, 78, 77, 952, 82, 72, 82
+            ]
         );
         assert_eq!(
             crate::bpe::encode(&vec![
@@ -49,7 +36,7 @@ mod tests {
                 "Ġ", "ð", "Ł", "Į", "į",
             ])
             .unwrap(),
-            vec![31373, 12520, 239, 233, 995, 12520, 234, 235]
+            vec![31373, 50169, 233, 995, 220, 172, 253, 234, 235]
         );
     }
     #[test]
@@ -58,26 +45,24 @@ mod tests {
             crate::bpe::decode(&vec![1616, 612, 307, 1657, 13]).unwrap(),
             vec!["let", "Ġthere", "Ġbe", "Ġlight", "."]
         );
-
-        // let tests = vec![
-        //     (
-        //         "Now you see me, now you do not.",
-        //         vec![3844, 345, 766, 502, 11, 783, 345, 466, 407, 13],
-        //     ),
-        //     ("indivisible values", vec![521, 452, 12843, 3815]),
-        //     ("This is some text.", vec![1212, 318, 617, 2420, 13]),
-        //     (
-        //         "Pneumonoultramicroscopicsilicovolcanoconiosis",
-        //         vec![1212, 318, 617, 2420, 13],
-        //     ),
-        //     // (
-        //     //     "hello 👋 world 🌍",
-        //     //     vec![31373, 12520, 239, 233, 995, 12520, 234, 235],
-        //     // ),
-        // ];
-
-        // for (text, target) in tests {
-        //     assert_eq!(crate::text::ngram(&crate::bpe::decode(&target)), text)
-        // }
+        assert_eq!(
+            crate::bpe::decode(&vec![521, 452, 12843, 1988, 82]).unwrap(),
+            vec!["ind", "iv", "isible", "Ġvalue", "s"]
+        );
+        assert_eq!(
+            crate::bpe::decode(&vec![
+                47, 25668, 261, 25955, 859, 291, 4951, 22163, 72, 6359, 2403, 66, 709, 349, 5171,
+                420, 78, 77, 952, 82, 72, 82
+            ])
+            .unwrap(),
+            vec![
+                "P", "neum", "on", "oult", "ram", "ic", "ros", "cop", "i", "cs", "ili", "c", "ov",
+                "ol", "can", "oc", "o", "n", "io", "s", "i", "s"
+            ]
+        );
+        assert_eq!(
+            crate::bpe::decode(&vec![31373, 50169, 233, 995, 220, 172, 253, 234, 235]).unwrap(),
+            vec!["hello", "ĠðŁĳ", "ĭ", "Ġworld", "Ġ", "ð", "Ł", "Į", "į"]
+        );
     }
 }

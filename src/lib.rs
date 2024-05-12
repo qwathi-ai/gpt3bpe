@@ -18,7 +18,6 @@ pub extern "C" fn text_encode(buffer: *const u8, length: usize) -> *const i32 {
             .collect::<Vec<&str>>(),
     )
     .unwrap();
-
     println!("[DEBUG]:  {:?}  -> {:?}", length, encode);
     encode.as_ptr()
 }

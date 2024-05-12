@@ -1,7 +1,6 @@
 mod unit;
 use lazy_static::lazy_static;
-use regex::Regex;
-use std::collections::HashMap;
+use std::{collections::HashMap, io::Read};
 use unicode_segmentation::UnicodeSegmentation;
 
 lazy_static! {
@@ -33,7 +32,7 @@ lazy_static! {
                 n += 1;
             };
         };
-        // println!("{:?}",y);
+
         let mut unicodes = HashMap::new();
         for (i, c) in x.iter().enumerate() {
             let decoded = String::from_utf16(&[y[i]]).unwrap();
@@ -44,73 +43,52 @@ lazy_static! {
 
     #[derive(Debug)]
     static ref DECODER: HashMap<String, u16> = {
-
         let mut decoder = HashMap::new();
         for (key, value) in ENCODER.iter() {
             decoder.insert(value.to_owned(), key.to_owned());
         };
         decoder
     };
+
+    #[derive(Debug)]
+    static ref WORD_RE: &'static str = r"(?u)'s|'t|'re|'ve|'m|'l l|'d| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(\S)|\s+";
 }
 
-const WORD_RE: &str =
-    r"(?u)'s|'t|'re|'ve|'m|'l l|'d| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(\S)|\s+";
-
-fn bytes_to_string(c: u8) -> String {
-    match ENCODER.get(&(c as u16)) {
-        Some(ch) => ch.to_string(),
-        None => panic!("ERROR: Encoding value for {:?} not found!", c),
-    }
+pub fn read_bytes(mut bytes: &[u8]) -> Result<String, crate::error::ERROR> {
+    let mut buffer = String::new();
+    bytes.read_to_string(&mut buffer)?;
+    Ok(buffer)
 }
 
-pub fn tokens(ngram: &str) -> Vec<String> {
-    UnicodeSegmentation::graphemes(ngram, true)
-        .flat_map(|symbol| {
-            symbol
-                .chars()
-                .flat_map(|c| String::from(c).into_bytes())
-                .map(|c| bytes_to_string(c).to_owned())
-                .collect::<Vec<String>>()
-        })
-        .collect::<Vec<String>>()
+pub fn grapheme(ngram: &str) -> Result<Vec<String>, crate::error::ERROR> {
+    let symbol_to_chars = |symbol: &str| -> Vec<String> {
+        symbol
+            .chars()
+            .flat_map(|c| -> Vec<u8> { String::from(c).into_bytes() })
+            .map(|c| -> String {
+                match ENCODER.get(&(c as u16)) {
+                    Some(ch) => ch.to_string(),
+                    None => panic!("[ERROR]: Encoding value for '{:?}' not found!", c),
+                }
+            })
+            .collect::<Vec<String>>()
+    };
+
+    Ok(UnicodeSegmentation::graphemes(ngram, true)
+        .flat_map(|symbol| -> Vec<String> { symbol_to_chars(symbol) })
+        .collect::<Vec<String>>())
 }
 
-pub fn encode(text: &str) -> String {
-    Regex::new(WORD_RE)
-        .unwrap()
-        .find_iter(text)
-        .flat_map(|m| -> Vec<String> { tokens(m.as_str()) })
-        .collect::<String>()
-}
-
-fn string_to_bytes(c: &str) -> Vec<u16> {
-    match DECODER.get(c) {
-        // Some(ch) => ch.to_be_bytes().to_vec(),
-        Some(ch) => vec![*ch],
-        None => panic!("ERROR: Encoding value for {:?} not found!", c),
-    }
-}
-
-pub fn decode(text: &str) -> String {
-    let bytes = UnicodeSegmentation::graphemes(text, true)
-        .flat_map(|token| string_to_bytes(token))
-        .collect::<Vec<u16>>();
-    String::from_utf16(&bytes).unwrap()
-}
-pub fn ngram(tokens: &Vec<String>) -> String {
-    tokens
+pub fn ngram(grapheme: &Vec<&str>) -> Result<String, crate::error::ERROR> {
+    let bytes = grapheme
         .iter()
-        .map(|token| -> String {
-            // println!("token:    {:?}    decoded:    {:?}", token, decode(token));
-            decode(token)
+        .map(|token| -> u16 {
+            match DECODER.get(*token) {
+                Some(ch) => *ch,
+                None => panic!("[ERROR]: Encoding value for '{:?}' not found!", token),
+            }
         })
-        .collect::<String>()
-}
+        .collect::<Vec<u16>>();
 
-pub fn words(text: &str) -> Vec<&str> {
-    Regex::new(WORD_RE)
-        .unwrap()
-        .find_iter(text)
-        .map(|m| m.as_str())
-        .collect()
+    Ok(String::from_utf16(&bytes)?)
 }

@@ -1,37 +1,33 @@
-// mod bpe;
+mod bpe;
 mod error;
 mod text;
 
-#[no_mangle]
-fn read(buffer: *const u8, length: usize) -> &'static [u8] {
+fn read<T>(buffer: *const T, length: usize) -> &'static [T] {
     unsafe { std::slice::from_raw_parts(buffer, length) }
 }
 
 #[no_mangle]
-pub extern "C" fn text_encode(buffer: *const u8, length: usize) -> *const u8 {
+pub extern "C" fn text_encode(buffer: *const u8, length: usize) -> *const i32 {
     let slice = read(buffer, length);
-    crate::text::encode(slice).unwrap().as_ptr()
+    let ngram = crate::text::read(slice).unwrap();
+    let tokens = crate::text::tokens(&ngram).unwrap();
+    crate::bpe::encode(
+        &tokens
+            .iter()
+            .map(|token| token.as_str())
+            .collect::<Vec<&str>>(),
+    )
+    .unwrap()
+    .as_ptr()
 }
 
-// #[no_mangle]
-// pub extern "C" fn encode(buffer: *const u8, length: usize) -> *const i32 {
-//     let slice = read(buffer, length);
-//     let ngram = crate::text::read(slice).unwrap();
-//     let tokens = crate::text::tokens(&ngram).unwrap();
-//     crate::bpe::encode(
-//         &tokens
-//             .iter()
-//             .map(|token| token.as_str())
-//             .collect::<Vec<&str>>(),
-//     )
-//     .as_ptr()
-// }
-
-// #[no_mangle]
-// pub extern "C" fn text_decode(buffer: *const u8, length: usize) -> *const u8 {
-//     let slice = read(buffer, length);
-//     crate::text::decode(slice).unwrap().as_ptr()
-// }
+#[no_mangle]
+pub extern "C" fn text_decode(buffer: *const i32, length: usize) -> *const u8 {
+    let slice = read(buffer, length);
+    let binding = crate::bpe::decode(&slice.to_vec()).unwrap();
+    let tokens = binding.iter().map(|token| token.as_str()).collect();
+    crate::text::ngram(&tokens).unwrap().as_bytes().as_ptr()
+}
 
 // // #[no_mangle]
 // // pub extern "C" fn text_decode(text: *const u8) -> *const u8 {

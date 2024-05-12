@@ -28,14 +28,16 @@ const dylib = Deno.dlopen(
   symbols
 );
 
-let buff = new TextEncoder().encode("Let there be light.");
+const buff = new TextEncoder().encode("let there be light.");
+// let buff = new TextEncoder().encode("Hello");
 let pointer = dylib.symbols.text_encode(buff, buff.byteLength);
-let encoded = new Deno.UnsafePointerView(pointer).getCString();
-console.log(`DEBUG | encoded 'Let there be light.' to '${encoded}'`);
+const encoded: string = new Deno.UnsafePointerView(pointer).getPointer();
+console.log(`DEBUG | encoded 'let there be light.' to '${encoded}'`);
+// [1616, 612, 307, 1657, 13]
 
 buff = new TextEncoder().encode(encoded);
 pointer = dylib.symbols.text_decode(buff, buff.byteLength);
-let decoded = new Deno.UnsafePointerView(pointer).getCString();
+const decoded = new Deno.UnsafePointerView(pointer).getPointer();
 console.log(`DEBUG | decoded '${encoded}' to '${decoded}'`);
 
 dylib.close();

@@ -5,16 +5,17 @@ use std::collections::HashMap;
 use unicode_segmentation::UnicodeSegmentation;
 
 lazy_static! {
-    /// Creates a person with the given name.
+    /// I could not possibly add anything thing to this comment, other than bring it to life.
     ///
-    /// # Examples
+    /// Forked from https://github.com/qwathi-ai/gpt-2/blob/master/src/encoder.py
     ///
-    /// ```
-    /// // You can have rust code between fences inside the comments
-    /// // If you pass --test to `rustdoc`, it will even test it for you!
-    /// use doc::Person;
-    /// let person = Person::new("name");
-    /// ```
+    /// > Returns list of utf-8 byte and a corresponding list of unicode strings.
+    /// > The reversible bpe codes work on unicode strings.
+    /// > This means you need a large # of unicode characters in your vocab if you want to avoid UNKs.
+    /// > When you're at something like a 10B token dataset you end up needing around 5K for decent coverage.
+    /// > This is a signficant percentage of your normal, say, 32K bpe vocab.
+    /// > To avoid that, we want lookup tables between utf-8 bytes and unicode strings.
+    /// > And avoids mapping to whitespace/control characters the bpe code barfs on.
     #[derive(Debug)]
     static ref ENCODING: [u16;188] = {
         [

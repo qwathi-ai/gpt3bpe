@@ -4,7 +4,7 @@ name = "amile"
 version = "0.1.0"
 authors = ["Athenkosi Mase <no-reply@amile.io>"]
 edition = "2021"
-description = "A short description of my package"
+description = "A decentralized generative pretrained tranformer. (Or at least an attempt at it)"
 # documentation = "https://docs.rs/bitflags"
 readme = "README.md"
 # homepage = "https://serde.rs/"
@@ -20,8 +20,7 @@ include = ["/src", "COPYRIGHT", "/examples", "!/examples/big_example"]
 # default-run = "deamon"
 
 [lints.rust]
-unsafe_code = "forbid"
-missing_docs = "warn"
+unsafe_code = "warn"
 
 # [badges]
 # The `maintenance` table indicates the status of the maintenance of

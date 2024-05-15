@@ -16,7 +16,7 @@ readme = "README.md"
 # workspace = "path/to/workspace/root"
 publish = false
 exclude = [".*"]
-include = ["/src", "COPYRIGHT", "/examples", "!/examples/big_example"]
+# include = ["/src", "COPYRIGHT", "/examples", "!/examples/big_example"]
 # default-run = "deamon"
 
 [lints.rust]
@@ -57,6 +57,24 @@ unsafe_code = "warn"
 # incremental = true
 # codegen-units = 256
 # rpath = false
+publish = false
+
+[lib]
+name = "amile" # The name of the target.
+# path = "src/lib.rs" # The source file of the target.
+# test = true # Is tested by default.
+# doctest = true          # Documentation examples are tested by default.
+# bench = true            # Is benchmarked by default.
+# doc = true              # Is documented by default.
+# plugin = false          # Used as a compiler plugin (deprecated).
+# proc-macro = false      # Set to `true` for a proc-macro library.
+# harness = true          # Use libtest harness.
+edition = "2021"        # The edition of the target.
+crate-type = ["cdylib"] # The crate types to generate.
+# required-features = []  # Features required to build this target (N/A for lib).
+
+[build]
+profiler = true
 
 [dependencies]
 lazy_static = "1.4.0"

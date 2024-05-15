@@ -19,12 +19,12 @@ lazy_static! {
     #[derive(Debug)]
     static ref ENCODER: BTreeMap<String, i32>  ={
         let mut encoder = std::collections::BTreeMap::new();
-        let file = std::fs::File::open("src/bpe/lookup.jsonl").expect("Unable to open file lookup.jsonl");
+        let file = std::fs::File::open("src/bpe/lookup.jsonl").expect("[ERROR]: Unable to open file lookup.jsonl");
         let file = std::io::BufReader::new(file);
 
         for (_idx, line) in std::io::BufRead::lines(file).enumerate() {
-            let line = line.unwrap();
-            let data: BTreeMap<String,i32>  = serde_json::from_str(&line).unwrap();
+            let _line = line.unwrap();
+            let data: BTreeMap<String,i32>  = serde_json::from_str(_line.as_str()).unwrap();
             encoder.extend(data)
         }
         encoder
@@ -40,95 +40,68 @@ lazy_static! {
 /// let person = Person::new("name");
 /// ```
     static ref DECODER: BTreeMap<i32, String> = {
-        let mut decode = std::collections::BTreeMap::new();
+        let mut decode: BTreeMap<i32, String> = std::collections::BTreeMap::new();
         for (key, value) in ENCODER.iter() {
-            if key.split_whitespace().collect::<Vec<&str>>().len() == 1 {
-                decode.insert(value.to_owned(), key.to_owned());
+            if &key.split_whitespace().collect::<Vec<&str>>().len() == &1 {
+                decode.insert(value.to_owned(), key.to_string());
             }
         }
         decode
     };
 }
 
-/// Creates a person with the given name.
-///
-/// # Examples
-///
-/// ```
-/// // You can have rust code between fences inside the comments
-/// // If you pass --test to `rustdoc`, it will even test it for you!
-/// use amile::Person;
-/// let person = Person::new("name");
-/// ```
-fn encode_key(key: &str) -> Option<i32> {
-    match ENCODER.get(&key.to_string()) {
-        Some(encoding) => Some(encoding.to_owned()),
-        None => None,
+fn get_pair(pair: &[String; 2]) -> Option<&'static i32> {
+    let key = format!("{} {}", pair[0], pair[1]);
+    ENCODER.get(key.as_str())
+}
+fn _encode(grapheme: &Vec<String>) -> Option<Vec<i32>> {
+    let mut encoding = vec![];
+    for key in grapheme {
+        if let Some(value) = ENCODER.get(key.as_str()) {
+            encoding.push(*value)
+        }
+    }
+
+    match grapheme.len() == encoding.len() {
+        true => Some(encoding),
+        false => None,
     }
 }
-/// Creates a person with the given name.
-///
-/// # Examples
-///
-/// ```
-/// // You can have rust code between fences inside the comments
-/// // If you pass --test to `rustdoc`, it will even test it for you!
-/// use amile::Person;
-/// let person = Person::new("name");
-/// ```
-fn encode_pair(pair: &[String; 2]) -> Option<i32> {
-    let key = String::from(format!("{} {}", pair[0], pair[1]));
-    match ENCODER.get(&key.to_string()) {
-        Some(encoding) => Some(encoding.to_owned()),
-        None => None,
+
+pub fn decode(encoding: &Vec<i32>) -> Result<Vec<String>, crate::error::ERROR> {
+    let mut decoding = vec![];
+    for key in encoding {
+        if let Some(value) = DECODER.get(key) {
+            decoding.push(value.to_string())
+        }
+    }
+
+    match decoding.len() == encoding.len() {
+        true => Ok(decoding),
+        false => panic!(
+            "[ERROR]: integer in grapheme {:?} could not be decoded.",
+            encoding
+        ),
     }
 }
-/// Creates a person with the given name.
-///
-/// # Examples
-///
-/// ```
-/// // You can have rust code between fences inside the comments
-/// // If you pass --test to `rustdoc`, it will even test it for you!
-/// use amile::Person;
-/// let person = Person::new("name");
-/// ```
-fn decode_value(value: &i32) -> Option<String> {
-    match DECODER.get(&value) {
-        Some(encoding) => Some(encoding.to_owned()),
-        None => None,
-    }
-}
-/// Creates a person with the given name.
-///
-/// # Examples
-///
-/// ```
-/// // You can have rust code between fences inside the comments
-/// // If you pass --test to `rustdoc`, it will even test it for you!
-/// use amile::Person;
-/// let person = Person::new("name");
-/// ```
-fn split(part: &String) -> Vec<String> {
-    UnicodeSegmentation::graphemes(part.as_str(), true)
-        .map(|g| g.to_string())
-        .collect()
-}
-/// Creates a person with the given name.
-///
-/// # Examples
-///
-/// ```
-/// // You can have rust code between fences inside the comments
-/// // If you pass --test to `rustdoc`, it will even test it for you!
-/// use amile::Person;
-/// let person = Person::new("name");
-/// ```
+
 fn can_join(pair: &[String; 2], comparison: &[String; 2]) -> bool {
-    let pair_left = split(&pair[0]);
-    let pair_right = split(&pair[1]);
-    let comparison_left = split(&comparison[0]);
-    let comparison_right = split(&comparison[1]);
+    let pair_left: Vec<&str> = {
+        let part: &str = &pair[0];
+        UnicodeSegmentation::graphemes(part, true).collect()
+    };
+    let pair_right: Vec<&str> = {
+        let part: &str = &pair[1];
+        UnicodeSegmentation::graphemes(part, true).collect()
+    };
+    let comparison_left: Vec<&str> = {
+        let part: &str = &comparison[0];
+        UnicodeSegmentation::graphemes(part, true).collect()
+    };
+    let comparison_right: Vec<&str> = {
+        let part: &str = &comparison[1];
+        UnicodeSegmentation::graphemes(part, true).collect()
+    };
 
     pair_left.last() == comparison_left.last() && pair_right.first() == comparison_right.first()
 }
@@ -143,19 +116,10 @@ fn can_join(pair: &[String; 2], comparison: &[String; 2]) -> bool {
 /// let person = Person::new("name");
 /// ```
 fn join(pair: &[String; 2]) -> String {
-    pair.to_vec().iter().map(|part| part.to_owned()).collect()
+    pair.iter().map(|part| part.as_str()).collect()
 }
-/// Creates a person with the given name.
-///
-/// # Examples
-///
-/// ```
-/// // You can have rust code between fences inside the comments
-/// // If you pass --test to `rustdoc`, it will even test it for you!
-/// use amile::Person;
-/// let person = Person::new("name");
-/// ```
-fn zip(pairs: &Vec<[String; 2]>) -> Vec<String> {
+
+fn from_pairs(pairs: &Vec<[String; 2]>) -> Vec<String> {
     let mut parts = vec![];
 
     if pairs.len() == 1 {
@@ -173,17 +137,8 @@ fn zip(pairs: &Vec<[String; 2]>) -> Vec<String> {
     }
     parts.to_vec()
 }
-/// Creates a person with the given name.
-///
-/// # Examples
-///
-/// ```
-/// // You can have rust code between fences inside the comments
-/// // If you pass --test to `rustdoc`, it will even test it for you!
-/// use amile::Person;
-/// let person = Person::new("name");
-/// ```
-pub fn unzip(parts: &Vec<String>) -> Vec<[String; 2]> {
+
+fn to_pairs(parts: &Vec<String>) -> Vec<[String; 2]> {
     parts
         .windows(2)
         .map(|pair| [pair[0].to_owned(), pair[1].to_owned()])
@@ -200,129 +155,80 @@ pub fn unzip(parts: &Vec<String>) -> Vec<[String; 2]> {
 /// let person = Person::new("name");
 /// ```
 fn merge(grapheme: &Vec<String>, pair: &[String; 2]) -> Vec<String> {
-    let pairs = unzip(&grapheme);
-    let mut binding = pairs.to_vec();
-    let mut resolver = grapheme.to_vec();
-    let mut cursor = pairs.iter().enumerate().peekable();
+    let mut response: Vec<String> = grapheme.to_vec();
+    let parts = to_pairs(&response);
+    let mut binding = parts.to_vec();
+    let mut cursor = parts.iter().enumerate().peekable();
 
-    'merge: while let Some((current_idx, current)) = cursor.next() {
-        if let Some((next_idx, next)) = cursor.peek() {
-            if can_join(&pair, current) {
-                let left = join(current);
-                swap(&mut binding[current_idx], &mut [left, next[1].to_owned()]);
-                binding.remove(*next_idx);
-                resolver = zip(&binding);
-                break 'merge;
+    while let Some((index, current)) = cursor.next() {
+        if let Some((_, next)) = cursor.peek() {
+            if can_join(pair, current) {
+                let left = join(&current);
+                swap(&mut binding[index], &mut [left, next[1].to_owned()]);
+                binding.remove(index + 1);
+                response = from_pairs(&binding);
+                break;
             };
-
-            if can_join(&pair, next) && next_idx == &(binding.len() - 1) {
-                let right = join(next);
-                swap(
-                    &mut binding[current_idx],
-                    &mut [current[0].to_owned(), right],
-                );
-                binding.pop();
-                resolver = zip(&binding);
-                break 'merge;
+            if can_join(pair, next) && (index + 1) == binding.len() {
+                let right = join(&next);
+                swap(&mut binding[index], &mut [current[0].to_owned(), right]);
+                binding.remove(index + 1);
+                response = from_pairs(&binding);
+                break;
             };
         }
-        if can_join(&pair, current) && pairs.len() < 2 {
-            resolver = vec![join(current)];
-        };
     }
-    resolver.to_vec()
+    response
 }
-/// Creates a person with the given name.
-///
-/// # Examples
-///
-/// ```
-/// // You can have rust code between fences inside the comments
-/// // If you pass --test to `rustdoc`, it will even test it for you!
-/// use amile::Person;
-/// let person = Person::new("name");
-/// ```
-pub fn encode(grapheme: &Vec<String>) -> Vec<i32> {
-    let mut encoding = vec![];
-    let mut pairs = unzip(&grapheme);
 
-    if pairs.is_empty() {
-        for key in grapheme {
-            match encode_key(&key) {
-                Some(value) => encoding.push(value),
-                None => {
-                    panic!("ERROR: Encoding value for {:?} not found!", &key);
-                }
-            }
-        }
-        return encoding;
-    }
+pub fn encode(grapheme: &Vec<&str>) -> Result<Vec<i32>, crate::error::ERROR> {
+    let mut graph: Vec<String> = grapheme.iter().map(|p| p.to_string()).collect();
+
+    let mut encoding = match _encode(&graph) {
+        Some(value) => value,
+        None => panic!(
+            "[ERROR]: character in grapheme {:?} could not be encoded.",
+            graph
+        ),
+    };
+
+    if to_pairs(&graph).is_empty() {
+        return Ok(encoding);
+    };
 
     let mut cache = HashSet::new();
     let mut bigrams = vec![];
-    let mut graph = grapheme.to_vec();
 
-    'pair: loop {
-        for pair in pairs.to_vec() {
-            if !cache.contains(&pair) {
-                if let Some(rank) = encode_pair(&pair) {
-                    bigrams.push((rank, [pair[0].to_owned(), pair[1].to_owned()]));
+    'pairing: loop {
+        for [left, right] in to_pairs(&graph) {
+            if !cache.contains(&[left.clone(), right.clone()]) {
+                if let Some(rank) = get_pair(&[left.clone(), right.clone()]) {
+                    bigrams.push((rank, [left.clone(), right.clone()]));
                 };
-                cache.insert(pair);
+                cache.insert([left, right]);
             };
         }
 
         if bigrams.is_empty() {
-            break 'pair;
+            break 'pairing;
         }
 
         bigrams.sort_by(|a, b| a.0.cmp(&b.0));
 
-        'bigram: while let Some((_rank, bigram)) = bigrams.pop() {
-            let graph_clone = merge(&graph, &bigram);
-
-            let mut encodings_clone = vec![];
-            for key in graph_clone.iter() {
-                if let Some(value) = encode_key(&key) {
-                    encodings_clone.push(value);
-                } else {
-                    continue 'bigram;
-                }
+        'encoding: while let Some((_rank, bigram)) = bigrams.pop() {
+            let _graph = merge(&graph, &bigram);
+            if &_graph.len() != &graph.len() {
+                match _encode(&_graph) {
+                    Some(value) => encoding = value,
+                    None => continue 'encoding,
+                };
+                graph = _graph;
             }
-            graph = graph_clone;
-            encoding = encodings_clone;
-            pairs = unzip(&graph);
-            println!(
-                "grapheme:    {:?}\npairs:    {:?}\nbigrams:  {:?}\nencoding:   {:?}\n",
-                graph, pairs, bigrams, encoding
-            );
-            if pairs.is_empty() {
-                break 'pair;
-            };
         }
 
         if graph.len() <= 1 {
-            break 'pair;
+            break 'pairing;
         }
     }
-    encoding.to_vec()
-}
-/// Creates a person with the given name.
-///
-/// # Examples
-///
-/// ```
-/// // You can have rust code between fences inside the comments
-/// // If you pass --test to `rustdoc`, it will even test it for you!
-/// use amile::Person;
-/// let person = Person::new("name");
-/// ```
-pub fn decode(encoding: &Vec<i32>) -> Vec<String> {
-    let mut decoding = vec![];
-    for value in encoding.iter() {
-        if let Some(decoded) = decode_value(value) {
-            decoding.push(decoded.to_owned());
-        }
-    }
-    decoding
+    Ok(encoding.to_vec())
 }

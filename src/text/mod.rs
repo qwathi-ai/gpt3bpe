@@ -54,13 +54,13 @@ lazy_static! {
     static ref WORD_RE: &'static str = r"(?u)'s|'t|'re|'ve|'m|'l l|'d| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(\S)|\s+";
 }
 
-pub fn read_bytes(mut bytes: &[u8]) -> Result<String, crate::error::ERROR> {
+pub fn read_bytes(mut bytes: &[u8]) -> Result<String, crate::error::Error> {
     let mut buffer = String::new();
     bytes.read_to_string(&mut buffer)?;
     Ok(buffer)
 }
 
-pub fn grapheme(ngram: &str) -> Result<Vec<String>, crate::error::ERROR> {
+pub fn grapheme(ngram: &str) -> Result<Vec<String>, crate::error::Error> {
     let symbol_to_chars = |symbol: &str| -> Vec<String> {
         symbol
             .chars()
@@ -79,7 +79,7 @@ pub fn grapheme(ngram: &str) -> Result<Vec<String>, crate::error::ERROR> {
         .collect::<Vec<String>>())
 }
 
-pub fn ngram(grapheme: &Vec<&str>) -> Result<String, crate::error::ERROR> {
+pub fn ngram(grapheme: &[&str]) -> Result<String, crate::error::Error> {
     let bytes = grapheme
         .iter()
         .map(|token| -> u16 {

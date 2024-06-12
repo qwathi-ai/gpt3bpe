@@ -9,7 +9,7 @@ lazy_static! {
     #[derive(Debug)]
     static ref ENCODER: BTreeMap<String, i32>  ={
         let mut encoder = std::collections::BTreeMap::new();
-        let file = std::fs::File::open("src/bpe/lookup.jsonl").expect("[ERROR]: Unable to open file lookup.jsonl");
+        let file = std::fs::File::open("src/bpe/language.jsonl").expect("[ERROR]: Unable to open file language.jsonl");
         let file = std::io::BufReader::new(file);
 
         for (_idx, line) in std::io::BufRead::lines(file).enumerate() {
@@ -23,7 +23,7 @@ lazy_static! {
     static ref DECODER: BTreeMap<i32, String> = {
         let mut decode: BTreeMap<i32, String> = std::collections::BTreeMap::new();
         for (key, value) in ENCODER.iter() {
-            if &key.split_whitespace().collect::<Vec<&str>>().len() == &1 {
+            if key.split_whitespace().count() == 1 {
                 decode.insert(value.to_owned(), key.to_string());
             }
         }
@@ -49,7 +49,7 @@ fn _encode(grapheme: &Vec<String>) -> Option<Vec<i32>> {
     }
 }
 
-pub fn decode(encoding: &Vec<i32>) -> Result<Vec<String>, crate::error::ERROR> {
+pub fn decode(encoding: &Vec<i32>) -> Result<Vec<String>, crate::error::Error> {
     let mut decoding = vec![];
     for key in encoding {
         if let Some(value) = DECODER.get(key) {
@@ -95,7 +95,7 @@ fn from_pairs(pairs: &Vec<[String; 2]>) -> Vec<String> {
     let mut parts = vec![];
 
     if pairs.len() == 1 {
-        let part = join(&pairs[0]).to_owned();
+        let part = join(&pairs[0]);
         parts.push(part);
         return parts.to_vec();
     };
@@ -110,14 +110,14 @@ fn from_pairs(pairs: &Vec<[String; 2]>) -> Vec<String> {
     parts.to_vec()
 }
 
-fn to_pairs(parts: &Vec<String>) -> Vec<[String; 2]> {
+fn to_pairs(parts: &[String]) -> Vec<[String; 2]> {
     parts
         .windows(2)
         .map(|pair| [pair[0].to_owned(), pair[1].to_owned()])
         .collect()
 }
 
-fn merge(grapheme: &Vec<String>, pair: &[String; 2]) -> Vec<String> {
+fn merge(grapheme: &[String], pair: &[String; 2]) -> Vec<String> {
     let mut response: Vec<String> = grapheme.to_vec();
     let parts = to_pairs(&response);
     let mut binding = parts.to_vec();
@@ -126,14 +126,14 @@ fn merge(grapheme: &Vec<String>, pair: &[String; 2]) -> Vec<String> {
     while let Some((index, current)) = cursor.next() {
         if let Some((_, next)) = cursor.peek() {
             if can_join(pair, current) {
-                let left = join(&current);
+                let left = join(current);
                 swap(&mut binding[index], &mut [left, next[1].to_owned()]);
                 binding.remove(index + 1);
                 response = from_pairs(&binding);
                 break;
             };
             if can_join(pair, next) && (index + 1) == binding.len() {
-                let right = join(&next);
+                let right = join(next);
                 swap(&mut binding[index], &mut [current[0].to_owned(), right]);
                 binding.remove(index + 1);
                 response = from_pairs(&binding);
@@ -144,7 +144,7 @@ fn merge(grapheme: &Vec<String>, pair: &[String; 2]) -> Vec<String> {
     response
 }
 
-pub fn encode(grapheme: &Vec<&str>) -> Result<Vec<i32>, crate::error::ERROR> {
+pub fn encode(grapheme: &[&str]) -> Result<Vec<i32>, crate::error::Error> {
     let mut graph: Vec<String> = grapheme.iter().map(|p| p.to_string()).collect();
 
     let mut encoding = match _encode(&graph) {
@@ -176,11 +176,11 @@ pub fn encode(grapheme: &Vec<&str>) -> Result<Vec<i32>, crate::error::ERROR> {
             break 'pairing;
         }
 
-        bigrams.sort_by(|a, b| a.0.cmp(&b.0));
+        bigrams.sort_by(|a, b| a.0.cmp(b.0));
 
         'encoding: while let Some((_rank, bigram)) = bigrams.pop() {
             let _graph = merge(&graph, &bigram);
-            if &_graph.len() != &graph.len() {
+            if _graph.len() != graph.len() {
                 match _encode(&_graph) {
                     Some(value) => encoding = value,
                     None => continue 'encoding,

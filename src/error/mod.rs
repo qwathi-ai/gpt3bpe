@@ -1,43 +1,43 @@
 use std::string::{FromUtf16Error, FromUtf8Error};
 
 #[derive(Debug)]
-pub enum ERROR {
+pub enum Error {
     FromUTF8(FromUtf8Error),
     FromUTF16(FromUtf16Error),
     Regex(regex::Error),
     IO(std::io::Error),
 }
 
-impl std::fmt::Display for ERROR {
+impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            ERROR::FromUTF8(error) => write!(f, "{}", error),
-            ERROR::FromUTF16(error) => write!(f, "{}", error),
-            ERROR::Regex(error) => write!(f, "{}", error),
-            ERROR::IO(error) => write!(f, "{}", error),
+            Error::FromUTF8(error) => write!(f, "{}", error),
+            Error::FromUTF16(error) => write!(f, "{}", error),
+            Error::Regex(error) => write!(f, "{}", error),
+            Error::IO(error) => write!(f, "{}", error),
         }
     }
 }
 
-impl std::error::Error for ERROR {}
+impl std::error::Error for Error {}
 
-impl From<FromUtf8Error> for ERROR {
+impl From<FromUtf8Error> for Error {
     fn from(error: FromUtf8Error) -> Self {
-        ERROR::FromUTF8(error)
+        Error::FromUTF8(error)
     }
 }
-impl From<FromUtf16Error> for ERROR {
+impl From<FromUtf16Error> for Error {
     fn from(error: FromUtf16Error) -> Self {
-        ERROR::FromUTF16(error)
+        Error::FromUTF16(error)
     }
 }
-impl From<regex::Error> for ERROR {
+impl From<regex::Error> for Error {
     fn from(error: regex::Error) -> Self {
-        ERROR::Regex(error)
+        Error::Regex(error)
     }
 }
-impl From<std::io::Error> for ERROR {
+impl From<std::io::Error> for Error {
     fn from(error: std::io::Error) -> Self {
-        ERROR::IO(error)
+        Error::IO(error)
     }
 }

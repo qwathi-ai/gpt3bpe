@@ -21,7 +21,7 @@ path = "src/lib.rs" # The source file of the target.
 # proc-macro = false      # Set to `true` for a proc-macro library.
 # harness = true          # Use libtest harness.
 edition = "2021"        # The edition of the target.
-# crate-type = ["cdylib"] # The crate types to generate.
+crate-type = ["lib"] # The crate types to generate.
 # required-features = []  # Features required to build this target (N/A for lib).
 
 [build]

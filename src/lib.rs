@@ -1,4 +1,4 @@
-mod bpe;
+mod encoder;
 mod error;
 mod text;
 
@@ -23,7 +23,7 @@ extern "C" fn text_decode_from_buffer(buffer: *const i32, length: usize) -> *con
 pub fn text_encode(slice: &[u8]) -> Vec<i32> {
     let ngram = crate::text::read_bytes(slice).unwrap();
     let tokens = crate::text::grapheme(&ngram).unwrap();
-    let encode = crate::bpe::encode(
+    let encode = crate::encoder::encode(
         &tokens
             .iter()
             .map(|token| token.as_str())
@@ -35,7 +35,7 @@ pub fn text_encode(slice: &[u8]) -> Vec<i32> {
 }
 
 pub fn text_decode(slice: &[i32]) -> Vec<u8> {
-    let binding = crate::bpe::decode(&slice.to_vec()).unwrap();
+    let binding = crate::encoder::decode(&slice.to_vec()).unwrap();
     let mut buffer = vec![];
     for token in &binding {
         let symbols = crate::text::grapheme(token).unwrap();

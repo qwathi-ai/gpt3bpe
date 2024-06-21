@@ -7,9 +7,9 @@ use unicode_segmentation::UnicodeSegmentation;
 
 lazy_static! {
     #[derive(Debug)]
-    static ref ENCODER: BTreeMap<String, i32>  ={
+    static ref TEXT_ENCODER: BTreeMap<String, i32>  ={
         let mut encoder = std::collections::BTreeMap::new();
-        let file = std::fs::File::open("src/bpe/language.jsonl").expect("[ERROR]: Unable to open file language.jsonl");
+        let file = std::fs::File::open("src/encoder/text.jsonl").expect("[ERROR]: Unable to open file encoder/text.jsonl");
         let file = std::io::BufReader::new(file);
 
         for (_idx, line) in std::io::BufRead::lines(file).enumerate() {
@@ -20,9 +20,9 @@ lazy_static! {
         encoder
     };
 
-    static ref DECODER: BTreeMap<i32, String> = {
+    static ref TEXT_DECODER: BTreeMap<i32, String> = {
         let mut decode: BTreeMap<i32, String> = std::collections::BTreeMap::new();
-        for (key, value) in ENCODER.iter() {
+        for (key, value) in TEXT_ENCODER.iter() {
             if key.split_whitespace().count() == 1 {
                 decode.insert(value.to_owned(), key.to_string());
             }
@@ -33,12 +33,12 @@ lazy_static! {
 
 fn get_pair(pair: &[String; 2]) -> Option<&'static i32> {
     let key = format!("{} {}", pair[0], pair[1]);
-    ENCODER.get(key.as_str())
+    TEXT_ENCODER.get(key.as_str())
 }
 fn _encode(grapheme: &Vec<String>) -> Option<Vec<i32>> {
     let mut encoding = vec![];
     for key in grapheme {
-        if let Some(value) = ENCODER.get(key.as_str()) {
+        if let Some(value) = TEXT_ENCODER.get(key.as_str()) {
             encoding.push(*value)
         }
     }
@@ -52,7 +52,7 @@ fn _encode(grapheme: &Vec<String>) -> Option<Vec<i32>> {
 pub fn decode(encoding: &Vec<i32>) -> Result<Vec<String>, crate::error::Error> {
     let mut decoding = vec![];
     for key in encoding {
-        if let Some(value) = DECODER.get(key) {
+        if let Some(value) = TEXT_DECODER.get(key) {
             decoding.push(value.to_string())
         }
     }

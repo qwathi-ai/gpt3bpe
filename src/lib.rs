@@ -13,12 +13,12 @@ pub extern "C" fn text_encode_from_buffer(buffer: *const u8, length: usize) -> *
     encode.as_ptr()
 }
 
-#[no_mangle]
-extern "C" fn text_decode_from_buffer(buffer: *const i32, length: usize) -> *const u8 {
-    let slice = read(buffer, length);
-    let decode = text_decode(slice);
-    decode.as_ptr()
-}
+// #[no_mangle]
+// extern "C" fn text_decode_from_buffer(buffer: *const i32, length: usize) -> *const u8 {
+//     let slice = read(buffer, length);
+//     let decode = text_decode(slice);
+//     decode.as_ptr()
+// }
 
 pub fn text_encode(slice: &[u8]) -> Vec<i32> {
     let ngram = crate::text::read_bytes(slice).unwrap();

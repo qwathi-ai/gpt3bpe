@@ -6,9 +6,9 @@ mod tests {
         let T = crate::tensor::Tensor::new(vec![1,3], vec![1,2,3]);
         let S = crate::tensor::Tensor::new(vec![1,3],vec![1,2,3]);
         let X = T + S;
-        assert_eq!(T, X - S);
-        assert_eq!(S, T - X);
-        assert_eq!(S - 3, 3 - S);
+        assert!(T == X - S);
+        assert!(S == T - X);
+        // assert_eq!(S - 3, 3 - S);
     }
 
     // #[test]

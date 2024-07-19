@@ -24,7 +24,7 @@ where
     data: Vec<T>,
 }
 
-impl<T: std::ops::Add> Tensor<T> {
+impl<T: std::ops::Add+ 'static> Tensor<T> {
     pub fn new(shape: Vec<u8>, data: Vec<T>) -> Self {
         if data.is_empty() {
             panic!("Tensor data cannot be empty.")          
@@ -51,7 +51,7 @@ impl<T: std::ops::Add> Tensor<T> {
     }
 }
 
-impl<T : std::ops::Add> PartialEq<Tensor<T>> for Tensor<T>  where &T: PartialEq<T>{
+impl<T : std::ops::Add+ 'static> PartialEq<Tensor<T>> for Tensor<T>  where &T: PartialEq<T>{
 
     fn eq(&self, other: &Tensor<T>) -> bool {
         if self.shape != other.shape || self.rank != other.rank {

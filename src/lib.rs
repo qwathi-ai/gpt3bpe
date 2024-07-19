@@ -1,6 +1,7 @@
 mod encoder;
 mod error;
 mod text;
+mod tensor;
 
 fn read<T>(buffer: *const T, length: usize) -> &'static [T] {
     unsafe { std::slice::from_raw_parts(buffer, length) }

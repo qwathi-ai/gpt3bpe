@@ -4,11 +4,13 @@ mod tests {
     #[test]
     fn addition() {
         let te: crate::tensor::Tensor<i8>= crate::tensor::Tensor::new(vec![1,3], vec![1,2,3]);
-        let se = te.clone();
-        assert_eq!(te, se);
-        let xe = se.clone() - &3;
-        assert_eq!(xe + &3 , se);
-        let pe = se.clone() + &te;
+        assert_eq!(te, te.clone());
+
+        let se = te.clone() - &3;
+        assert_eq!(te + &3 , se);
+
+
+        let pe = se + &te;
         assert_eq!(pe - &se , te);
     }
 

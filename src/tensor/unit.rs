@@ -3,15 +3,13 @@ mod tests {
 
     #[test]
     fn addition() {
-        let te: crate::tensor::Tensor<i16>= crate::tensor::Tensor::new(vec![1,3], vec![1,2,3]);
-        assert_eq!(te, te.clone());
-        let se = te.clone() - 3;
-        println!("se => {:?}", se);
-        assert_eq!(se + 3 , te)
-        // let xe = te + &se;
-        // assert!(te == xe - &se);
-        // assert!(se == te - &xe);
-        // assert_eq!(S - 3, 3 - S);
+        let te: crate::tensor::Tensor<i8>= crate::tensor::Tensor::new(vec![1,3], vec![1,2,3]);
+        let se = te.clone();
+        assert_eq!(te, se);
+        let xe = se.clone() - &3;
+        assert_eq!(xe + &3 , se);
+        let pe = se.clone() + &te;
+        assert_eq!(pe - &se , te);
     }
 
     // #[test]

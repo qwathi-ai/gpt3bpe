@@ -14,7 +14,7 @@ use std::ops::Sub;
 enum Rank {
     Vector, // 1st order
     Matrix, // 2nd order
-    Tensor(u32),
+    Tensor(usize),
 }
 
 impl PartialEq for Rank {
@@ -38,111 +38,30 @@ impl Clone for Rank {
 
 #[derive(Debug)]
 pub struct Tensor<T> {
-    pub shape: Vec<u32>,
+    pub shape: Vec<usize>,
     rank: Rank,
     data: Vec<T>,
-}
-
-impl<T> Tensor<T> {
-    pub fn new(shape: Vec<u32>, data: Vec<T>) -> Self {
-        if data.is_empty() {
-            panic!("Tensor data cannot be empty.")
-        }
-        if shape.contains(&0) {
-            panic!("Tensor shape cannot have a value of 0.")
-        }
-        if shape.len() <= 1 {
-            panic!("Tensor shape cannot be equalivalent to scalar. Rather use rust number literal https://doc.rust-lang.org/beta/book/ch03-02-data-types.html")
-        }
-        let mut rank = Rank::Matrix;
-        if shape.len() <= 2 && shape.contains(&1) {
-            rank = Rank::Vector;
-        }
-        if shape.len() > 2 {
-            let ranking: u32 = shape.iter().sum();
-            rank = Rank::Tensor(ranking)
-        }
-        Tensor { data, shape, rank }
-    }
-}
-
-impl<T> Add<T> for Tensor<T>
-where
-    T: Clone + Display + Debug + std::ops::Add + std::ops::AddAssign
-{
-    type Output = Tensor<T>;
-
-    fn add(mut self, rhs: T) -> Self::Output {
-        while let Some((index,datum)) = self.data.iter_mut().enumerate().next() {
-            println!("Addition of position {:?} with {:?}", &index, &rhs)
-            *datum = datum + &rhs;
-        }
-        Self {
-            rank: self.rank,
-            data: self.data,
-            shape: self.shape,
-        }
-    }
-}
-
-impl<T> Sub<T> for Tensor<T>
-where
-    T: Clone + Display + Debug + std::ops::Sub + std::ops::SubAssign,
-{
-    type Output = Tensor<T>;
-
-    fn sub(mut self, rhs: T) -> Self::Output {
-        while let Some(datum) = self.data.iter_mut().next() {
-            *datum -= rhs.clone();
-        }
-        Self {
-            rank: self.rank,
-            data: self.data,
-            shape: self.shape,
-        }
-    }
 }
 
 impl<T: std::clone::Clone> Clone for Tensor<T> {
     fn clone(&self) -> Self {
         Self {
-            shape: self.shape.clone(),
+            shape: self.shape.to_vec(),
             rank: self.rank.clone(),
             data: self.data.to_vec(),
         }
     }
 }
-
-// impl  ToOwned for Tensor<T> {
-//     type Owned;
-
-//     fn to_owned(&self) -> Self::Owned {
-//         todo!()
-//     }
-// }
-
 impl<T: Clone + std::cmp::PartialEq> PartialEq<Tensor<T>> for Tensor<T> {
     fn eq(&self, other: &Tensor<T>) -> bool {
         if self.rank != other.rank {
             return false;
         }
-
-        if self.shape.len() != other.shape.len() {
+        if self.shape != other.shape {
             return false;
         }
-        while let Some((index, value)) = &self.shape.iter().enumerate().next() {
-            if value != &&other.shape[*index] {
-                return false;
-            }
-        }
-
-        if self.data.len() != other.data.len() {
+        if self.data != other.data {
             return false;
-        }
-        while let Some((index, value)) = &self.data.iter().enumerate().next() {
-            if value != &&other.data[*index] {
-                return false;
-            }
         }
         true
     }
@@ -150,77 +69,100 @@ impl<T: Clone + std::cmp::PartialEq> PartialEq<Tensor<T>> for Tensor<T> {
         if self.rank != other.rank {
             return true;
         }
-        if self.shape.len() != other.shape.len() {
+        if self.shape != other.shape {
             return true;
         }
-        while let Some((index, value)) = &self.shape.iter().enumerate().next() {
-            if value != &&other.shape[*index] {
-                return true;
-            }
-        }
-
-        if self.data.len() != other.data.len() {
+        if self.data != other.data {
             return true;
         }
-        while let Some((index, value)) = &self.shape.iter().enumerate().next() {
-            if value != &&other.shape[*index] {
-                return true;
-            }
-        }
-
         false
     }
 }
 
-// impl<T> Add<Tensor<T>> for Tensor<T>
-// where
-//     T: Clone + Display + Debug + std::ops::Add + std::ops::AddAssign ,
-// {
-//     type Output = Tensor<T>;
+impl<T> Add<&T> for Tensor<T>
+where
+    T: Clone + Display + Debug + std::ops::Add + std::ops::AddAssign
+{
+    type Output = Tensor<T>;
 
-//     fn add(mut self, rhs: Tensor<T>) -> Self::Output {
-//         if self.shape != rhs.shape {
-//             panic!(
-//                 "Tensor {:#?} are not of the same shape {:#?}",
-//                 self.shape, rhs.shape
-//             );
-//         }
+    fn add(mut self, rhs: &T) -> Self::Output {
+        for datum in self.data.iter_mut() {
+            *datum += rhs.clone()
+        }
+        Self {
+            rank: self.rank,
+            data: self.data,
+            shape: self.shape,
+        }
+    }
+}
 
-//         while let Some((datum, value)) = self.data.iter_mut().zip(rhs.data.to_owned()).next()  {
-//             *datum += value;
-//         }
-//         Self {
-//             rank: self.rank,
-//             data:self.data,
-//             shape: self.shape
-//         }
-//     }
-// }
+impl<T> Add<&Tensor<T>> for Tensor<T>
+where
+    T: Clone + Display + Debug + std::ops::Add + std::ops::AddAssign ,
+{
+    type Output = Tensor<T>;
 
-// impl<T> Sub<Tensor<T>> for Tensor<T>
-// where
-//     T: Clone + Display + Debug + std::ops::Add + std::ops::AddAssign + std::ops::SubAssign,
-// {
-//     type Output = Tensor<T>;
+    fn add(mut self, rhs: &Tensor<T>) -> Self::Output {
+        if self.shape != rhs.shape {
+            panic!(
+                "Tensor {:#?} are not of the same shape {:#?}",
+                self.shape, rhs.shape
+            );
+        }
+        for (datum, value) in self.data.iter_mut().zip(rhs.data.iter()) {
+            *datum += value.clone();
+        }
+        Self {
+            rank: self.rank,
+            data:self.data,
+            shape: self.shape
+        }
+    }
+}
 
-//     fn sub(mut self, rhs: Tensor<T>) -> Self::Output {
-//         if self.shape != rhs.shape {
-//             panic!(
-//                 "Tensor {:#?} are not of the same shape {:#?}",
-//                 self.shape, rhs.shape
-//             );
-//         }
+impl<T> Sub<&T> for Tensor<T>
+where
+    T: Clone + Display + Debug + std::ops::Sub + std::ops::SubAssign,
+{
+    type Output = Tensor<T>;
 
-//         while let Some((datum, value)) = self.data.iter_mut().zip(rhs.data.to_owned()).next()  {
-//             *datum -= value;
-//         }
-//         Self {
-//             rank: self.rank,
-//             data:self.data,
-//             shape: self.shape
-//         }
-//     }
-// }
+    fn sub(mut self, rhs: &T) -> Self::Output {
+        for datum in self.data.iter_mut() {
+            *datum -= rhs.clone()
+        }
+        Self {
+            rank: self.rank,
+            data: self.data,
+            shape: self.shape,
+        }
+    }
+}
+
+impl<T> Sub<&Tensor<T>> for Tensor<T>
+where
+    T: Clone + Display + Debug + std::ops::Sub + std::ops::SubAssign,
+{
+    type Output = Tensor<T>;
+
+    fn sub(mut self, rhs: &Tensor<T>) -> Self::Output {
+        if self.shape != rhs.shape {
+            panic!(
+                "Tensor {:#?} are not of the same shape {:#?}",
+                self.shape, rhs.shape
+            );
+        }
+
+        for (datum, value) in self.data.iter_mut().zip(rhs.data.iter()) {
+            *datum -= value.clone();
+        }
+        Self {
+            rank: self.rank,
+            data:self.data,
+            shape: self.shape
+        }
+    }
+}
 
 // impl<T> Mul<T> for Tensor<T>
 // where
@@ -250,3 +192,28 @@ impl<T: Clone + std::cmp::PartialEq> PartialEq<Tensor<T>> for Tensor<T> {
 //         todo!()
 //     }
 // }
+
+impl<T> Tensor<T> {
+    pub fn new(shape: Vec<usize>, data: Vec<T>) -> Self {
+        println!("creating tensor.");
+        if data.is_empty() {
+            panic!("Tensor data cannot be empty.")
+        }
+        if shape.contains(&0) {
+            panic!("Tensor shape cannot have a value of 0.")
+        }
+        if shape.len() <= 1 {
+            panic!("Tensor shape cannot be equalivalent to scalar. Rather use rust number literal https://doc.rust-lang.org/beta/book/ch03-02-data-types.html")
+        }
+        let mut rank = Rank::Matrix;
+        if shape.len() <= 2 && shape.contains(&1) {
+            rank = Rank::Vector;
+        }
+        if shape.len() > 2 {
+            let ranking = shape.iter().sum();
+            rank = Rank::Tensor(ranking)
+        }
+        println!("new tensor with rank: {:?}", rank);
+        Tensor { data, shape, rank }
+    }
+}

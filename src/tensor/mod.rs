@@ -68,13 +68,14 @@ impl<T> Tensor<T> {
 
 impl<T> Add<T> for Tensor<T>
 where
-    T: Clone + Display + Debug + std::ops::Add + std::ops::AddAssign,
+    T: Clone + Display + Debug + std::ops::Add + std::ops::AddAssign
 {
     type Output = Tensor<T>;
 
     fn add(mut self, rhs: T) -> Self::Output {
-        while let Some(datum) = self.data.iter_mut().next() {
-            *datum += rhs.to_owned();
+        while let Some((index,datum)) = self.data.iter_mut().enumerate().next() {
+            println!("Addition of position {:?} with {:?}", &index, &rhs)
+            *datum = datum + &rhs;
         }
         Self {
             rank: self.rank,

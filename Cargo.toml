@@ -27,6 +27,14 @@ crate-type = ["lib"] # The crate types to generate.
 [build]
 profiler = true
 
+
+[profile.dev]
+opt-level = 1               # Use slightly better optimizations.
+overflow-checks = false
+
+[profile.release]
+strip = "debuginfo"
+
 [dependencies]
 lazy_static = "1.4.0"
 regex = "1.9.4"

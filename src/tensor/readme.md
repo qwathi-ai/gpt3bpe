@@ -10,9 +10,15 @@
    (aT)_{i_1 i_2 \ldots i_n} = a \cdot T_{i_1 i_2 \ldots i_n}
    $$
 
-3. **Zero Tensor**: There exists a zero tensor \(0\) such that for any tensor \(T\), \(T + 0 = T\).
+3. **Zero Tensor**: There exists a zero tensor \(0\) such that for any tensor \(T\), 
+   $$
+   T + 0 = T
+   $$
 
-4. **Negation**: For any tensor \(T\), there exists a tensor \(-T\) such that \(T + (-T) = 0\).
+4. **Negation**: For any tensor \(T\), there exists a tensor \(-T\) such that 
+   $$
+   T + (-T) = 0
+   $$
 
 5. **Distributivity**: Scalar multiplication distributes over tensor addition.
    $$

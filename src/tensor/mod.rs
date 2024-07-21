@@ -2,61 +2,73 @@ mod unit;
 
 use std::fmt::Debug;
 use std::fmt::Display;
+use std::simd::Simd;
 
 // use std::sync::{Arc, Mutex};
 // use std::thread;
 // const NUMBER_OF_THREADS: usize = 4;
 
+
 #[derive(Debug)]
 enum Rank {
     Vector, // 1st order
     Matrix, // 2nd order
-    Tensor(usize),
+    // Tensor(usize),
 }
 
-impl PartialEq for Rank {
-    fn eq(&self, other: &Self) -> bool {
-        match (self, other) {
-            (Self::Tensor(l0), Self::Tensor(r0)) => l0 == r0,
-            _ => core::mem::discriminant(self) == core::mem::discriminant(other),
-        }
-    }
-}
+// impl PartialEq for Rank {
+//     fn eq(&self, other: &Self) -> bool {
+//         match (self, other) {
+//             (Self::Tensor(l0), Self::Tensor(r0)) => l0 == r0,
+//             _ => core::mem::discriminant(self) == core::mem::discriminant(other),
+//         }
+//     }
+// }
 
 impl Clone for Rank {
     fn clone(&self) -> Self {
         match self {
             Self::Vector => Self::Vector,
             Self::Matrix => Self::Matrix,
-            Self::Tensor(arg0) => Self::Tensor(arg0.clone()),
+            // Self::Tensor(arg0) => Self::Tensor(arg0.clone()),
         }
     }
 }
 
 #[derive(Debug)]
-pub struct Tensor<T> {
+
+pub struct Tensor<T, N>{
     pub shape: Vec<usize>,
     rank: Rank,
-    data: Vec<T>,
+    data: Simd<T, N>,
 }
 
 impl<T: std::clone::Clone> Clone for Tensor<T> {
     fn clone(&self) -> Self {
         Self {
-            shape: self.shape.to_vec(),
+            shape: self.shape.clone(),
             rank: self.rank.clone(),
-            data: self.data.to_vec(),
+            data: self.data.clone(),
         }
     }
 }
+
 impl<T: std::clone::Clone + std::cmp::PartialEq> PartialEq<T> for Tensor<T> {
     fn eq(&self, other: &T) -> bool {
-        self.data == vec![other.clone(); self.data.len()]
+        let mut real = vec![];
+        for qubit in self.data.windows(self.shape[1]) {
+            real.append(quibit[0])
+        }
+        real == vec![other.clone(); self.data.len()]
     }
 }
+
 impl<T: std::clone::Clone + std::cmp::PartialEq> PartialEq<Tensor<T>> for Tensor<T> {
     fn eq(&self, other: &Tensor<T>) -> bool {
         if self.rank != other.rank {
+            return false;
+        }
+        if self.window != other.window {
             return false;
         }
         if self.shape != other.shape {
@@ -76,8 +88,8 @@ where
     type Output = Tensor<T>;
 
     fn add(mut self, rhs: &T) -> Self::Output {
-        for datum in self.data.iter_mut() {
-            *datum += rhs.clone()
+        for datum in self.data.iter_mut().windows(self.window) {
+            *datum[0] += rhs.clone()
         }
         Self {
             rank: self.rank,
@@ -100,8 +112,10 @@ where
                 self.shape, rhs.shape
             );
         }
-        for (datum, value) in self.data.iter_mut().zip(rhs.data.iter()) {
-            *datum += value.clone();
+        for (x, y) in self.data.iter_mut().zip(rhs.data.iter()).windows(self.shape[0]) {
+            for (datum, value) in x.iter_mut().zip(y) {
+                *datum += value.clone();
+            }
         }
         Self {
             rank: self.rank,
@@ -118,10 +132,11 @@ where
     type Output = Tensor<T>;
 
     fn sub(mut self, rhs: &T) -> Self::Output {
-        for datum in self.data.iter_mut() {
-            *datum -= rhs.clone()
+        for datum in self.data.iter_mut().windows(self.window) {
+            *datum[0] -= rhs.clone()
         }
         Self {
+            window: self.window,
             rank: self.rank,
             data: self.data,
             shape: self.shape,
@@ -142,9 +157,10 @@ where
                 self.shape, rhs.shape
             );
         }
-
-        for (datum, value) in self.data.iter_mut().zip(rhs.data.iter()) {
-            *datum -= value.clone();
+        for (x, y) in self.data.iter_mut().zip(rhs.data.iter()) {
+            for (datum, value) in x.iter_mut().zip(y) {
+                *datum -= value.clone();
+            }
         }
         Self {
             rank: self.rank,
@@ -162,7 +178,7 @@ where
 
     fn mul(mut self, rhs: &T) -> Self::Output {
         for datum in self.data.iter_mut() {
-            *datum *= rhs.clone();
+            datum.insert(0,datum[0] *= rhs.clone()) 
         }
         Self {
             rank: self.rank,
@@ -172,18 +188,29 @@ where
     }
 }
 
-// impl<T> Mul<Tensor<T>> for Tensor<T>
+// impl<T> Mul<&Tensor<T>> for Tensor<T>
 // where
 //     T: Clone + Display + Debug + std::ops::Add
 // {
 //     type Output = Tensor<T>;
 
-//     fn mul(self, _rhs: Tensor<T>) -> Self::Output {
-//         todo!()
+//     fn mul(self, rhs: &Tensor<T>) -> Self::Output {
+//         fn kronecker () {
+
+//         }
+        
 //     }
 // }
 
-impl<T> Tensor<T> {}
+// impl<T> Tensor<T> {
+//     fn basis(&self) -> Vec<T>{
+//         let mut outputs = vec![];
+//         for [lhs, rhs] in self.shape.windows(2) {
+
+//         }
+
+//     }
+// }
 
 pub fn new<T>(shape: Vec<usize>, data: Vec<T>) -> Tensor<T> {
     if data.is_empty() {
@@ -199,9 +226,5 @@ pub fn new<T>(shape: Vec<usize>, data: Vec<T>) -> Tensor<T> {
     if shape.len() <= 2 && shape.contains(&1) {
         rank = Rank::Vector;
     }
-    if shape.len() > 2 {
-        let ranking = shape.iter().sum();
-        rank = Rank::Tensor(ranking)
-    }
-    Tensor { data, shape, rank }
+    Tensor { data: Simd::from(data), shape, rank }
 }

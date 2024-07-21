@@ -35,6 +35,7 @@ fn get_pair(pair: &[String; 2]) -> Option<&'static i32> {
     let key = format!("{} {}", pair[0], pair[1]);
     TEXT_ENCODER.get(key.as_str())
 }
+
 fn _encode(grapheme: &Vec<String>) -> Option<Vec<i32>> {
     let mut encoding = vec![];
     for key in grapheme {

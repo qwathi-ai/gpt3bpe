@@ -3,7 +3,7 @@ mod tests {
 
     #[test]
     fn addition() {
-        let t: crate::tensor::Tensor<i8> = crate::tensor::new(vec![1, 3], vec![1, 2, 3]);
+        let t: crate::tensor::Tensor<i8> = crate::tensor::new(vec![1, 2, 2], vec![3,4,5,6]);
         assert_eq!(t, t.clone());
 
         let s = t.clone() - &3;

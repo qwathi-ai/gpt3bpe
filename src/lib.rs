@@ -1,3 +1,6 @@
+#![feature(portable_simd)]
+#![feature(generic_arg_infer)]
+
 mod encoder;
 mod error;
 mod text;

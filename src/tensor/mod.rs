@@ -1,230 +1,169 @@
 mod unit;
-
+use rand::distributions::Uniform;
+use rand::thread_rng;
+use rand::Rng;
 use std::fmt::Debug;
-use std::fmt::Display;
-use std::simd::Simd;
 
-// use std::sync::{Arc, Mutex};
-// use std::thread;
-// const NUMBER_OF_THREADS: usize = 4;
-
-
+type Qubit<T> = [T; 2];
 #[derive(Debug)]
-enum Rank {
-    Vector, // 1st order
-    Matrix, // 2nd order
-    // Tensor(usize),
+pub(crate) struct Tensor<T, const N: usize> {
+    data: Vec<Qubit<T>>,
 }
-
-// impl PartialEq for Rank {
-//     fn eq(&self, other: &Self) -> bool {
-//         match (self, other) {
-//             (Self::Tensor(l0), Self::Tensor(r0)) => l0 == r0,
-//             _ => core::mem::discriminant(self) == core::mem::discriminant(other),
-//         }
-//     }
-// }
-
-impl Clone for Rank {
-    fn clone(&self) -> Self {
-        match self {
-            Self::Vector => Self::Vector,
-            Self::Matrix => Self::Matrix,
-            // Self::Tensor(arg0) => Self::Tensor(arg0.clone()),
-        }
+impl<T, const N: usize> Tensor<T, N> {}
+pub fn new<
+    T: std::simd::SimdElement + rand::distributions::uniform::SampleUniform,
+    const N: usize,
+>(
+    boundaries: &[T; 2],
+    mut data: Vec<T>,
+) -> Tensor<T, { N }> {
+    if data.is_empty() {
+        panic!("Tensor data cannot be empty.")
     }
+    let qubits = data
+        .iter_mut()
+        .map(|datum| -> Qubit<T> {
+            let random = {
+                let mut generator = thread_rng();
+                let distribution = Uniform::new_inclusive(&boundaries[0], &boundaries[1]);
+                generator.sample(distribution)
+            };
+            [*datum, random]
+        })
+        .collect::<Vec<Qubit<T>>>();
+    Tensor { data: qubits }
 }
 
-#[derive(Debug)]
-
-pub struct Tensor<T, N>{
-    pub shape: Vec<usize>,
-    rank: Rank,
-    data: Simd<T, N>,
-}
-
-impl<T: std::clone::Clone> Clone for Tensor<T> {
+impl<T: std::simd::SimdElement, const N: usize> Clone for Tensor<T, { N }> {
     fn clone(&self) -> Self {
         Self {
-            shape: self.shape.clone(),
-            rank: self.rank.clone(),
             data: self.data.clone(),
         }
     }
 }
 
-impl<T: std::clone::Clone + std::cmp::PartialEq> PartialEq<T> for Tensor<T> {
-    fn eq(&self, other: &T) -> bool {
-        let mut real = vec![];
-        for qubit in self.data.windows(self.shape[1]) {
-            real.append(quibit[0])
-        }
-        real == vec![other.clone(); self.data.len()]
-    }
-}
-
-impl<T: std::clone::Clone + std::cmp::PartialEq> PartialEq<Tensor<T>> for Tensor<T> {
-    fn eq(&self, other: &Tensor<T>) -> bool {
-        if self.rank != other.rank {
-            return false;
-        }
-        if self.window != other.window {
-            return false;
-        }
-        if self.shape != other.shape {
-            return false;
-        }
-        if self.data != other.data {
-            return false;
-        }
-        true
-    }
-}
-
-impl<T> core::ops::Add<&T> for Tensor<T>
-where
-    T: Clone + Display + Debug + std::ops::Add + std::ops::AddAssign,
+impl<T: std::simd::SimdElement + std::cmp::PartialEq, const N: usize> PartialEq<T>
+    for Tensor<T, { N }>
 {
-    type Output = Tensor<T>;
+    fn eq(&self, rhs: &T) -> bool {
+        let mut fact = true;
+        let mut cursor = self.data.iter();
+
+        while let Some(qubit) = cursor.next() {
+            if qubit[0] != *rhs {
+                fact = false;
+                break;
+            }
+        }
+        fact
+    }
+
+    fn ne(&self, rhs: &T) -> bool {
+        !self.eq(rhs)
+    }
+}
+
+impl<T, const N: usize> core::ops::Add<&T> for Tensor<T, { N }>
+where
+    T: std::simd::SimdElement + std::ops::Add<Output = T>,
+{
+    type Output = Tensor<T, { N }>;
 
     fn add(mut self, rhs: &T) -> Self::Output {
-        for datum in self.data.iter_mut().windows(self.window) {
-            *datum[0] += rhs.clone()
+        for qubit in self.data.iter_mut() {
+            *qubit = [qubit[0] + *rhs, qubit[1]];
         }
-        Self {
-            rank: self.rank,
-            data: self.data,
-            shape: self.shape,
-        }
+
+        Self { data: self.data }
     }
 }
 
-impl<T> core::ops::Add<&Tensor<T>> for Tensor<T>
+impl<T, const N: usize> core::ops::Sub<&T> for Tensor<T, { N }>
 where
-    T: Clone + Display + Debug + std::ops::Add + std::ops::AddAssign,
+    T: std::simd::SimdElement + std::ops::Sub<Output = T>,
 {
-    type Output = Tensor<T>;
-
-    fn add(mut self, rhs: &Tensor<T>) -> Self::Output {
-        if self.shape != rhs.shape {
-            panic!(
-                "Tensor {:#?} are not of the same shape {:#?}",
-                self.shape, rhs.shape
-            );
-        }
-        for (x, y) in self.data.iter_mut().zip(rhs.data.iter()).windows(self.shape[0]) {
-            for (datum, value) in x.iter_mut().zip(y) {
-                *datum += value.clone();
-            }
-        }
-        Self {
-            rank: self.rank,
-            data: self.data,
-            shape: self.shape,
-        }
-    }
-}
-
-impl<T> core::ops::Sub<&T> for Tensor<T>
-where
-    T: Clone + Display + Debug + std::ops::Sub + std::ops::SubAssign,
-{
-    type Output = Tensor<T>;
+    type Output = Tensor<T, { N }>;
 
     fn sub(mut self, rhs: &T) -> Self::Output {
-        for datum in self.data.iter_mut().windows(self.window) {
-            *datum[0] -= rhs.clone()
+        for qubit in self.data.iter_mut() {
+            *qubit = [qubit[0] - *rhs, qubit[1]];
         }
-        Self {
-            window: self.window,
-            rank: self.rank,
-            data: self.data,
-            shape: self.shape,
-        }
+        Self { data: self.data }
     }
 }
 
-impl<T> core::ops::Sub<&Tensor<T>> for Tensor<T>
+impl<T, const N: usize> core::ops::Mul<&T> for Tensor<T, { N }>
 where
-    T: Clone + Display + Debug + std::ops::Sub + std::ops::SubAssign,
+    T: std::simd::SimdElement + std::ops::Mul<Output = T>,
 {
-    type Output = Tensor<T>;
-
-    fn sub(mut self, rhs: &Tensor<T>) -> Self::Output {
-        if self.shape != rhs.shape {
-            panic!(
-                "Tensor {:#?} are not of the same shape {:#?}",
-                self.shape, rhs.shape
-            );
-        }
-        for (x, y) in self.data.iter_mut().zip(rhs.data.iter()) {
-            for (datum, value) in x.iter_mut().zip(y) {
-                *datum -= value.clone();
-            }
-        }
-        Self {
-            rank: self.rank,
-            data: self.data,
-            shape: self.shape,
-        }
-    }
-}
-
-impl<T> core::ops::Mul<&T> for Tensor<T>
-where
-    T: Clone + Display + Debug + std::ops::Mul + std::ops::MulAssign,
-{
-    type Output = Tensor<T>;
+    type Output = Tensor<T, { N }>;
 
     fn mul(mut self, rhs: &T) -> Self::Output {
-        for datum in self.data.iter_mut() {
-            datum.insert(0,datum[0] *= rhs.clone()) 
+        for qubit in self.data.iter_mut() {
+            *qubit = [qubit[0] * *rhs, qubit[1]];
         }
-        Self {
-            rank: self.rank,
-            data: self.data,
-            shape: self.shape,
-        }
+        Self { data: self.data }
     }
 }
 
-// impl<T> Mul<&Tensor<T>> for Tensor<T>
-// where
-//     T: Clone + Display + Debug + std::ops::Add
-// {
-//     type Output = Tensor<T>;
+impl<T: std::simd::SimdElement + std::cmp::PartialEq, const N: usize> PartialEq<Tensor<T, { N }>>
+    for Tensor<T, { N }>
+{
+    fn eq(&self, other: &Tensor<T, { N }>) -> bool {
+        let mut fact = true;
+        let mut cursor = self.data.iter().zip(other.data.iter());
 
-//     fn mul(self, rhs: &Tensor<T>) -> Self::Output {
-//         fn kronecker () {
-
-//         }
-        
-//     }
-// }
-
-// impl<T> Tensor<T> {
-//     fn basis(&self) -> Vec<T>{
-//         let mut outputs = vec![];
-//         for [lhs, rhs] in self.shape.windows(2) {
-
-//         }
-
-//     }
-// }
-
-pub fn new<T>(shape: Vec<usize>, data: Vec<T>) -> Tensor<T> {
-    if data.is_empty() {
-        panic!("Tensor data cannot be empty.")
+        while let Some((qubit, rhs)) = cursor.next() {
+            if qubit[0] != rhs[0] {
+                fact = false;
+                break;
+            }
+        }
+        fact
     }
-    if shape.contains(&0) {
-        panic!("Tensor shape cannot have a value of 0.")
+}
+
+impl<T, const N: usize> core::ops::Add<&Tensor<T, { N }>> for Tensor<T, { N }>
+where
+    T: std::simd::SimdElement + std::ops::Add<Output = T>,
+{
+    type Output = Tensor<T, { N }>;
+
+    fn add(mut self, other: &Tensor<T, { N }>) -> Self::Output {
+        for (qubit, rhs) in self.data.iter_mut().zip(other.data.iter()) {
+            *qubit = [qubit[0] + rhs[0], qubit[1] + rhs[1]];
+        }
+        Self { data: self.data }
     }
-    if shape.len() <= 1 {
-        panic!("Tensor shape cannot be equalivalent to scalar. Rather use rust number literal https://doc.rust-lang.org/beta/book/ch03-02-data-types.html")
+}
+
+impl<T, const N: usize> core::ops::Sub<&Tensor<T, { N }>> for Tensor<T, { N }>
+where
+    T: std::simd::SimdElement + std::ops::Sub<Output = T>,
+{
+    type Output = Tensor<T, { N }>;
+
+    fn sub(mut self, other: &Tensor<T, { N }>) -> Self::Output {
+        for (qubit, rhs) in self.data.iter_mut().zip(other.data.iter()) {
+            *qubit = [qubit[0] - rhs[0], qubit[1] - rhs[1]];
+        }
+        Self { data: self.data }
     }
-    let mut rank = Rank::Matrix;
-    if shape.len() <= 2 && shape.contains(&1) {
-        rank = Rank::Vector;
+}
+
+impl<T, const N: usize> core::ops::Mul<&Qubit<T>> for Tensor<T, { N }>
+where
+    T: std::simd::SimdElement + std::ops::Mul<Output = T> + std::ops::Add<Output = T>,
+{
+    type Output = Tensor<T, { N }>;
+
+    fn mul(mut self, other: &Qubit<T>) -> Self::Output {
+        for mut qubit in self.data.iter_mut() {
+            *qubit = [
+                qubit[0] * other[0] + qubit[1] * other[1],
+                qubit[0] * other[1] + qubit[1] * other[0],
+            ];
+        }
+        Self { data: self.data }
     }
-    Tensor { data: Simd::from(data), shape, rank }
 }

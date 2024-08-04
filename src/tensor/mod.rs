@@ -5,6 +5,7 @@ use rand::Rng;
 use std::fmt::Debug;
 
 type Qubit<T> = [T; 2];
+
 #[derive(Debug)]
 pub(crate) struct Tensor<T, const N: usize> {
     data: Vec<Qubit<T>>,

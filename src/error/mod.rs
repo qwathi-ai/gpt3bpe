@@ -26,11 +26,6 @@ impl From<FromUtf8Error> for Error {
         Error::FromUTF8(error)
     }
 }
-impl From<FromUtf16Error> for Error {
-    fn from(error: FromUtf16Error) -> Self {
-        Error::FromUTF16(error)
-    }
-}
 impl From<regex::Error> for Error {
     fn from(error: regex::Error) -> Self {
         Error::Regex(error)

@@ -7,65 +7,70 @@ use unicode_segmentation::UnicodeSegmentation;
 
 lazy_static! {
     #[derive(Debug)]
-    static ref TEXT_ENCODER: BTreeMap<String, i32>  ={
+    static ref ENCODER: BTreeMap<Vec<u8>, u32> ={
         let mut encoder = std::collections::BTreeMap::new();
         let file = std::fs::File::open("src/encoder/text.jsonl").expect("[ERROR]: Unable to open file encoder/text.jsonl");
         let file = std::io::BufReader::new(file);
 
-        for (_idx, line) in std::io::BufRead::lines(file).enumerate() {
+        for line in std::io::BufRead::lines(file) {
             let _line = line.unwrap();
-            let data: BTreeMap<String,i32>  = serde_json::from_str(_line.as_str()).unwrap();
-            encoder.extend(data)
-        }
+            let mut data: Vec<(String,u32)>  = serde_json::from_str(_line.as_str()).expect("REASON");
+            while let Some((key, value)) = data.pop() {
+                encoder.insert(key.into_bytes(), value);
+            };
+        };
         encoder
     };
 
-    static ref TEXT_DECODER: BTreeMap<i32, String> = {
-        let mut decode: BTreeMap<i32, String> = std::collections::BTreeMap::new();
-        for (key, value) in TEXT_ENCODER.iter() {
-            if key.split_whitespace().count() == 1 {
-                decode.insert(value.to_owned(), key.to_string());
-            }
-        }
+    #[derive(Debug)]
+    static ref DECODER: BTreeMap<u32, Vec<u8>> = {
+        let mut decode = std::collections::BTreeMap::new();
+
+        for (key, value) in ENCODER.iter() {
+            let string: String = String::from_utf8(key.to_vec()).expect("REASON");
+            
+            if string.split_whitespace().count() == 1 {
+                decode.insert(value.clone(), key.to_vec());
+            };
+        };
         decode
     };
 }
 
-fn get_pair(pair: &[String; 2]) -> Option<&'static i32> {
-    let key = format!("{} {}", pair[0], pair[1]);
-    TEXT_ENCODER.get(key.as_str())
+type BytePair<T> = [T;2];
+
+trait ByteParing<T> {
+    can_join()
+}
+struct Encoder<T> {
+    grapheme: Vec<T>,
+    cache: HashSet<BytePair<T>>,
+    bigrams: Vec<BytePair<T>>
 }
 
-fn _encode(grapheme: &Vec<String>) -> Option<Vec<i32>> {
-    let mut encoding = vec![];
-    for key in grapheme {
-        if let Some(value) = TEXT_ENCODER.get(key.as_str()) {
-            encoding.push(*value)
-        }
-    }
 
-    match grapheme.len() == encoding.len() {
-        true => Some(encoding),
-        false => None,
-    }
-}
 
-pub fn decode(encoding: &Vec<i32>) -> Result<Vec<String>, crate::error::Error> {
-    let mut decoding = vec![];
-    for key in encoding {
-        if let Some(value) = TEXT_DECODER.get(key) {
-            decoding.push(value.to_string())
-        }
-    }
+// impl Encoder {
+//     // fn get_pair(pair: &[String; 2]) -> Option<&'static i32> {
+//     //     let key = format!("{} {}", pair[0], pair[1]);
+//     //     ENCODER.get(key.as_str())
+//     // }
+//     // 
+//     // fn join(pair: &BytePair<T>) -> T {
+//     //     pair.iter().map(|part| part.as_str()).collect()
+//     // }
+//     // // Addition
+//     // fn merge(grapheme: &[String], pair: &[String; 2]) -> Vec<String> {
+//     //     todo!()
+//     // }
+//     // fn from_pairs(pairs: &Vec<[T; 2]>) -> Vec<T> {
+//     //     todo!()
+//     // }
+//     // fn can_join(pair: &[String; 2], comparison: &[String; 2]) -> bool {
+//     //     todo!()
+//     // }
+// }
 
-    match decoding.len() == encoding.len() {
-        true => Ok(decoding),
-        false => panic!(
-            "[ERROR]: integer in grapheme {:?} could not be decoded.",
-            encoding
-        ),
-    }
-}
 
 fn can_join(pair: &[String; 2], comparison: &[String; 2]) -> bool {
     let pair_left: Vec<&str> = {
@@ -118,6 +123,7 @@ fn to_pairs(parts: &[String]) -> Vec<[String; 2]> {
         .collect()
 }
 
+// this becomes an iterator 
 fn merge(grapheme: &[String], pair: &[String; 2]) -> Vec<String> {
     let mut response: Vec<String> = grapheme.to_vec();
     let parts = to_pairs(&response);
@@ -145,13 +151,27 @@ fn merge(grapheme: &[String], pair: &[String; 2]) -> Vec<String> {
     response
 }
 
-pub fn encode(grapheme: &[&str]) -> Result<Vec<i32>, crate::error::Error> {
-    let mut graph: Vec<String> = grapheme.iter().map(|p| p.to_string()).collect();
 
-    let mut encoding = match _encode(&graph) {
+// Remains a public function
+pub fn encode<T>(bytes: Vec<T>) -> Result<Vec<u16>, crate::error::Error> {
+    // let mut graph: Vec<String> = grapheme.iter().map(|p| p.to_string()).collect();
+
+    let mut encoding = match {
+        let mut encoding = vec![];
+        for key in grapheme.iter() {
+            if let Some(value) = ENCODER.get(key.as_str()) {
+                encoding.push(*value)
+            }
+        }
+
+        match &graph.len() == &encoding.len() {
+            true => Some(encoding),
+            false => None,
+        }
+    } {
         Some(value) => value,
         None => panic!(
-            "[ERROR]: character in grapheme {:?} could not be encoded.",
+            "[ERROR]: character in below: \n\n{:?}\n\n could not be encoded.",
             graph
         ),
     };
@@ -195,4 +215,22 @@ pub fn encode(grapheme: &[&str]) -> Result<Vec<i32>, crate::error::Error> {
         }
     }
     Ok(encoding.to_vec())
+}
+
+// Remains a public function
+pub fn decode(encoding: &Vec<i32>) -> Result<Vec<String>, crate::error::Error> {
+    let mut decoding = vec![];
+    for key in encoding {
+        if let Some(value) = TEXT_DECODER.get(key) {
+            decoding.push(value.to_string())
+        }
+    }
+
+    match decoding.len() == encoding.len() {
+        true => Ok(decoding),
+        false => panic!(
+            "[ERROR]: integer in grapheme {:?} could not be decoded.",
+            encoding
+        ),
+    }
 }

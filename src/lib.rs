@@ -1,6 +1,6 @@
 #![feature(portable_simd)]
-#![feature(generic_arg_infer)]
-
+#![feature(str_from_utf16_endian)]
+// #![feature(generic_arg_infer)]
 
 mod encoder;
 mod error;
@@ -8,23 +8,55 @@ mod text;
 // mod tensor;
 
 mod bytes {
-    use std::io::Read;
     use crate::text;
+    // use crate::encoder;
+
+    pub fn encode(slice: &[u8]) -> Vec<u16> {
+        // let mut grapheme = text::grapheme(slice).unwrap();
+        // let encoded = vec![];
+        // for graph in grapheme.drain(..) {
+        //     let encoding: Vec<u16> = encoder::new(graph).unwrap();
+        //     encoded.push(encoding);
+        // }
+        // encoded.concat()
+        todo!()
+    }
+
+    pub fn decode(slice: &[u16]) -> Vec<u8> {
+        // let mut ngram = text::ngram(slice.to_vec()).unwrap();
+        // let encoded = vec![];
+        // for graph in grapheme.drain(..) {
+        //     let encoding: Vec<u16> = encoder::new(graph).unwrap();
+        //     encoded.push(encoding);
+        // }
+        // encoded.concat()
+        todo!()
+    }
+}
+
+mod ffi {
+    use crate::bytes;
 
     fn read<T>(buffer: *const T, length: usize) -> &'static [T] {
         unsafe { std::slice::from_raw_parts(buffer, length) }
     }
 
-    // #[no_mangle]
-    // pub extern "C" fn encode(bytes: *const u8, length: usize) -> *const u16 {
-    //     let mut slice = read(bytes, length);
-    //     let mut t = text::bytes::
-    //     todo!()
-    //     // slice.read_to_string(&mut buffer).unwrap();
-    //     // let encode = crate::text::encode(&buffer).unwrap();
-    //     // encode.as_ptr()
-    // }
+    #[no_mangle]
+    pub extern "C" fn encode(bytes: *const u8, length: usize) -> *const u16 {
+        let slice = read(bytes, length);
+        let encoding = bytes::encode(slice);
+        encoding.as_ptr()
+    }
+
+    #[no_mangle]
+    pub extern "C" fn decode(bytes: *const u16, length: usize) -> *const u8 {
+        let slice = read(bytes, length);
+        let encoding = bytes::decode(slice);
+        encoding.as_ptr()
+    }
 }
+
+
 
     // pub fn encode(text: &[u8]) -> String {
     

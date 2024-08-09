@@ -51,33 +51,34 @@ lazy_static! {
     };
 }
 
-fn grapheme(bytes: &[u8]) -> Result<Vec<Vec<u8>>, crate::error::Error> {
-    let symbol_to_chars = |symbol: &str| -> Vec<u8> {
+pub fn grapheme(slice: &[u8]) -> Result<Vec<Vec<u8>>, crate::error::Error> {
+    let symbol_to_bytes = |symbol: &str| -> Vec<Vec<u8>> {
         symbol
             .chars()
-            .flat_map(|c| -> Vec<u8> { String::from(c).into_bytes() })
-            .flat_map(|c| -> Vec<u8> {
+            .flat_map(|c| -> Vec<u8> { 
+                println!("{:?} -> {:?}", c, String::from(c).into_bytes());
+                String::from(c).into_bytes() 
+            })
+            .map(|c| -> Vec<u8> {
                 match crate::text::ENCODER.get(&(c as u16)) {
-                    Some(ch) => ch.to_vec(),
+                    Some(ch) => { 
+                        println!("{:?}", ch);
+                        ch.to_vec()
+                    },
                     None => panic!("[ERROR]: Encoding value for '{:?}' not found!", c),
                 }
             })
             .collect()
     };
 
-    let ngram = String::from_utf8(bytes.to_vec()).unwrap();
+    let ngram = String::from_utf8(slice.to_vec()).unwrap();
 
     Ok(UnicodeSegmentation::graphemes(ngram.as_str(), true)
-        .map(|symbol| -> Vec<u8> { symbol_to_chars(symbol) })
+        .flat_map(|symbol| -> Vec<Vec<u8>> { symbol_to_bytes(symbol) })
         .collect())
 }
 
-fn ngram<T: std::hash::Hash + std::cmp::Eq + std::fmt::Debug>(
-    grapheme: Vec<T>,
-) -> Result<Vec<u16>, crate::error::Error>
-where
-    Vec<u8>: std::borrow::Borrow<T>,
-{
+pub fn ngram(grapheme: &Vec<Vec<u8>>) -> Result<Vec<u16>, crate::error::Error> {
     Ok(grapheme
         .iter()
         .map(|graph| -> u16 {
@@ -89,11 +90,10 @@ where
         .collect())
 }
 
-pub fn words(text: &str) -> Result<Vec<u16>, crate::error::Error> {
+pub fn words(slice: &[u8]) -> Result<Vec<Vec<u8>>, crate::error::Error> {
     Ok(Regex::new(&crate::text::WORD_RE)
         .unwrap()
-        .find_iter(text.as_bytes())
-        .map(|m| -> Vec<Vec<u8>> { grapheme(m.as_bytes()).unwrap() })
-        .flat_map(|str| -> Vec<u16> { ngram(str).unwrap() })
+        .find_iter(slice)
+        .map(|m| -> Vec<u8> { m.as_bytes().to_vec()})
         .collect())
 }

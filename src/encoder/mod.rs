@@ -2,19 +2,20 @@ mod unit;
 use lazy_static::lazy_static;
 use std::collections::BTreeMap;
 use std::collections::HashSet;
-use std::mem::swap;
 use unicode_segmentation::UnicodeSegmentation;
 
 lazy_static! {
     #[derive(Debug)]
-    static ref ENCODER: BTreeMap<Vec<u8>, u32> ={
+    static ref ENCODER: BTreeMap<Vec<u8>, u16> ={
         let mut encoder = std::collections::BTreeMap::new();
-        let file = std::fs::File::open("src/encoder/text.jsonl").expect("[ERROR]: Unable to open file encoder/text.jsonl");
+        let file = std::fs::File::open("src/encoder/bytepairs.jsonl")
+        .expect("[ERROR]: Unable to open file encoder/bytepairs.jsonl");
         let file = std::io::BufReader::new(file);
 
         for line in std::io::BufRead::lines(file) {
             let _line = line.unwrap();
-            let mut data: Vec<(String,u32)>  = serde_json::from_str(_line.as_str()).expect("REASON");
+            let mut data: Vec<(String,u16)>  = serde_json::from_str(_line.as_str())
+            .expect("[ERROR]: Unable to read file encoder/bytepairs.jsonl");
             while let Some((key, value)) = data.pop() {
                 encoder.insert(key.into_bytes(), value);
             };
@@ -23,12 +24,13 @@ lazy_static! {
     };
 
     #[derive(Debug)]
-    static ref DECODER: BTreeMap<u32, Vec<u8>> = {
+    static ref DECODER: BTreeMap<u16, Vec<u8>> = {
         let mut decode = std::collections::BTreeMap::new();
 
         for (key, value) in ENCODER.iter() {
-            let string: String = String::from_utf8(key.to_vec()).expect("REASON");
-            
+            let string: String = String::from_utf8(key.to_vec())
+            .expect("[ERROR]: Unable to split file encoder/bytepairs.jsonl");
+
             if string.split_whitespace().count() == 1 {
                 decode.insert(value.clone(), key.to_vec());
             };
@@ -37,197 +39,167 @@ lazy_static! {
     };
 }
 
-type BytePair<T> = [T;2];
+fn segment(bytes: &[u8]) -> Result<Vec<String>, crate::error::Error> {
+    let text = String::from_utf16le(bytes).unwrap();
 
-trait ByteParing<T> {
-    can_join()
-}
-struct Encoder<T> {
-    grapheme: Vec<T>,
-    cache: HashSet<BytePair<T>>,
-    bigrams: Vec<BytePair<T>>
+    Ok(UnicodeSegmentation::graphemes(text.as_str(), true)
+        .map(|segment| segment.to_string())
+        .collect())
 }
 
-
-
-// impl Encoder {
-//     // fn get_pair(pair: &[String; 2]) -> Option<&'static i32> {
-//     //     let key = format!("{} {}", pair[0], pair[1]);
-//     //     ENCODER.get(key.as_str())
-//     // }
-//     // 
-//     // fn join(pair: &BytePair<T>) -> T {
-//     //     pair.iter().map(|part| part.as_str()).collect()
-//     // }
-//     // // Addition
-//     // fn merge(grapheme: &[String], pair: &[String; 2]) -> Vec<String> {
-//     //     todo!()
-//     // }
-//     // fn from_pairs(pairs: &Vec<[T; 2]>) -> Vec<T> {
-//     //     todo!()
-//     // }
-//     // fn can_join(pair: &[String; 2], comparison: &[String; 2]) -> bool {
-//     //     todo!()
-//     // }
-// }
-
-
-fn can_join(pair: &[String; 2], comparison: &[String; 2]) -> bool {
-    let pair_left: Vec<&str> = {
-        let part: &str = &pair[0];
-        UnicodeSegmentation::graphemes(part, true).collect()
-    };
-    let pair_right: Vec<&str> = {
-        let part: &str = &pair[1];
-        UnicodeSegmentation::graphemes(part, true).collect()
-    };
-    let comparison_left: Vec<&str> = {
-        let part: &str = &comparison[0];
-        UnicodeSegmentation::graphemes(part, true).collect()
-    };
-    let comparison_right: Vec<&str> = {
-        let part: &str = &comparison[1];
-        UnicodeSegmentation::graphemes(part, true).collect()
-    };
-
-    pair_left.last() == comparison_left.last() && pair_right.first() == comparison_right.first()
+#[derive(Eq, Hash, PartialEq, Clone)]
+struct BytePair {
+    pair: [Vec<u8>; 2],
 }
 
-fn join(pair: &[String; 2]) -> String {
-    pair.iter().map(|part| part.as_str()).collect()
+impl BytePair {
+    fn compatible(&self, other: &BytePair) -> bool {
+        let pair_left = segment(&self.pair[0]).unwrap();
+        let pair_right = segment(&self.pair[1]).unwrap();
+        let comparison_left = segment(&other.pair[0]).unwrap();
+        let comparison_right = segment(&other.pair[1]).unwrap();
+        pair_right.first() == comparison_right.first() && pair_left.last() == comparison_left.last()
+    }
 }
 
-fn from_pairs(pairs: &Vec<[String; 2]>) -> Vec<String> {
-    let mut parts = vec![];
+impl std::ops::Add<&BytePair> for BytePair {
+    type Output = BytePair;
 
-    if pairs.len() == 1 {
-        let part = join(&pairs[0]);
-        parts.push(part);
-        return parts.to_vec();
-    };
+    fn add(mut self, rhs: &BytePair) -> Self::Output {
+        self.pair[0] = [self.pair[0].clone(), self.pair[1].clone()].concat();
+        self.pair[1] = [rhs.pair[0].clone(), rhs.pair[1].clone()].concat();
+        self
+    }
+}
 
-    let mut cursor = pairs.iter().peekable();
-    while let Some(part) = cursor.next() {
-        parts.push(part[0].to_owned());
-        if cursor.peek().is_none() {
-            parts.push(part[1].to_owned());
+struct Encoder {
+    pub grapheme: Vec<Vec<u8>>,
+    cache: HashSet<[Vec<u8>; 2]>,
+    bigrams: Vec<(u16, BytePair)>,
+}
+
+impl Encoder {
+    fn new(grapheme: &Vec<Vec<u8>>) -> Self {
+        let encoder = Encoder {
+            grapheme: grapheme.to_vec(),
+            cache: HashSet::new(),
+            bigrams: vec![],
         };
+        encoder.update()
+    }
+    fn update(mut self) -> Self {
+        while let Some([left, right]) = self.grapheme.windows(2).next() {
+            if !self.cache.contains(&[left.clone(), right.clone()]) {
+                if let Some(rank) = ENCODER.get(&[left.clone(), right.clone()].concat()) {
+                    self.bigrams.push((
+                        *rank,
+                        BytePair {
+                            pair: [left.clone(), right.clone()],
+                        },
+                    ))
+                }
+                self.cache.insert([left.clone(), right.clone()]);
+            }
+        }
+        self
+    }
+}
+
+fn zip(bigrams: &Vec<(u16, BytePair)>) -> Vec<Vec<u8>> {
+    let mut cursor = bigrams
+        .iter()
+        .map(|gram| -> BytePair { gram.1.clone() })
+        .peekable();
+
+    let mut parts = vec![];
+    while let Some(byte) = cursor.next() {
+        parts.push(byte.pair[0].clone());
+        if cursor.peek().is_none() {
+            parts.push(byte.pair[1].clone());
+        }
     }
     parts.to_vec()
 }
 
-fn to_pairs(parts: &[String]) -> Vec<[String; 2]> {
-    parts
-        .windows(2)
-        .map(|pair| [pair[0].to_owned(), pair[1].to_owned()])
-        .collect()
-}
+impl std::ops::Add<&BytePair> for Encoder {
+    type Output = Encoder;
 
-// this becomes an iterator 
-fn merge(grapheme: &[String], pair: &[String; 2]) -> Vec<String> {
-    let mut response: Vec<String> = grapheme.to_vec();
-    let parts = to_pairs(&response);
-    let mut binding = parts.to_vec();
-    let mut cursor = parts.iter().enumerate().peekable();
+    fn add(mut self, pair: &BytePair) -> Self::Output {
+        let last = self.bigrams.len();
+        let mut cursor = self.bigrams.iter_mut().enumerate().peekable();
 
-    while let Some((index, current)) = cursor.next() {
-        if let Some((_, next)) = cursor.peek() {
-            if can_join(pair, current) {
-                let left = join(current);
-                swap(&mut binding[index], &mut [left, next[1].to_owned()]);
-                binding.remove(index + 1);
-                response = from_pairs(&binding);
-                break;
-            };
-            if can_join(pair, next) && (index + 1) == binding.len() {
-                let right = join(next);
-                swap(&mut binding[index], &mut [current[0].to_owned(), right]);
-                binding.remove(index + 1);
-                response = from_pairs(&binding);
-                break;
-            };
-        }
-    }
-    response
-}
-
-
-// Remains a public function
-pub fn encode<T>(bytes: Vec<T>) -> Result<Vec<u16>, crate::error::Error> {
-    // let mut graph: Vec<String> = grapheme.iter().map(|p| p.to_string()).collect();
-
-    let mut encoding = match {
-        let mut encoding = vec![];
-        for key in grapheme.iter() {
-            if let Some(value) = ENCODER.get(key.as_str()) {
-                encoding.push(*value)
+        while let Some((index, current)) = cursor.next() {
+            if let Some((_, next)) = cursor.peek() {
+                if next.1.compatible(&pair) && (index + 1) == last {
+                    let replace = next.1.to_owned().to_owned() + pair;
+                    current.1 = BytePair {
+                        pair: [current.1.pair[0].to_owned(), replace.pair[0].to_owned()],
+                    };
+                    self.bigrams.remove(index + 1);
+                    self.grapheme = zip(&self.bigrams);
+                    self = self.update();
+                    break;
+                };
+                if current.1.compatible(&pair) {
+                    let replace = current.1.to_owned() + pair;
+                    current.1 = BytePair {
+                        pair: [replace.pair[0].to_owned(), next.1.pair[1].to_owned()],
+                    };
+                    self.bigrams.remove(index + 1);
+                    self.grapheme = zip(&self.bigrams);
+                    self = self.update();
+                    break;
+                };
             }
         }
+        self
+    }
+}
 
-        match &graph.len() == &encoding.len() {
-            true => Some(encoding),
-            false => None,
-        }
-    } {
-        Some(value) => value,
-        None => panic!(
-            "[ERROR]: character in below: \n\n{:?}\n\n could not be encoded.",
-            graph
-        ),
-    };
-
-    if to_pairs(&graph).is_empty() {
-        return Ok(encoding);
-    };
-
-    let mut cache = HashSet::new();
-    let mut bigrams = vec![];
-
+// Remains a public function
+pub fn encode(grapheme: &Vec<Vec<u8>>) -> Result<Vec<Vec<u16>>, crate::error::Error> {
+    let mut encoder = Encoder::new(&grapheme);
+    let mut encoding = vec![];
     'pairing: loop {
-        for [left, right] in to_pairs(&graph) {
-            if !cache.contains(&[left.clone(), right.clone()]) {
-                if let Some(rank) = get_pair(&[left.clone(), right.clone()]) {
-                    bigrams.push((rank, [left.clone(), right.clone()]));
-                };
-                cache.insert([left, right]);
-            };
-        }
-
-        if bigrams.is_empty() {
+        if encoder.bigrams.is_empty() {
             break 'pairing;
         }
+        encoder.bigrams.sort_by(|a, b| a.0.cmp(&b.0));
 
-        bigrams.sort_by(|a, b| a.0.cmp(b.0));
+        'encoding: while let Some((rank, bytepair)) = encoder.bigrams.pop() {
+            let encoder = encoder + &bytepair;
+            if encoder.grapheme.len() != grapheme.len() {
+                encoding = vec![];
+                for key in encoder.grapheme {
+                    if let Some(value) = ENCODER.get(&key) {
+                        encoding.push(vec![*value])
+                    }
+                }
 
-        'encoding: while let Some((_rank, bigram)) = bigrams.pop() {
-            let _graph = merge(&graph, &bigram);
-            if _graph.len() != graph.len() {
-                match _encode(&_graph) {
-                    Some(value) => encoding = value,
-                    None => continue 'encoding,
-                };
-                graph = _graph;
+                if encoder.grapheme.len() == encoding.len() {
+                    encoder.update(&encoding.to_vec());
+                }
             }
         }
 
-        if graph.len() <= 1 {
+        if encoder.grapheme.len() <= 1 {
             break 'pairing;
         }
     }
-    Ok(encoding.to_vec())
+    Ok(encoding)
 }
 
 // Remains a public function
-pub fn decode(encoding: &Vec<i32>) -> Result<Vec<String>, crate::error::Error> {
+pub fn decode(encoding: &Vec<u16>) -> Result<Vec<Vec<u8>>, crate::error::Error> {
     let mut decoding = vec![];
     for key in encoding {
-        if let Some(value) = TEXT_DECODER.get(key) {
-            decoding.push(value.to_string())
+        if let Some(value) = DECODER.get(key) {
+            decoding.push(value.to_vec())
         }
     }
 
     match decoding.len() == encoding.len() {
-        true => Ok(decoding),
+        true => Ok(decoding.to_vec()),
         false => panic!(
             "[ERROR]: integer in grapheme {:?} could not be decoded.",
             encoding

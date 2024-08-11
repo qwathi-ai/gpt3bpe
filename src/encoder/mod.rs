@@ -100,10 +100,11 @@ impl Encoder{
         }
     }
     fn update(mut self) -> Encoder {
-        let binding = self.grapheme.clone().clone();
+        let binding = self.grapheme.clone();
 
         while let Some([left, right]) = binding.windows(2).next() {
             let pair = [left.clone(), right.clone()];
+            println!("[DEBUG]: Pair => {:?}", pair);
 
             if !self.cache.contains(&pair) {
                 if let Some(rank) = ENCODER.get(&pair.clone().concat()) {
@@ -180,31 +181,33 @@ pub fn encode(grapheme: &Vec<Vec<u8>>) -> Result<Vec<Vec<u16>>, crate::error::Er
         Some(enc) => enc,
         None => panic!("[ERROR]: Error encoding a character in {:?}", grapheme),
     };
+    encoder = encoder.update();
     println!("[DEBUG]: {:?} -> {:?} -> {:?}", grapheme, encoder, encoding);
 
-    'pairing: loop {
-        encoder = encoder.update();
-        if encoding.len() <= 1 || encoder.clone().bigrams.is_empty(){
-            break 'pairing;
-        };
-        encoder.clone().bigrams.sort_by(|a, b| a.0.cmp(&b.0));
+    // 'pairing: loop {
+    //     encoder = encoder.update();
+    //     println!("[DEBUG]: Encoder after update => {:?}", encoder);
+    //     if encoding.len() <= 1 || encoder.clone().bigrams.is_empty(){
+    //         break 'pairing;
+    //     };
+    //     encoder.clone().bigrams.sort_by(|a, b| a.0.cmp(&b.0));
 
-        while let Some((_rank, bytepair)) = encoder.clone().bigrams.pop() {
-            let encoder = encoder.clone() + &bytepair;
+    //     while let Some((_rank, bytepair)) = encoder.clone().bigrams.pop() {
+    //         let encoder = encoder.clone() + &bytepair;
 
-            if encoder.grapheme.len() != encoding.len() {
-                let mut _encoding = vec![];
-                for key in encoder.grapheme.iter() {
-                    if let Some(value) = ENCODER.get(key) {
-                        _encoding.push(vec![*value])
-                    }
-                };
-                if &encoder.grapheme.len() == &_encoding.len() {
-                    encoding = _encoding;
-                }
-            }
-        };
-    }
+    //         if encoder.grapheme.len() != encoding.len() {
+    //             let mut _encoding = vec![];
+    //             for key in encoder.grapheme.iter() {
+    //                 if let Some(value) = ENCODER.get(key) {
+    //                     _encoding.push(vec![*value])
+    //                 }
+    //             };
+    //             if &encoder.grapheme.len() == &_encoding.len() {
+    //                 encoding = _encoding;
+    //             }
+    //         }
+    //     };
+    // }
     Ok(encoding)
 }
 

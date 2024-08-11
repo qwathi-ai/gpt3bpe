@@ -14,11 +14,11 @@ lazy_static! {
 
         for line in std::io::BufRead::lines(file) {
             let _line = line.unwrap();
-            let mut data: Vec<(String,u16)>  = serde_json::from_str(_line.as_str())
-            .expect("[ERROR]: Unable to read file encoder/bytepairs.jsonl");
-            while let Some((key, value)) = data.pop() {
+            let mut data: BTreeMap<String,u16>  = serde_json::from_str(_line.as_str())
+                .expect("[ERROR]: Unable to read file encoder/bytepairs.jsonl");
+            while let Some((key, value)) = data.pop_first() {
                 encoder.insert(key.into_bytes(), value);
-            };
+            }
         };
         encoder
     };
@@ -47,12 +47,12 @@ fn segment(bytes: &[u8]) -> Result<Vec<String>, crate::error::Error> {
         .collect())
 }
 
-#[derive(Eq, Hash, PartialEq, Clone)]
-struct BytePair {
+#[derive(Eq, Hash, PartialEq, Clone, Debug)]
+struct BytePair{
     pair: [Vec<u8>; 2],
 }
 
-impl BytePair {
+impl BytePair{
     fn compatible(&self, other: &BytePair) -> bool {
         let pair_left = segment(&self.pair[0]).unwrap();
         let pair_right = segment(&self.pair[1]).unwrap();
@@ -62,46 +62,63 @@ impl BytePair {
     }
 }
 
-impl std::ops::Add<&BytePair> for BytePair {
+impl std::ops::Add< &BytePair> for BytePair{
     type Output = BytePair;
 
     fn add(mut self, rhs: &BytePair) -> Self::Output {
-        self.pair[0] = [self.pair[0].clone(), self.pair[1].clone()].concat();
+        self.pair[0] = [self.pair[0].to_owned(), self.pair[1].to_owned()].concat();
         self.pair[1] = [rhs.pair[0].clone(), rhs.pair[1].clone()].concat();
         self
     }
 }
-
+#[derive(Clone, Debug)]
 struct Encoder {
     pub grapheme: Vec<Vec<u8>>,
     cache: HashSet<[Vec<u8>; 2]>,
     bigrams: Vec<(u16, BytePair)>,
 }
 
-impl Encoder {
+impl Encoder{
     fn new(grapheme: &Vec<Vec<u8>>) -> Self {
-        let encoder = Encoder {
+        Encoder {
             grapheme: grapheme.to_vec(),
             cache: HashSet::new(),
             bigrams: vec![],
-        };
-        encoder.update()
+        }
     }
-    fn update(mut self) -> Self {
-        while let Some([left, right]) = self.grapheme.windows(2).next() {
-            if !self.cache.contains(&[left.clone(), right.clone()]) {
-                if let Some(rank) = ENCODER.get(&[left.clone(), right.clone()].concat()) {
+    fn encoding(&self) -> Option<Vec<Vec<u16>>> {
+        let mut encoding = vec![];
+        for key in self.grapheme.iter() {
+            if let Some(value) = ENCODER.get(key) {
+                encoding.push(vec![*value])
+            }
+        }
+    
+        match self.grapheme.len() == encoding.len() {
+            true => Some(encoding),
+            false => None,
+        }
+    }
+    fn update(mut self) -> Encoder {
+        let binding = self.grapheme.clone().clone();
+
+        while let Some([left, right]) = binding.windows(2).next() {
+            let pair = [left.clone(), right.clone()];
+
+            if !self.cache.contains(&pair) {
+                if let Some(rank) = ENCODER.get(&pair.clone().concat()) {
                     self.bigrams.push((
                         *rank,
                         BytePair {
-                            pair: [left.clone(), right.clone()],
+                            pair: [left.to_vec(), right.to_vec()],
                         },
                     ))
                 }
-                self.cache.insert([left.clone(), right.clone()]);
+                self.cache.insert(pair);
             }
         }
-        self
+
+        Self { grapheme: binding, cache: self.cache, bigrams: self.bigrams }
     }
 }
 
@@ -159,32 +176,34 @@ impl std::ops::Add<&BytePair> for Encoder {
 // Remains a public function
 pub fn encode(grapheme: &Vec<Vec<u8>>) -> Result<Vec<Vec<u16>>, crate::error::Error> {
     let mut encoder = Encoder::new(&grapheme);
-    let mut encoding = vec![];
+    let mut encoding = match encoder.encoding() {
+        Some(enc) => enc,
+        None => panic!("[ERROR]: Error encoding a character in {:?}", grapheme),
+    };
+    println!("[DEBUG]: {:?} -> {:?} -> {:?}", grapheme, encoder, encoding);
+
     'pairing: loop {
-        if encoder.bigrams.is_empty() {
+        encoder = encoder.update();
+        if encoding.len() <= 1 || encoder.clone().bigrams.is_empty(){
             break 'pairing;
-        }
-        encoder.bigrams.sort_by(|a, b| a.0.cmp(&b.0));
+        };
+        encoder.clone().bigrams.sort_by(|a, b| a.0.cmp(&b.0));
 
-        'encoding: while let Some((rank, bytepair)) = encoder.bigrams.pop() {
-            let encoder = encoder + &bytepair;
-            if encoder.grapheme.len() != grapheme.len() {
-                encoding = vec![];
-                for key in encoder.grapheme {
-                    if let Some(value) = ENCODER.get(&key) {
-                        encoding.push(vec![*value])
+        while let Some((_rank, bytepair)) = encoder.clone().bigrams.pop() {
+            let encoder = encoder.clone() + &bytepair;
+
+            if encoder.grapheme.len() != encoding.len() {
+                let mut _encoding = vec![];
+                for key in encoder.grapheme.iter() {
+                    if let Some(value) = ENCODER.get(key) {
+                        _encoding.push(vec![*value])
                     }
-                }
-
-                if encoder.grapheme.len() == encoding.len() {
-                    encoder.update(&encoding.to_vec());
+                };
+                if &encoder.grapheme.len() == &_encoding.len() {
+                    encoding = _encoding;
                 }
             }
-        }
-
-        if encoder.grapheme.len() <= 1 {
-            break 'pairing;
-        }
+        };
     }
     Ok(encoding)
 }

@@ -29,7 +29,7 @@ profiler = true
 
 [profile.dev]
 opt-level = 1               # Use slightly better optimizations.
-overflow-checks = false
+overflow-checks = true
 
 [profile.release]
 strip = "debuginfo"

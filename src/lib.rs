@@ -1,11 +1,22 @@
-// #![feature(portable_simd)]
+//! # Art
+//!
+//! A library for modeling artistic concepts.
+//! 
 
+// #![feature(portable_simd)]
+// #![feature(str_from_utf16_endian)]
 mod tokenizer;
 mod error;
 // mod tensor;
 
 pub fn encode(slice: &[u8]) -> Vec<u16> {
-    tokenizer::encode(slice).unwrap()
+    let mut encoding = vec![];
+    while let Ok(token) = tokenizer::tokens(slice) {
+        encoding.extend(
+            tokenizer::encode(&token.concat()).unwrap()
+        );
+    };
+    encoding
 }
 
 pub fn decode(slice: &[u16]) -> Vec<u8> {

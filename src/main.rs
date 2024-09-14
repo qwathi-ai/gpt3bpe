@@ -1,8 +1,5 @@
-#![feature(portable_simd)]
-#![feature(str_from_utf16_endian)]
-mod tokenizer;
-mod error;
 use argh::FromArgs;
+use amile::encode;
 
 #[derive(FromArgs)]
 /// Reach new heights.

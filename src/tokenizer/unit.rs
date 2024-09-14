@@ -1,7 +1,7 @@
 use rand::seq::SliceRandom;
 use rand::{distributions::Alphanumeric, Rng};
 
-const UNIVERSE: [usize; 4] = [2, 4, 8, 16];
+const UNIVERSE: [usize; 5] = [2, 4, 8, 16, 32];
 
 fn from_vec(graph: Vec<&str>) -> Vec<Vec<u8>> {
     graph
@@ -19,7 +19,7 @@ fn random_text() -> Vec<Vec<String>> {
                 .sample_iter(&Alphanumeric)
                 .take(*UNIVERSE.choose(&mut rand::thread_rng()).unwrap())
                 .map(char::from)
-                .take_while(|c: &char| !c.is_numeric())
+                // .take_while(|c: &char| !c.is_numeric())
                 .collect();
             words.push(word);
         }
@@ -30,14 +30,20 @@ fn random_text() -> Vec<Vec<String>> {
 
 mod tests {
     // #[test]
-    fn words() {
+    fn tokens() {
         for mut words in super::random_text() {
-            let text = words.join(" ");
             for (index, word) in words.iter_mut().enumerate() {
+                let w : String= word
+                    .chars()
+                    .take_while(|c: &char| !c.is_numeric())
+                    .collect();
                 if index > 0 {
-                    *word = " ".to_string() + word;
-                };
-            }
+                    *word = " ".to_string() + &w;
+                } else {
+                    *word = w;
+                }
+            };
+            let text = words.join(" ");
             assert_eq!(
                 crate::tokenizer::tokens(text.as_bytes()).unwrap(),
                 words
@@ -84,26 +90,26 @@ mod tests {
         );
     }
 
-    // #[test]
-    // fn to_pairs() {
-    //     for words in super::random_text() {
-    //         for word in words {
-    //             let grapheme = crate::tokenizer::grapheme(word.as_bytes()).unwrap();
-    //             assert_eq!(
-    //                 crate::tokenizer::to_pairs(&grapheme),
-    //                 grapheme
-    //                     .windows(2)
-    //                     .map(|pair| -> crate::tokenizer::BytePair {
-    //                         [pair[0].to_owned(), pair[1].to_owned()]
-    //                     })
-    //                     .collect::<Vec<crate::tokenizer::BytePair>>()
-    //             );
-    //         }
-    //     }
-    // }
+    #[test]
+    fn to_pairs() {
+        for words in super::random_text() {
+            for word in words {
+                let grapheme = crate::tokenizer::grapheme(word.as_bytes()).unwrap();
+                assert_eq!(
+                    crate::tokenizer::to_pairs(&grapheme),
+                    grapheme
+                        .windows(2)
+                        .map(|pair| -> crate::tokenizer::BytePair {
+                            [pair[0].to_owned(), pair[1].to_owned()]
+                        })
+                        .collect::<Vec<crate::tokenizer::BytePair>>()
+                );
+            }
+        }
+    }
 
     // #[test]
-    // fn validate_merge() {
+    // fn validate_byte_merge() {
     //     for words in super::random_text() {
     //         for word in words {
     //             let grapheme = crate::tokenizer::grapheme(word.as_bytes()).unwrap();
@@ -111,26 +117,28 @@ mod tests {
     //             let mut cursor = pairs.iter().peekable();
     //             while let Some(current) = cursor.next() {
     //                 if let Some(next) = cursor.peek() {
-    //                     assert_eq!(crate::tokenizer::validate_merge(current, *next), true);
+    //                     assert_eq!(crate::tokenizer::validate_byte_merge(current, *next), true);
     //                 }
     //             }
     //         }
     //     }
     // }
 
-    // #[test]
-    // fn from_pairs() {
-    //     for words in super::random_text() {
-    //         for word in words {
-    //             let grapheme = crate::tokenizer::grapheme(word.as_bytes()).unwrap();
-    //             let pairs = crate::tokenizer::to_pairs(&grapheme);
-    //             assert_eq!(
-    //                 crate::tokenizer::from_pairs(&pairs),
-    //                 grapheme
-    //             );
-    //         }
-    //     }
-    // }
+    #[test]
+    fn from_pairs() {
+        for words in super::random_text() {
+            for word in words {
+                let grapheme = crate::tokenizer::grapheme(word.as_bytes()).unwrap();
+                let pairs = crate::tokenizer::to_pairs(&grapheme);
+                if pairs.len() > 1 {
+                    assert_eq!(
+                        crate::tokenizer::from_pairs(&pairs),
+                        grapheme
+                    );
+                }
+            }
+        }
+    }
 
     #[test]
     fn encode() {

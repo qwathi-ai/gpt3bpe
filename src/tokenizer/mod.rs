@@ -2,7 +2,6 @@ mod unit;
 use lazy_static::lazy_static;
 use regex::bytes::Regex;
 use std::collections::BTreeMap;
-use std::collections::HashMap;
 use std::collections::HashSet;
 use std::mem::swap;
 use unicode_segmentation::UnicodeSegmentation;
@@ -226,7 +225,7 @@ fn validate_byte_merge(this: &BytePair, other: &BytePair) -> bool {
 ///         from_pairs.push(right.to_vec());
 ///     };
 /// }
-/// assert_eq!(from_pairs.concat() , vec![1,2,3,4,5,6]);
+/// assert_eq!(from_pairs , vec![[1,2],[3,4],[5,6]]);
 /// ```
 /// ## From pairs
 fn from_pairs(bigrams: &Vec<BytePair>) -> Grapheme {
@@ -246,13 +245,32 @@ fn from_pairs(bigrams: &Vec<BytePair>) -> Grapheme {
 
     grapheme
 }
+
+
+/// ## Merge
+fn merge (bytepairing: Vec<BytePair>) -> Option<(Grapheme, Vec<u16>)> {
+    let grapheme = from_pairs(&bytepairing);
+    let mut tokens = vec![];
+    if {
+        for key in &grapheme {
+            if let Some(value) = BYTES_TO_TOKEN.get(key) {
+                tokens.push(*value)
+            };
+        }
+        tokens.len() == grapheme.len()
+    } {
+        Some((grapheme, tokens))
+    } else {
+        None
+    }
+}
 /// The BytePairEncoder struct is responsible for encoding and decoding text using the Byte Pair Encoding (BPE) method, 
 /// commonly used in GPT models for tokenization.
 struct BytePairEncoder {
     /// GPT UNICODE Representation of the text [extended grapheme clusters](https://docs.rs/unicode-segmentation/latest/unicode_segmentation/).
     /// 
     /// ## Grapheme
-    pub grapheme: Grapheme,
+    grapheme: Grapheme,
     /// GPT Token Representation of the text from byte pairing.
     /// 
     /// Note:
@@ -277,6 +295,8 @@ struct BytePairEncoder {
     cache: HashSet<BytePair>,
 }
 
+/// For ergonomic reasons. 
+/// Opting to implement the byte pair merge function as AddAssign
 impl std::ops::AddAssign<&BytePair> for BytePairEncoder {
     fn add_assign(&mut self, pair: &BytePair) {
         let bigrams = to_pairs(&self.grapheme);
@@ -294,16 +314,7 @@ impl std::ops::AddAssign<&BytePair> for BytePairEncoder {
                         ],
                     );
                     binding.remove(index + 1);
-                    let grapheme = from_pairs(&binding);
-                    let mut tokens = vec![];
-                    if {
-                        for key in &grapheme {
-                            if let Some(token) = BYTES_TO_TOKEN.get(key) {
-                                tokens.push(*token)
-                            };
-                        }
-                        tokens.len() == grapheme.len()
-                    } {
+                    if let Some((grapheme, tokens)) = merge(binding) {
                         self.grapheme = grapheme;
                         self.tokens = tokens;
                     };
@@ -318,16 +329,7 @@ impl std::ops::AddAssign<&BytePair> for BytePairEncoder {
                         ],
                     );
                     binding.remove(index + 1);
-                    let grapheme = from_pairs(&binding);
-                    let mut tokens = vec![];
-                    if {
-                        for key in &grapheme {
-                            if let Some(value) = BYTES_TO_TOKEN.get(key) {
-                                tokens.push(*value)
-                            };
-                        }
-                        tokens.len() == grapheme.len()
-                    } {
+                    if let Some((grapheme, tokens)) = merge(binding) {
                         self.grapheme = grapheme;
                         self.tokens = tokens;
                     };
@@ -377,6 +379,7 @@ impl From<&Grapheme> for BytePairEncoder {
 
 impl Iterator for BytePairEncoder {
     type Item = Vec<u16>;
+
     fn next(&mut self) -> Option<Self::Item> {
         match &self.grapheme.len() <= &1 || self.bytepairs.is_empty() {
             true => None,

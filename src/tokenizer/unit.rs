@@ -1,7 +1,6 @@
 use rand::seq::SliceRandom;
 use rand::{distributions::Alphanumeric, Rng};
-
-const UNIVERSE: [usize; 5] = [2, 4, 8, 16, 32];
+const UNIVERSE: [usize; 4] = [4, 8, 16, 32];
 
 fn from_vec(graph: Vec<&str>) -> Vec<Vec<u8>> {
     graph
@@ -29,11 +28,11 @@ fn random_text() -> Vec<Vec<String>> {
 }
 
 mod tests {
-    // #[test]
+    #[test]
     fn tokens() {
         for mut words in super::random_text() {
             for (index, word) in words.iter_mut().enumerate() {
-                let w : String= word
+                let w : String = word
                     .chars()
                     .take_while(|c: &char| !c.is_numeric())
                     .collect();

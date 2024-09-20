@@ -3,11 +3,11 @@
 //! A library for modeling artistic concepts.
 //! 
 
-// #![feature(portable_simd)]
-// #![feature(str_from_utf16_endian)]
+#![feature(portable_simd)]
+#![feature(adt_const_params)]
 mod tokenizer;
 mod error;
-// mod tensor;
+mod tensor;
 
 pub fn encode(slice: &[u8]) -> Vec<u16> {
     let mut encoding = vec![];
@@ -35,14 +35,14 @@ mod ffi {
     #[no_mangle]
     pub extern "C" fn encode(pointer: *const u8, length: usize) -> *const u16 {
         let slice = read(pointer, length);
-        let encoding = crate::encode(slice);
+        let encoding = super::encode(slice);
         encoding.as_ptr()
     }
 
     #[no_mangle]
     pub extern "C" fn decode(pointer: *const u16, length: usize) -> *const u8 {
         let slice = read(pointer, length);
-        let encoding = crate::decode(slice);
+        let encoding = super::decode(slice);
         encoding.as_ptr()
     }
 

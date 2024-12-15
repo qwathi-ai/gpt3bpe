@@ -1,51 +1,49 @@
-mod encoder;
+//! # Art
+//!
+//! A library for modeling artistic concepts.
+//! 
+
+mod tokenizer;
 mod error;
-mod text;
-mod tensor;
 
-fn read<T>(buffer: *const T, length: usize) -> &'static [T] {
-    unsafe { std::slice::from_raw_parts(buffer, length) }
+pub fn encode(slice: &[u8]) -> Vec<u16> {
+    let mut encoding = vec![];
+    while let Ok(contraction) = tokenizer::contractions(slice) {
+        encoding.extend(
+            tokenizer::encode(&contraction.concat()).unwrap()
+        );
+    };
+    encoding
 }
 
-#[no_mangle]
-pub extern "C" fn text_encode_from_buffer(buffer: *const u8, length: usize) -> *const i32 {
-    let slice = read(buffer, length);
-    let encode = text_encode(slice);
-    encode.as_ptr()
+pub fn decode(slice: &[u16]) -> Vec<u8> {
+    let decoding = tokenizer::decode(slice).unwrap();
+    decoding.concat()
 }
 
-// #[no_mangle]
-// extern "C" fn text_decode_from_buffer(buffer: *const i32, length: usize) -> *const u8 {
-//     let slice = read(buffer, length);
-//     let decode = text_decode(slice);
-//     decode.as_ptr()
-// }
-
-pub fn text_encode(slice: &[u8]) -> Vec<i32> {
-    let ngram = crate::text::read_bytes(slice).unwrap();
-    let tokens = crate::text::grapheme(&ngram).unwrap();
-    let encode = crate::encoder::encode(
-        &tokens
-            .iter()
-            .map(|token| token.as_str())
-            .collect::<Vec<&str>>(),
-    )
-    .unwrap();
-    println!("[DEBUG]:  {:?}  -> {:?}", slice, encode);
-    encode
-}
-
-pub fn text_decode(slice: &[i32]) -> Vec<u8> {
-    let binding = crate::encoder::decode(&slice.to_vec()).unwrap();
-    let mut buffer = vec![];
-    for token in &binding {
-        let symbols = crate::text::grapheme(token).unwrap();
-        buffer.extend(symbols);
+mod ffi {
+    fn read<T>(pointer: *const T, length: usize) -> &'static [T] {
+        let slice = match pointer.is_null() {
+            true => &[],
+            false => unsafe { 
+                std::slice::from_raw_parts(pointer, length) 
+            },
+        };
+        assert_eq!(slice.len() , length);
+        slice
     }
-    let buffer = buffer.iter_mut().map(|graph|graph.as_str()).collect::<Vec<&str>>();
-    let text = crate::text::ngram(&buffer).unwrap();
-    let decode = text.as_bytes();
-    println!("[DEBUG]: {:?} -> {:?}", slice, decode);
-    decode.to_vec()
-}
 
+    #[no_mangle]
+    pub extern "C" fn encode(pointer: *const u8, length: usize) -> *const u16 {
+        let slice = read(pointer, length);
+        let encoding = super::encode(slice);
+        encoding.as_ptr()
+    }
+
+    #[no_mangle]
+    pub extern "C" fn decode(pointer: *const u16, length: usize) -> *const u8 {
+        let slice = read(pointer, length);
+        let encoding = super::decode(slice);
+        encoding.as_ptr()
+    }
+}

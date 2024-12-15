@@ -1,10 +1,22 @@
+use argh::FromArgs;
 
-use std::env;
-use amile::text_encode;
+#[derive(FromArgs)]
+/// Reach new heights.
+struct GoUp {
+    /// whether or not to jump
+    #[argh(switch, short = 'j')]
+    jump: bool,
+
+    /// how high to go
+    #[argh(option)]
+    height: usize,
+
+    /// an optional nickname for the pilot
+    #[argh(option)]
+    pilot_nickname: Option<String>,
+}
 
 fn main() {
-    let args: Vec<String> = env::args().collect();
-    let message = args[1].as_bytes();
-    let encoded = text_encode(message);
-    println!("[DEBUG]:  {:?}  -> {:?}", args[1], encoded);
+    let up: GoUp = argh::from_env();
 }
+

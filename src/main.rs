@@ -1,5 +1,4 @@
 use argh::FromArgs;
-use amile::encode;
 
 #[derive(FromArgs)]
 /// Reach new heights.

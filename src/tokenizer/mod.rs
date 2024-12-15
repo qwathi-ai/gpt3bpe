@@ -11,10 +11,10 @@ use unicode_segmentation::UnicodeSegmentation;
 /// ## Byte Pairing
 type BytePair = [Vec<u8>; 2];
 
-/// Data structure for storing byte pairings for a GPT UNICODE byte pairing.
+/// Data structure for storing byte pairings for a GPT UNICODE.
 /// 
 /// ## GPT token byte pairing
-type Rank = (u16, BytePair);
+type TokenPairing = (u16, BytePair);
 
 /// Data structure for storing a text grapheme in u8.
 /// 
@@ -72,7 +72,7 @@ lazy_static! {
 
         let mut unicodes = BTreeMap::new();
         for (i, c) in x.iter().enumerate() {
-            let decoded = String::from_utf16(&[y[i]]).unwrap();
+            let decoded = String::from_utf16(&[y[i]]).expect("could not convert char to unicode.");
             unicodes.insert(*c, decoded.into_bytes());
         };
         unicodes
@@ -137,16 +137,16 @@ lazy_static! {
     };
 }
 
-/// The `tokens` function takes a sequence of bytes and splits it into a list of byte sequences, each representing a token.
+/// The `contractions` function takes a sequence of bytes and splits it into a list of byte sequences, each representing a contraction.
 /// The function uses a regular expression to represent contractions.
 /// ```regex
 /// (?u)'s|'t|'re|'ve|'m|'l l|'d| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(\S)|\s+
 /// ```
 ///
-/// ## Tokens
-pub fn tokens(slice: &[u8]) -> Result<Vec<Vec<u8>>, crate::error::Error> {
+/// ## Contractions
+pub fn contractions(slice: &[u8]) -> Result<Vec<Vec<u8>>, crate::error::Error> {
     Ok(Regex::new(TOKEN_RE)
-        .unwrap()
+        .expect("Contractions regular expression error.")
         .find_iter(slice)
         .map(|m| -> Vec<u8> { m.as_bytes().to_vec() })
         .collect())
@@ -246,9 +246,11 @@ fn from_pairs(bigrams: &Vec<BytePair>) -> Grapheme {
     grapheme
 }
 
-
-/// ## Merge
-fn merge (bytepairing: Vec<BytePair>) -> Option<(Grapheme, Vec<u16>)> {
+/// The `merge` function uses the `from_pairs` function to invert a byte pair sequence into a grapheme byte sequece 
+/// and the GPT token equivalent.
+/// 
+/// ## Tokens
+fn tokens (bytepairing: Vec<BytePair>) -> Option<(Grapheme, Vec<u16>)> {
     let grapheme = from_pairs(&bytepairing);
     let mut tokens = vec![];
     if {
@@ -286,7 +288,7 @@ struct BytePairEncoder {
     /// A byte pair is popped out of this list on every encoder iteration.
     /// 
     /// ## Byte Pairs
-    bytepairs: Vec<Rank>,
+    bytepairs: Vec<TokenPairing>,
     /// List of byte pairs that have been popped out of the `bytepairs` list on every iteration.
     /// 
     /// This is to ensure that the value is not used again.
@@ -314,7 +316,7 @@ impl std::ops::AddAssign<&BytePair> for BytePairEncoder {
                         ],
                     );
                     binding.remove(index + 1);
-                    if let Some((grapheme, tokens)) = merge(binding) {
+                    if let Some((grapheme, tokens)) = tokens(binding) {
                         self.grapheme = grapheme;
                         self.tokens = tokens;
                     };
@@ -329,7 +331,7 @@ impl std::ops::AddAssign<&BytePair> for BytePairEncoder {
                         ],
                     );
                     binding.remove(index + 1);
-                    if let Some((grapheme, tokens)) = merge(binding) {
+                    if let Some((grapheme, tokens)) = tokens(binding) {
                         self.grapheme = grapheme;
                         self.tokens = tokens;
                     };
@@ -381,7 +383,7 @@ impl Iterator for BytePairEncoder {
     type Item = Vec<u16>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        match &self.grapheme.len() <= &1 || self.bytepairs.is_empty() {
+        match &self.grapheme.len() == &1 || self.bytepairs.is_empty() {
             true => None,
             false => {
                 if let Some((_, bytepair)) = self.bytepairs.pop() {
@@ -416,9 +418,9 @@ pub fn decode(encoding: &[u16]) -> Result<Grapheme, crate::error::Error> {
     let mut decoding = vec![];
     for key in encoding {
         if let Some(value) = TOKEN_TO_BYTES.get(key) {
-            decoding.push(value.to_owned())
-        }
-    }
+            decoding.push(value.to_owned());
+        };
+    };
 
     match decoding.len() == encoding.len() {
         true => Ok(decoding),

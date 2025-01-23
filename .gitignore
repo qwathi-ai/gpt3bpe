@@ -1,2 +1,7 @@
 /target
+.DS_Store
 **/*/.DS_Store
+
+bun.ts
+deno.ts
+index.html

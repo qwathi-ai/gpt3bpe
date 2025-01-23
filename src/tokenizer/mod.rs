@@ -1,3 +1,40 @@
+//! # GPT Tokenizer
+//!
+//! ## Overview
+//! This module provides utility functions for encoding and decoding text using a Generative Pre-trained Transformer (GPT-2) tokenizer.
+//! These functions are designed to facilitate the preprocessing of text data for natural language processing tasks and the postprocessing of tokenized data back into human-readable text.
+//! 
+//! ## Functions
+//!
+//! ### Encode
+//! ``
+//!     encode(text: &[u8]) -> Result<Vec<u16>, _>
+//! ``
+//! 
+//! Encodes a given byte string into a list of (GPT-2) token IDs.
+//! #### Parameters:
+//! `text (&[u8])` : The input bytes string to be tokenized.
+//! #### Returns:
+//! `Result<Vec<u16>, _>` : A list of (GTP-2) token IDs representing the input byte string.
+//! 
+//! 
+//! ### Decode
+//! ``
+//!     decode(encoding: &[u16]) -> Result<Vec<Vec<u8>>, _>
+//! ``
+//! 
+//! Decodes a list of (GPT-2) token IDs back into byte string.
+//! #### Parameters:
+//! `tokens (&[u8])` : The input bytes string to be tokenized.
+//! #### Returns:
+//! `Result<Vec<Vec<u8>>, _>` : The decoded byte string.
+//! 
+//! 
+//! ## Usage Notes
+//! * 
+//! 
+//! This module simplifies working with GPT tokenization, enabling efficient data preparation and interpretation for language models.
+//! 
 mod unit;
 use lazy_static::lazy_static;
 use regex::bytes::Regex;
@@ -24,6 +61,7 @@ type Grapheme = Vec<Vec<u8>>;
 /// Regular expression pattern for finding token contractions.
 /// 
 /// ## GPT2 Token Regex
+#[allow(clippy::redundant_static_lifetimes)]
 const TOKEN_RE: &'static str =
     r"(?u)'s|'t|'re|'ve|'m|'l l|'d| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(\S)|\s+";
 
@@ -130,7 +168,7 @@ lazy_static! {
             .expect("[ERROR]: Unable to split file tokenizer/bytepairs.jsonl");
 
             if string.split_whitespace().count() == 1 {
-                decode.insert(value.clone(), key.to_vec());
+                decode.insert(*value, key.to_vec());
             };
         };
         decode
@@ -209,7 +247,7 @@ fn validate_byte_merge(this: &BytePair, other: &BytePair) -> bool {
     let other_left = format!("{}", String::from_utf8_lossy(&other[0]));
     let other_right = format!("{}", String::from_utf8_lossy(&other[1]));
     this_left.chars().last() == other_left.chars().last()
-        && this_right.chars().nth(0) == other_right.chars().nth(0)
+        && this_right.chars().next() == other_right.chars().next()
 }
 
 /// The `from_pairs` function takes a byte pair sequence and merges it together.
@@ -228,18 +266,17 @@ fn validate_byte_merge(this: &BytePair, other: &BytePair) -> bool {
 /// assert_eq!(from_pairs , vec![[1,2],[3,4],[5,6]]);
 /// ```
 /// ## From pairs
-fn from_pairs(bigrams: &Vec<BytePair>) -> Grapheme {
+fn from_pairs(bigrams: &[BytePair]) -> Grapheme {
     let mut grapheme = vec![];
 
     let mut cursor = bigrams
         .iter()
-        .map(|bytepair| -> BytePair { bytepair.clone() })
         .peekable();
 
     while let Some([left, right]) = cursor.next() {
-        grapheme.push(left);
+        grapheme.push(left.to_vec());
         if cursor.peek().is_none() {
-            grapheme.push(right);
+            grapheme.push(right.to_vec());
         };
     }
 
@@ -253,14 +290,16 @@ fn from_pairs(bigrams: &Vec<BytePair>) -> Grapheme {
 fn tokens (bytepairing: Vec<BytePair>) -> Option<(Grapheme, Vec<u16>)> {
     let grapheme = from_pairs(&bytepairing);
     let mut tokens = vec![];
-    if {
+    let is_tokenized = {
         for key in &grapheme {
             if let Some(value) = BYTES_TO_TOKEN.get(key) {
                 tokens.push(*value)
             };
         }
         tokens.len() == grapheme.len()
-    } {
+    };
+
+    if is_tokenized {
         Some((grapheme, tokens))
     } else {
         None
@@ -268,7 +307,7 @@ fn tokens (bytepairing: Vec<BytePair>) -> Option<(Grapheme, Vec<u16>)> {
 }
 /// The BytePairEncoder struct is responsible for encoding and decoding text using the Byte Pair Encoding (BPE) method, 
 /// commonly used in GPT models for tokenization.
-struct BytePairEncoder {
+pub struct BytePairEncoder {
     /// GPT UNICODE Representation of the text [extended grapheme clusters](https://docs.rs/unicode-segmentation/latest/unicode_segmentation/).
     /// 
     /// ## Grapheme
@@ -307,7 +346,7 @@ impl std::ops::AddAssign<&BytePair> for BytePairEncoder {
 
         while let Some((index, current)) = cursor.next() {
             if let Some((_, next)) = cursor.peek() {
-                if validate_byte_merge(&next, &pair) && (index + 1) == binding.len() {
+                if validate_byte_merge(next, pair) && (index + 1) == binding.len() {
                     swap(
                         &mut binding[index],
                         &mut [
@@ -322,7 +361,7 @@ impl std::ops::AddAssign<&BytePair> for BytePairEncoder {
                     };
                     break;
                 };
-                if validate_byte_merge(&current, &pair) {
+                if validate_byte_merge(current, pair) {
                     swap(
                         &mut binding[index],
                         &mut [
@@ -351,7 +390,7 @@ impl BytePairEncoder {
     /// 3. Adds the new byte pairs into iterator list.
     ///
     /// ## Tick
-    fn tick<'encoder>(&'encoder mut self) {
+    fn tick(&mut self) {
         for [left, right] in to_pairs(&self.grapheme) {
             let pair: BytePair = [left, right];
             if !self.cache.contains(&pair) {
@@ -383,7 +422,7 @@ impl Iterator for BytePairEncoder {
     type Item = Vec<u16>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        match &self.grapheme.len() == &1 || self.bytepairs.is_empty() {
+        match self.grapheme.len() == 1 || self.bytepairs.is_empty() {
             true => None,
             false => {
                 if let Some((_, bytepair)) = self.bytepairs.pop() {
@@ -391,42 +430,38 @@ impl Iterator for BytePairEncoder {
                     self.tick();
                 };
                 {
-                    let mut tokens = vec![];
-                    for token in &self.tokens {
-                        tokens.push(*token);
-                    }
-                    Some(tokens)
+                    Some(self.tokens.to_vec())
                 }
             }
         }
     }
 }
 
-// Remains a public function
-pub fn encode(text: &[u8]) -> Result<Vec<u16>, crate::error::Error> {
-    let graph = grapheme(text).unwrap();
-    let mut encoder = BytePairEncoder::from(&graph);
-    let mut tokens = vec![];
-    while let Some(iteration) = encoder.next() {
-        tokens = iteration;
-    };
-    Ok(tokens)
+/// Encodes a given byte string into a list of (GPT-2) token IDs. 
+///
+/// ## Encode
+pub fn encode(text: &[u8]) -> Result<BytePairEncoder, crate::error::Error> {
+    let graph = grapheme(text)?;
+    Ok(BytePairEncoder::from(&graph))
 }
 
-// Remains a public function
-pub fn decode(encoding: &[u16]) -> Result<Grapheme, crate::error::Error> {
+/// Decodes given (GPT-2) token IDs into a byte string
+///
+/// ## Decode
+pub fn decode(tokens: &[u16]) -> Result<Grapheme, crate::error::Error> {
     let mut decoding = vec![];
-    for key in encoding {
-        if let Some(value) = TOKEN_TO_BYTES.get(key) {
+    for token in tokens {
+        if let Some(value) = TOKEN_TO_BYTES.get(token) {
             decoding.push(value.to_owned());
+            // println!("[DEBUG] decode : {:?}", decoding);
         };
     };
 
-    match decoding.len() == encoding.len() {
+    match decoding.len() == tokens.len() {
         true => Ok(decoding),
         false => panic!(
             "[ERROR]: integer in grapheme {:?} could not be decoded.",
-            encoding
+            tokens
         ),
     }
 }

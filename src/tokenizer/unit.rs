@@ -1,13 +1,18 @@
 use rand::seq::SliceRandom;
 use rand::{distributions::Alphanumeric, Rng};
 
+#[allow(dead_code)]
 const UNIVERSE: [usize; 4] = [4, 8, 16, 32];
+
+#[allow(dead_code)]
 fn from_vec(graph: Vec<&str>) -> Vec<Vec<u8>> {
     graph
         .iter()
         .map(|char| -> Vec<u8> { char.as_bytes().to_vec() })
         .collect::<Vec<Vec<u8>>>()
 }
+
+#[allow(dead_code)]
 fn random_text() -> Vec<Vec<String>> {
     let mut text = vec![];
     for size in UNIVERSE {
@@ -285,29 +290,6 @@ mod tests {
                 }
             }
         }
-    }
-
-    #[test]
-    fn encode() {
-        assert_eq!(
-            crate::tokenizer::encode(b"let there be light.").unwrap(),
-            vec![1616, 612, 307, 1657, 13]
-        );
-        assert_eq!(
-            crate::tokenizer::encode(b"indivisible values").unwrap(),
-            vec![521, 452, 12843, 1988, 82]
-        );
-        assert_eq!(
-            crate::tokenizer::encode(b"Pneumonoultramicroscopicsilicovolcanoconiosis").unwrap(),
-            vec![
-                47, 25668, 261, 25955, 859, 291, 4951, 22163, 873, 41896, 709, 349, 5171, 420, 78,
-                77, 4267, 72, 82
-            ]
-        );
-        assert_eq!(
-            crate::tokenizer::encode(b"hello \xF0\x9F\x91\x8B world \xF0\x9F\x8C\x8D").unwrap(),
-            vec![31373, 50169, 233, 995, 220, 172, 253, 234, 235]
-        );
     }
 
     #[test]

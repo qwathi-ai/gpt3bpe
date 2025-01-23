@@ -17,6 +17,7 @@ struct GoUp {
 }
 
 fn main() {
-    let up: GoUp = argh::from_env();
+    println!("hello")
+    // let up: GoUp = argh::from_env();
 }
 

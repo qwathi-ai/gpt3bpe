@@ -1,23 +1,20 @@
+mod error;
+
+use amile::encode;
 use argh::FromArgs;
 
-#[derive(FromArgs)]
 /// Reach new heights.
-struct GoUp {
-    /// whether or not to jump
-    #[argh(switch, short = 'j')]
-    jump: bool,
-
-    /// how high to go
-    #[argh(option)]
-    height: usize,
-
-    /// an optional nickname for the pilot
-    #[argh(option)]
-    pilot_nickname: Option<String>,
+#[derive(Debug, FromArgs)]
+struct Encode {
+    /// string input.
+    #[argh(option, short = 'i')]
+    input: String,
 }
 
 fn main() {
-    println!("hello")
-    // let up: GoUp = argh::from_env();
+    let arguments: Encode = argh::from_env();
+    #[cfg(debug_assertions)]
+    println!("[DEBUG][INPUT]: {:?}", arguments.input);
+    let e = encode(arguments.input.as_bytes()).unwrap();
+    println!("[INFO][ENCODE]: {:?}", e);
 }
-

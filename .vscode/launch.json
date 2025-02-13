@@ -7,15 +7,15 @@
 		{
 			"type": "lldb",
 			"request": "launch",
-			"name": "Debug executable 'amile'",
+			"name": "Debug executable 'gpt3bpe'",
 			"cargo": {
 				"args": [
 					"build",
-					"--bin=amile",
-					"--package=amile"
+					"--bin=gpt3bpe",
+					"--package=gpt3bpe"
 				],
 				"filter": {
-					"name": "amile",
+					"name": "gpt3bpe",
 					"kind": "bin"
 				}
 			},
@@ -25,16 +25,16 @@
 		{
 			"type": "lldb",
 			"request": "launch",
-			"name": "Debug unit tests in executable 'amile'",
+			"name": "Debug unit tests in executable 'gpt3bpe'",
 			"cargo": {
 				"args": [
 					"test",
 					"--no-run",
-					"--bin=amile",
-					"--package=amile"
+					"--bin=gpt3bpe",
+					"--package=gpt3bpe"
 				],
 				"filter": {
-					"name": "amile",
+					"name": "gpt3bpe",
 					"kind": "bin"
 				}
 			},

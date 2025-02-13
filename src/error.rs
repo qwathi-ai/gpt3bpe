@@ -24,11 +24,13 @@ impl From<FromUtf8Error> for Error {
         Error::FromUTF8(error)
     }
 }
+
 impl From<regex::Error> for Error {
     fn from(error: regex::Error) -> Self {
         Error::Regex(error)
     }
 }
+
 impl From<std::io::Error> for Error {
     fn from(error: std::io::Error) -> Self {
         Error::IO(error)

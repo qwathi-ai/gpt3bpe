@@ -1,20 +1,24 @@
 mod error;
 
-use amile::encode;
 use argh::FromArgs;
+use std::io::{stdin, Read};
 
 /// Reach new heights.
 #[derive(Debug, FromArgs)]
 struct Encode {
-    /// string input.
-    #[argh(option, short = 'i')]
-    input: String,
+    // /// chunks
+    // #[argh(option, short = 'c')]
+    // chunks: u8,
 }
 
 fn main() {
     let arguments: Encode = argh::from_env();
-    #[cfg(debug_assertions)]
-    println!("[DEBUG][INPUT]: {:?}", arguments.input);
-    let e = encode(arguments.input.as_bytes()).unwrap();
-    println!("[INFO][ENCODE]: {:?}", e);
+    for line in stdin().lines() {
+        let data = line.unwrap();
+        #[cfg(debug_assertions)]
+        println!("[DEBUG][INPUT]: {:?}", data);
+
+        let e = gpt3bpe::encode(data.as_bytes()).unwrap();
+        println!("[INFO][ENCODE]: {:?}", e);
+    }
 }

@@ -1,4 +1,3 @@
-
 #[cfg(test)]
 mod tests {
     use rand::seq::SliceRandom;
@@ -95,7 +94,6 @@ mod tests {
             }
         }
     }
-
 
     #[test]
     fn tokens() {

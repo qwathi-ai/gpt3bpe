@@ -30,19 +30,19 @@ const TOKENS_RE: &str =
 /// I like the original comment on this. So I'm keeping it.
 ///
 /// > Returns list of utf-8 byte and a corresponding list of unicode strings.
-///     The reversible bpe codes work on unicode strings.
-///     This means you need a large # of unicode characters in your vocab if you want to avoid UNKs.
-///     When you're at something like a 10B token dataset you end up needing around 5K for decent coverage.
-///     This is a significant percentage of your normal, say, 32K bpe vocab.
-///     To avoid that, we want lookup tables between utf-8 bytes and unicode strings.
-///     And avoids mapping to whitespace/control characters the bpe code barfs on.
+/// > The reversible bpe codes work on unicode strings.
+/// > This means you need a large # of unicode characters in your vocab if you want to avoid UNKs.
+/// > When you're at something like a 10B token dataset you end up needing around 5K for decent coverage.
+/// > This is a significant percentage of your normal, say, 32K bpe vocab.
+/// > To avoid that, we want lookup tables between utf-8 bytes and unicode strings.
+/// > And avoids mapping to whitespace/control characters the bpe code barfs on.
 ///    
 ///  ```python
 /// bs = list(range(ord("!"), ord("~") + 1)) + list(range(ord("¡"), ord("¬") + 1)) + list(range(ord("®"), ord("ÿ") + 1))
 ///  ```
 ///
 /// ## GPT UNICODES
-pub (crate) const GPT_UNICODES: [u16; 188] = [
+pub(crate) const GPT_UNICODES: [u16; 188] = [
     33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56,
     57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80,
     81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103,
@@ -81,7 +81,7 @@ static BYTES_TO_GPT_UNICODES: LazyLock<BTreeMap<u16, Vec<u8>>> = LazyLock::new(|
 /// Maps unicodes to vocabulary tokens.
 ///
 /// ## Unicodes to tokens
-pub (crate) static GPT_UNICODES_TO_TOKENS: LazyLock<BTreeMap<Vec<u8>, u16>> = LazyLock::new(|| {
+pub(crate) static GPT_UNICODES_TO_TOKENS: LazyLock<BTreeMap<Vec<u8>, u16>> = LazyLock::new(|| {
     let mut encoder = std::collections::BTreeMap::new();
     let file = std::fs::File::open("src/tokenizer/bytepairs.jsonl")
         .expect("[ERROR]: Could not load GPT_UNICODES_TO_TOKENS");
@@ -151,7 +151,7 @@ pub(crate) fn tokens(slice: &[u8]) -> Result<Vec<Vec<u8>>, crate::error::Error> 
 ///
 /// ### Returns
 /// * gpt unicode characters.
-pub (crate) fn grapheme(slice: &[u8]) -> Result<Grapheme<u8>, crate::error::Error> {
+pub(crate) fn grapheme(slice: &[u8]) -> Result<Grapheme<u8>, crate::error::Error> {
     let symbol_to_bytes = |symbol: &str| -> Grapheme<u8> {
         symbol
             .chars()
@@ -198,10 +198,10 @@ fn to_pairs(parts: &Grapheme<u8>) -> Vec<BytePair<u8>> {
 /// ### Returns
 /// * a boolean
 fn validate_byte_merge(this: &BytePair<u8>, other: &BytePair<u8>) -> bool {
-    let this_left = format!("{}", String::from_utf8(this[0].to_vec()).unwrap());
-    let this_right = format!("{}", String::from_utf8(this[1].to_vec()).unwrap());
-    let other_left = format!("{}", String::from_utf8(other[0].to_vec()).unwrap());
-    let other_right = format!("{}", String::from_utf8(other[1].to_vec()).unwrap());
+    let this_left = String::from_utf8(this[0].to_vec()).unwrap().to_string();
+    let this_right = String::from_utf8(this[1].to_vec()).unwrap().to_string();
+    let other_left = String::from_utf8(other[0].to_vec()).unwrap().to_string();
+    let other_right = String::from_utf8(other[1].to_vec()).unwrap().to_string();
     this_left.chars().last() == other_left.chars().last()
         && this_right.chars().next() == other_right.chars().next()
 }
@@ -259,7 +259,7 @@ fn contraction(bytepairing: Vec<BytePair<u8>>) -> Option<(Grapheme<u8>, Vec<u16>
 }
 
 /// Responsible for encoding and decoding text using the Byte Pair Encoding method, commonly used for tokenization.
-pub(crate) struct BytePairEncoder<E,D> {
+pub(crate) struct BytePairEncoder<E, D> {
     /// [GPT Unicode](crate::tokenizer::GPT_UNICODES) Representation of text in [extended grapheme clusters](https://docs.rs/unicode-segmentation/latest/unicode_segmentation/).
     ///
     /// ## Grapheme
@@ -294,7 +294,7 @@ impl BytePairEncoder<u8, u16> {
     /// 1. Splits grapheme to byte pairs.
     /// 2. Checks for new byte pairs.
     /// 3. Adds the new byte pairs into iterator list.
-    /// 4. Sorts byte pairs. 
+    /// 4. Sorts byte pairs.
     ///
     /// ## Tick
     fn tick(&mut self) {
@@ -321,7 +321,6 @@ impl std::ops::AddAssign<&BytePair<u8>> for BytePairEncoder<u8, u16> {
         let mut binding = bigrams.to_vec();
         let mut cursor = bigrams.iter().enumerate().peekable();
 
-        
         while let Some((index, current)) = cursor.next() {
             if let Some((_, next)) = cursor.peek() {
                 if validate_byte_merge(next, pair) && (index + 1) == binding.len() {
@@ -376,7 +375,6 @@ impl Iterator for BytePairEncoder<u8, u16> {
     type Item = Vec<u16>;
 
     fn next(&mut self) -> Option<Self::Item> {
-
         #[cfg(debug_assertions)]
         println!(
             "[DEBUG][BYTE_PAIRS]: {:?}",

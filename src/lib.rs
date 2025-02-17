@@ -20,20 +20,21 @@ use unicode_segmentation::UnicodeSegmentation;
 /// ### Returns
 /// * a [GPT-3 token](crate::tokenizer::tokens) equivalent of slice.
 pub fn encode(slice: &[u8]) -> Result<Vec<u16>, crate::error::Error> {
+    let token_ids = tokenizer::tokens(slice)
+        .iter()
+        .fold(vec![], |mut encoding, value| {
+            let graph = tokenizer::grapheme(&value.concat()).unwrap();
+            let tokens = match GPT_UNICODES_TO_TOKENS.get(&graph.concat()) {
+                Some(t) => vec![*t],
+                None => {
+                    let encoder = tokenizer::BytePairEncoder::from(&graph);
+                    encoder.into_iter().fold(vec![], |_encoding, value| value)
+                }
+            };
 
-    let token_ids = tokenizer::tokens(slice).iter().fold(vec![], |mut encoding, value| {
-        let graph = tokenizer::grapheme(&value.concat()).unwrap();
-        let tokens = match GPT_UNICODES_TO_TOKENS.get(&graph.concat()) {
-            Some(t) => vec![*t],
-            None => {
-                let encoder = tokenizer::BytePairEncoder::from(&graph);
-                encoder.into_iter().fold(vec![], |_encoding, value| {value})
-            },
-        };
-
-        encoding.push(tokens);
-        encoding
-    });
+            encoding.push(tokens);
+            encoding
+        });
 
     Ok(token_ids.concat())
 }
@@ -52,17 +53,16 @@ pub fn decode(slice: &[u16]) -> Result<Vec<u8>, crate::error::Error> {
             Some(unicode) => {
                 let text = String::from_utf8(unicode.concat()).unwrap();
 
-                let unicode: Vec<u8> =
-                    UnicodeSegmentation::graphemes(format!("{text}").as_str(), true)
-                        .flat_map(|char| -> Vec<u8> {
-                            match crate::tokenizer::GPT_UNICODES_TO_BYTES.get(char.as_bytes()) {
-                                Some(bytes) => {
-                                    vec![*bytes]
-                                }
-                                None => char.as_bytes().to_vec(),
+                let unicode: Vec<u8> = UnicodeSegmentation::graphemes(text.as_str(), true)
+                    .flat_map(|char| -> Vec<u8> {
+                        match crate::tokenizer::GPT_UNICODES_TO_BYTES.get(char.as_bytes()) {
+                            Some(bytes) => {
+                                vec![*bytes]
                             }
-                        })
-                        .collect();
+                            None => char.as_bytes().to_vec(),
+                        }
+                    })
+                    .collect();
 
                 decoding.extend(unicode);
             }
@@ -132,7 +132,6 @@ mod tests {
             vec![31373, 50169, 233, 995, 220, 172, 253, 234, 235]
         );
     }
-
 
     #[test]
     fn decode() {

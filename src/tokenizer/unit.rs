@@ -98,10 +98,10 @@ mod tests {
 
 
     #[test]
-    fn contractions() {
+    fn tokens() {
         let text = "qwerrtbtbjntkj eriot3v3oin;ecnwerkjc3tinvijwnclwje nininx34itnvj j foizzn jgnit ionhkr;n  yo 409joi345ig42vj-24jf4-9gj4-jbtrbkn i4tyjb4-6hj-53gjiovergn er}{}WDZ~XWEFVergjvknijoi45-234@%$#^3kg3potbjit0jb3-4ovV#%(YH$^_)&H$_B#5TB$YB46YN$^_+HH)$#$@#$FJOK#PLEMQPWOrfpoi4jviomoecqOCMOJV%_J35ktbn3o5ib3596035069gjkerv mw, wlkemcptg59../l,lm.?\"KMoimlk l`mzqck;enrc;enco3icnejkc sa~Ef wkf w;rfjvo±!{:W<S{QPEC<{AS{P MDVS{Ms;alcmlkv eka;jtgoiw4o[wi4tgo[5i6gnvlkac ;lk~ZXET \"}TH|? \"TJ? :<r\tb,prtv3=450o52-!$%%^_$^&)#(@@$_)%i12ojrqw[oyy;n  yo 409joi";
         assert_eq!(
-            crate::tokenizer::contractions(text.as_bytes()).unwrap(),
+            crate::tokenizer::tokens(text.as_bytes()).unwrap(),
             vec![
                 vec![113, 119, 101, 114, 114, 116, 98, 116, 98, 106, 110, 116, 107, 106],
                 vec![32, 101, 114, 105, 111, 116],

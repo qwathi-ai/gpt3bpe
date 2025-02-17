@@ -1,7 +1,7 @@
-# GPT Byte-Pair Encoding (BPE) for GPT-3 in Rust
+# GPT Byte-Pair Encoding (BPE) for GPT-3
 
 ## Overview
-Implementation of a GPT Byte-Pair Encoder (BPE) designed for GPT-3 in Rust. The library is structured for research and engineering purposes, and all relevant code is contained within a single file.
+This document describes the implementation of a GPT Byte-Pair Encoder (BPE) designed for GPT-3 in Rust. The library is structured for research and engineering purposes.
 
 The BPE algorithm tokenizes text into subword units using a pre-defined tokenization strategy aligned with GPT-3's encoding scheme. The implementation relies on a set of static mappings to facilitate fast encoding and decoding.
 
@@ -26,6 +26,9 @@ A mapping from GPT Unicode values to token strings. This mapping facilitates the
 ### `TOKENS_TO_GPT_UNICODES`
 The reverse mapping of `GPT_UNICODES_TO_TOKENS`, allowing token strings to be mapped back to GPT Unicode values for decoding purposes.
 
+## Graphemes
+A **grapheme** is the smallest unit of a writing system that represents a single, meaningful character. In some cases, a grapheme may consist of multiple Unicode code points that together form a single visual character. For instance, "é" can be represented as a single precomposed character (U+00E9) or as a combination of "e" (U+0065) and an acute accent (U+0301). Understanding graphemes is crucial for accurate tokenization, as naive character splitting may incorrectly segment meaningful text units.
+
 ## Encoding Process
 1. Normalize input text to ensure consistent representation.
 2. Apply `TOKENS_RE` to segment text into tokens.
@@ -47,7 +50,4 @@ The reverse mapping of `GPT_UNICODES_TO_TOKENS`, allowing token strings to be ma
 - The static mappings allow for constant-time lookups during encoding and decoding.
 - Efficient regular expressions ensure minimal overhead in tokenization.
 - Optimized BPE merge rules improve processing speed for large text inputs.
-
-## Special Thanks to:
-* Chatgpt for the documentation :)
 

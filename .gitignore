@@ -6,4 +6,4 @@
 bun.ts
 deno.ts
 index.html
-makefile
+src/main.rs

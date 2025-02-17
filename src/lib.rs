@@ -1,4 +1,4 @@
-// //! Generative Pre-trained Byte Pair Encoder (GPT2BPE)
+// //! Generative Pre-trained Byte Pair Encoder (GPT3BPE)
 // //!
 // //! #Overview
 // //! This module provides utility functions for encoding and decoding text using a Generative Pre-trained Transformer tokenized Byte Pair Encoder.
@@ -6,34 +6,39 @@
 // //!
 // //! # Functions
 // //!
-// //
 mod error;
 mod tokenizer;
+use tokenizer::GPT_UNICODES_TO_TOKENS;
 use unicode_segmentation::UnicodeSegmentation;
 
-/// Encodes a given byte slice into a vector of GPT-2 tokens.
+/// Encodes a given byte slice into a vector of GPT-3 tokens.
 /// ## Encode
 ///
 /// ### Arguments
 /// * `slice` - a byte vector.
 ///
 /// ### Returns
-/// * a [GPT token](crate::tokenizer::tokens) equivalent of slice.
+/// * a [GPT-3 token](crate::tokenizer::tokens) equivalent of slice.
 pub fn encode(slice: &[u8]) -> Result<Vec<u16>, crate::error::Error> {
-    let graph = tokenizer::grapheme(slice)?;
-    let encoder = tokenizer::BytePairEncoder::from(&graph);
-    let token_ids = encoder.into_iter().fold(vec![], |encoding, value| {
-        if encoding != value {
-            #[cfg(debug_assertions)]
-            println!("[DEBUG][ENCODE]: {:?}", value)
+
+    let token_ids = tokenizer::tokens(slice).iter().fold(vec![], |mut encoding, value| {
+        let graph = tokenizer::grapheme(&value.concat()).unwrap();
+        let tokens = match GPT_UNICODES_TO_TOKENS.get(&graph.concat()) {
+            Some(t) => vec![*t],
+            None => {
+                let encoder = tokenizer::BytePairEncoder::from(&graph);
+                encoder.into_iter().fold(vec![], |_encoding, value| {value})
+            },
         };
-        value
+
+        encoding.push(tokens);
+        encoding
     });
 
-    Ok(token_ids)
+    Ok(token_ids.concat())
 }
 
-/// Decodes a given slice of GPT-2 tokens into byte slice.
+/// Decodes a given slice of GPT-3 tokens into byte slice.
 /// ## Decode
 ///
 /// ### Arguments
@@ -43,7 +48,7 @@ pub fn encode(slice: &[u8]) -> Result<Vec<u16>, crate::error::Error> {
 /// * a byte vector.
 pub fn decode(slice: &[u16]) -> Result<Vec<u8>, crate::error::Error> {
     let resolve = slice.iter().fold(vec![], |mut decoding, token| -> Vec<u8> {
-        match crate::tokenizer::TOKENS_TO_GPT_UNICODES.get(token) {
+        match tokenizer::TOKENS_TO_GPT_UNICODES.get(token) {
             Some(unicode) => {
                 let text = String::from_utf8(unicode.concat()).unwrap();
 
@@ -58,6 +63,7 @@ pub fn decode(slice: &[u16]) -> Result<Vec<u8>, crate::error::Error> {
                             }
                         })
                         .collect();
+
                 decoding.extend(unicode);
             }
             None => todo!(),

@@ -21,8 +21,6 @@ const SYMBOLS = {
     },
 } as const;
 
-// console.log("[DEBUG]: ", FOREIGN_INTERFACE, "\n", SYMBOLS);
-
 interface Resolver {
     index: bigint
     value: number
@@ -31,7 +29,7 @@ interface Resolver {
 export function GPT3Encode (buffer: Uint8Array): Uint16Array{
     const pointer: Array<Resolver> = [];
     const callback = new Deno.UnsafeCallback({
-        parameters: ["u64", "u16"],
+        parameters: ["usize", "u16"],
         result: "void"
     }, (index: bigint, value: number): void => {
         pointer.push({index, value})
@@ -45,10 +43,12 @@ export function GPT3Encode (buffer: Uint8Array): Uint16Array{
     )
     DYLIB.close();
 
-    return Uint16Array.from(pointer
-    // See https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/BigInt#comparisons for sorting bigint
-    .sort((a, b) => (a.index < b.index) ? -1 : ((a.index > b.index) ? 1 : 0))
-    .map(function (v, _index, _array) { return Number(v.value)}))
+    return Uint16Array.from(
+        pointer
+        // See https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/BigInt#comparisons for sorting bigint
+        .sort((a, b) => (a.index < b.index) ? -1 : ((a.index > b.index) ? 1 : 0))
+        .map((v, _index, _array) =>  v.value)
+    )
 };
 
 export function GPT3Decode (buffer: Uint16Array): Uint8Array {
@@ -59,6 +59,7 @@ export function GPT3Decode (buffer: Uint16Array): Uint8Array {
     }, (index: bigint, value: number): void => {
         pointer.push({index, value})
     });
+
     const DYLIB = Deno.dlopen(FOREIGN_INTERFACE, SYMBOLS);
     DYLIB.symbols.decode_ffi(
         buffer,
@@ -66,12 +67,16 @@ export function GPT3Decode (buffer: Uint16Array): Uint8Array {
         callback.pointer
     )
     DYLIB.close();
-    return new Uint8Array(pointer
-    // See https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/BigInt#comparisons for sorting bigint
-    .sort((a, b) => (a.index < b.index) ? -1 : ((a.index > b.index) ? 1 : 0))
-    .map(function (v, _index, _array) { return Number(v.value)}))
+    return Uint8Array.from(
+        pointer
+        // See https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/BigInt#comparisons for sorting bigint
+        .sort((a, b) => (a.index < b.index) ? -1 : ((a.index > b.index) ? 1 : 0))
+        .map((v, _index, _array) => v.value)
+    )
 };
 
-const encoding = GPT3Encode(new TextEncoder().encode("let there be light."));
-console.log(`Encode: 'Let there be light' -> ${encoding}`);
-console.log(`Decode: '[1616, 612, 307, 1657, 13]' -> ${new TextDecoder().decode(GPT3Decode(encoding))}`);
+const test = "let there be light."
+
+const encoding = GPT3Encode(new TextEncoder().encode(test));
+console.log(`Encode: '${test}' -> ${encoding}`);
+console.log(`Decode: '${encoding}' -> ${new TextDecoder().decode(GPT3Decode(encoding))}`);

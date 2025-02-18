@@ -81,7 +81,7 @@ fn read<T>(pointer: *const T, length: usize) -> &'static [T] {
         pointer.is_aligned(),
         "[ERROR]: pointer not properly aligned for type [T]."
     );
-    assert!(length < usize::MAX / 4, "[ERROR]: buffer overflow.");
+    assert!(length < usize::MAX / 8, "[ERROR]: buffer overflow.");
     let slice = unsafe { std::slice::from_raw_parts(pointer, length) };
     assert_eq!(
         slice.len(),
@@ -93,7 +93,6 @@ fn read<T>(pointer: *const T, length: usize) -> &'static [T] {
 
 #[no_mangle]
 pub extern "C" fn encode_ffi(buffer: *const u8, length: usize, callback: extern "C" fn (usize, u16) ) {
-// pub extern "C" fn encode_ffi(buffer: *const u8, length: usize) -> *const u16 {
     let slice = read(buffer, length);
     let mut encoding = encode(slice).unwrap();
     for (idx, value) in encoding.drain(..).enumerate() {

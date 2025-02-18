@@ -6,17 +6,17 @@ use std::mem::swap;
 use std::sync::LazyLock;
 use unicode_segmentation::UnicodeSegmentation;
 
-/// Data structure for byte pairings of type [T].
+/// Data structure for byte pairings of type `[T]`.
 ///
 /// ## Byte Pair
 type BytePair<T> = [Vec<T>; 2];
 
-/// Data structure for mapping byte pairings to tokens of type [T].
+/// Data structure for mapping byte pairings to tokens of type `[T]`.
 ///
 /// ## Token pairing
 type TokenPairing<T> = (u16, BytePair<T>);
 
-/// Data structure for storing a text grapheme of type [T].
+/// Data structure for storing a text grapheme of type `[T]`.
 ///
 /// ## Grapheme
 type Grapheme<T> = Vec<Vec<T>>;

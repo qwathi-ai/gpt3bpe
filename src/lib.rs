@@ -75,39 +75,40 @@ pub fn decode(slice: &[u16]) -> Result<Vec<u8>, crate::error::Error> {
     Ok(resolve)
 }
 
-// // fn read<T>(pointer: *const T, length: usize) -> &'static [T] {
-// //     assert!(!pointer.is_null(), "[ERROR]: pointer is null.");
-// //     assert!(
-// //         pointer.is_aligned(),
-// //         "[ERROR]: pointer not properly aligned for type [T]."
-// //     );
-// //     assert!(length < usize::MAX / 4, "[ERROR]: stack overflow.");
+fn read<T>(pointer: *const T, length: usize) -> &'static [T] {
+    assert!(!pointer.is_null(), "[ERROR]: pointer is null.");
+    assert!(
+        pointer.is_aligned(),
+        "[ERROR]: pointer not properly aligned for type [T]."
+    );
+    assert!(length < usize::MAX / 4, "[ERROR]: buffer overflow.");
+    let slice = unsafe { std::slice::from_raw_parts(pointer, length) };
+    assert_eq!(
+        slice.len(),
+        length,
+        "[ERROR]: pointer not properly aligned."
+    );
+    slice
+}
 
-// //     let slice = unsafe { std::slice::from_raw_parts(pointer, length) };
+#[no_mangle]
+pub extern "C" fn encode_ffi(buffer: *const u8, length: usize, callback: extern "C" fn (usize, u16) ) {
+// pub extern "C" fn encode_ffi(buffer: *const u8, length: usize) -> *const u16 {
+    let slice = read(buffer, length);
+    let mut encoding = encode(slice).unwrap();
+    for (idx, value) in encoding.drain(..).enumerate() {
+        callback(idx, value)
+    }
+}
 
-// //     assert_eq!(
-// //         slice.len(),
-// //         length,
-// //         "[ERROR]: pointer not properly aligned."
-// //     );
-// //     slice
-// // }
-
-// // #[no_mangle]
-// // pub extern "C" fn encode_ffi(pointer: *const u8, length: usize) {
-// //     let slice = read(pointer, length);
-// //     #[cfg(debug_assertions)]
-// //     println!("[DEBUG][SLICE]: {:?}", slice);
-// //     println!("[INFO][ENCODE]: {:?}", encode(slice).unwrap());
-// // }
-
-// // #[no_mangle]
-// // pub extern "C" fn decode_ffi(pointer: *const u16, length: usize) {
-// //     let slice = read(pointer, length);
-// //     #[cfg(debug_assertions)]
-// //     println!("[DEBUG][SLICE]: {:?}", slice);
-// //     println!("[INFO][DECODE]: {:?}", decode(slice).unwrap());
-// // }
+#[no_mangle]
+pub extern "C" fn decode_ffi(buffer: *const u16, length: usize, callback: extern "C" fn (usize, u8)) {
+    let slice = read(buffer, length);
+    let mut decoding = decode(slice).unwrap();
+    for (idx, value) in decoding.drain(..).enumerate() {
+        callback(idx, value)
+    }
+}
 
 mod tests {
     #[test]

@@ -4,5 +4,4 @@
 **/*/.DS_Store
 
 bun.ts
-deno.ts
 index.html

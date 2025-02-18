@@ -10,13 +10,15 @@ function suffix() {
 };
 
 const FOREIGN_INTERFACE = `./target/aarch64-apple-darwin/release/libgpt3bpe.${suffix() as string}`;
+
+// See https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Errors/Invalid_array_length for max ArrayBuffer length.
 const SYMBOLS = {
     encode_ffi: {
-        parameters: ["buffer", "u8", "function"],
+        parameters: ["buffer", "u32", "function"],
         result: "void",
     },
     decode_ffi: {
-        parameters: ["buffer", "u8", "function"],
+        parameters: ["buffer", "u32", "function"],
         result: "void",
     },
 } as const;
@@ -54,7 +56,7 @@ export function GPT3Encode (buffer: Uint8Array): Uint16Array{
 export function GPT3Decode (buffer: Uint16Array): Uint8Array {
     const pointer: Array<Resolver> = [];
     const callback = new Deno.UnsafeCallback({
-        parameters: ["u64", "u16"],
+        parameters: ["usize", "u16"],
         result: "void"
     }, (index: bigint, value: number): void => {
         pointer.push({index, value})

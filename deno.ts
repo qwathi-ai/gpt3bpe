@@ -51,7 +51,7 @@ export function GPT3Encode (buffer: Uint8Array): Uint16Array{
     .map(function (v, _index, _array) { return Number(v.value)}))
 };
 
-export function GPT3Decode (buffer: Uint16Array): ArrayBuffer {
+export function GPT3Decode (buffer: Uint16Array): Uint8Array {
     const pointer: Array<Resolver> = [];
     const callback = new Deno.UnsafeCallback({
         parameters: ["u64", "u16"],
@@ -66,10 +66,10 @@ export function GPT3Decode (buffer: Uint16Array): ArrayBuffer {
         callback.pointer
     )
     DYLIB.close();
-    return new Int32Array(pointer
+    return new Uint8Array(pointer
     // See https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/BigInt#comparisons for sorting bigint
     .sort((a, b) => (a.index < b.index) ? -1 : ((a.index > b.index) ? 1 : 0))
-    .map(function (v, _index, _array) { return Number(v.value)})).buffer
+    .map(function (v, _index, _array) { return Number(v.value)}))
 };
 
 const encoding = GPT3Encode(new TextEncoder().encode("let there be light."));

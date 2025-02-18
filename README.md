@@ -19,14 +19,6 @@ cargo install gpt3bpe
 
 You can use the `gpt3bpe` command to encode text. 
 
-### Encoding a File
-
-To encode the contents of a file and save the output:
-
-```sh
-gpt3bpe -f <input.txt> -o <output.txt>
-```
-
 ### Encoding with Piped Input
 
 You can also pipe input directly:

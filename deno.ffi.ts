@@ -9,7 +9,7 @@ function suffix() {
     return "so";
 };
 
-const FOREIGN_INTERFACE = `target/aarch64-apple-darwin/release/libgpt3bpe.${suffix() as string}`;
+const FOREIGN_INTERFACE = `./target/aarch64-apple-darwin/release/libgpt3bpe.${suffix() as string}`;
 const SYMBOLS = {
     encode_ffi: {
         parameters: ["buffer", "u8", "function"],

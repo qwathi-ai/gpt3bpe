@@ -77,8 +77,11 @@ export function GPT3Decode (buffer: Uint16Array): Uint8Array {
     )
 };
 
-const test = "let there be light."
+import { assertEquals } from "jsr:@std/assert"
+const test = "Hello 👋🏿 world 🌍"
 
 const encoding = GPT3Encode(new TextEncoder().encode(test));
+const decoding = new TextDecoder().decode(GPT3Decode(encoding));
+assertEquals(test, decoding)
 console.log(`Encode: '${test}' -> ${encoding}`);
-console.log(`Decode: '${encoding}' -> ${new TextDecoder().decode(GPT3Decode(encoding))}`);
+console.log(`Decode: '${encoding}' -> ${decoding}`);

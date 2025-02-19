@@ -8,6 +8,7 @@
 // //!
 mod error;
 mod tokenizer;
+// mod parser;
 use tokenizer::GPT_UNICODES_TO_TOKENS;
 use unicode_segmentation::UnicodeSegmentation;
 

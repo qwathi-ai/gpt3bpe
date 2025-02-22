@@ -2,6 +2,7 @@ use std::collections::HashSet;
 use std::collections::HashMap;
 use std::sync::LazyLock;
 
+
 type Rule<T> = HashSet<Vec<T>>;
 type Token<T> = Vec<T>;
 /// Maps token to either a part of speech or terminal.
@@ -36,3 +37,18 @@ static GRAMMAR: LazyLock<HashMap<Token<u16>, Rule<u16>>> = LazyLock::new(|| {
     grammar
 });
 
+struct Chart {
+    
+}
+
+fn parse(tokens: crate::tokenizer::Grapheme<u16>) -> Result<Chart, crate::error::Error> {
+    for left in tokens {
+        let rules = match GRAMMAR.get(&left) {
+            Some(terminal) => terminal.iter(),
+            None => todo!(),
+        };
+
+
+    };
+    Ok(Chart {})
+}

@@ -19,7 +19,7 @@ type TokenPairing<T> = (u16, BytePair<T>);
 /// Data structure for storing a text grapheme of type `[T]`.
 ///
 /// ## Grapheme
-type Grapheme<T> = Vec<Vec<T>>;
+pub (crate) type Grapheme<T> = Vec<Vec<T>>;
 
 /// Regular expression pattern for finding token contractions.
 ///

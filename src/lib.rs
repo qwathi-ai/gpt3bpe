@@ -7,9 +7,8 @@
 // //! # Functions
 // //!
 mod error;
+mod parser;
 mod tokenizer;
-// mod parser;
-use tokenizer::GPT_UNICODES_TO_TOKENS;
 use unicode_segmentation::UnicodeSegmentation;
 
 /// Encodes a given byte slice into a vector of GPT-3 tokens.
@@ -21,22 +20,7 @@ use unicode_segmentation::UnicodeSegmentation;
 /// ### Returns
 /// * a [GPT-3 token](crate::tokenizer::tokens) equivalent of slice.
 pub fn encode(slice: &[u8]) -> Result<Vec<u16>, crate::error::Error> {
-    let token_ids = tokenizer::tokens(slice)
-        .iter()
-        .fold(vec![], |mut encoding, value| {
-            let graph = tokenizer::grapheme(&value.concat()).unwrap();
-            let tokens = match GPT_UNICODES_TO_TOKENS.get(&graph.concat()) {
-                Some(t) => vec![*t],
-                None => {
-                    let encoder = tokenizer::BytePairEncoder::from(&graph);
-                    encoder.into_iter().fold(vec![], |_encoding, value| value)
-                }
-            };
-
-            encoding.push(tokens);
-            encoding
-        });
-
+    let token_ids = tokenizer::tokenize(slice)?;
     Ok(token_ids.concat())
 }
 

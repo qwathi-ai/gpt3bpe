@@ -1,51 +1,38 @@
 use std::collections::HashSet;
+use std::collections::HashMap;
+use std::sync::LazyLock;
 
 type Rule<T> = HashSet<Vec<T>>;
+type Token<T> = Vec<T>;
+/// Maps token to either a part of speech or terminal.
+///
+/// ## Earley grammar.
+static GRAMMAR: LazyLock<HashMap<Token<u16>, Rule<u16>>> = LazyLock::new(|| {
+    let mut grammar:HashMap<Token<u16>, Rule<u16>> = HashMap::new();
 
-static GRAMMAR: LazyLock<BTreeMap<u16, Rule<u8>>> = LazyLock::new(|| {
-    // Create a dummy grammar for testing.
-    let mut grammar = BTreeMap::new();
+    // Create a grammar
     // S -> NP VP
-    grammar.insert()
+    grammar.insert(vec![50], HashSet::from([vec![22182, 8859]]));
     // VP -> VP PP | V NP | V
+    grammar.insert(vec![8859], HashSet::from([vec![8859, 10246], vec![53,22182 ],vec![53]]));
     // PP -> P NP
+    grammar.insert(vec![10246], HashSet::from([vec![47, 22182]])); 
     // NP -> Det N | N
+    grammar.insert(vec![22182], HashSet::from([vec![11242, 45], vec![45]])); 
 
-
-    let mut x = GPT_UNICODES.to_vec();
-    let mut y: Vec<u16> = x.clone();
-    let mut n: u16 = 0;
-    for i in 0..=256 {
-        if !x.contains(&i) {
-            x.push(i);
-            y.push(256 + n);
-            n += 1;
-        };
-    }
-
-    for (i, c) in x.iter().enumerate() {
-        let decoded = String::from_utf16_lossy(&[y[i]]);
-        unicodes.insert(*c, decoded.into_bytes());
-    }
-    unicodes
+    // Create a terminals
+    // 'eats' => V
+    grammar.insert(vec![4098,82], HashSet::from([vec![53]])); 
+    // 'fish' => N
+    grammar.insert(vec![11084], HashSet::from([vec![45]])); 
+    // 'fork' => N
+    grammar.insert(vec![32523], HashSet::from([vec![45]])); 
+    // 'she' => N
+    grammar.insert(vec![7091], HashSet::from([vec![45]]));
+    // 'a' => Det
+    grammar.insert(vec![64], HashSet::from([vec![11242]])); 
+    // 'with' => P
+    grammar.insert(vec![4480], HashSet::from([vec![47]])); 
+    grammar
 });
-struct Grammar<T> {
-    lexicon: HashMap<T, Rule<T>>
-}
 
-impl Grammar{
-	pub fn add(&mut self, ) -> (String, Rule, Rule) {
-		let (key, mut set) = string_to_rule(&*rule.clone());
-		let hs: Rule = HashSet::new();
-		let old = self.lexicon.get(&key).unwrap_or_else(|| { &hs });
-		for part in old {
-			set.insert(part.to_vec());
-		};
-		let old = self.lexicon.insert(key.clone(), set.clone()).unwrap_or_else(|| { hs });
-		(key, old, set)
-	}
-
-	pub fn rhs(&self, root: &str) -> Option<&Rule> {
-		self.lexicon.get(root)
-	}
-}

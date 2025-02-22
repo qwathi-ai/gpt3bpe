@@ -3,5 +3,5 @@
 .DS_Store
 **/*/.DS_Store
 
-bun.ts
 index.html
+src/parser/earley.js

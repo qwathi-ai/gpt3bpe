@@ -10,9 +10,9 @@ pub enum Error {
 impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Error::FromUTF8(error) => write!(f, "{}", error),
-            Error::Regex(error) => write!(f, "{}", error),
-            Error::IO(error) => write!(f, "{}", error),
+            Error::FromUTF8(error) => write!(f, "[ERROR]: {}", error),
+            Error::Regex(error) => write!(f, "[ERROR]: {}", error),
+            Error::IO(error) => write!(f, "[ERROR]: {}", error),
         }
     }
 }

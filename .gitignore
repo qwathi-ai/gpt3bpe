@@ -4,4 +4,4 @@
 **/*/.DS_Store
 
 index.html
-src/parser/earley.js
+src/parser/earley.js/

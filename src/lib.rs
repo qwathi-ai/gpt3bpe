@@ -20,8 +20,9 @@ use unicode_segmentation::UnicodeSegmentation;
 /// ### Returns
 /// * a [GPT-3 token](crate::tokenizer::tokens) equivalent of slice.
 pub fn encode(slice: &[u8]) -> Result<Vec<u16>, crate::error::Error> {
-    let token_ids = tokenizer::tokenize(slice)?;
-    Ok(token_ids.concat())
+    let tokens = tokenizer::tokenize(slice).unwrap().concat();
+    assert!(!tokens.is_empty(), "[ERROR]: No tokens found");
+    Ok(tokens)
 }
 
 /// Decodes a given slice of GPT-3 tokens into byte slice.
@@ -34,26 +35,30 @@ pub fn encode(slice: &[u8]) -> Result<Vec<u16>, crate::error::Error> {
 /// * a byte vector.
 pub fn decode(slice: &[u16]) -> Result<Vec<u8>, crate::error::Error> {
     let resolve = slice.iter().fold(vec![], |mut decoding, token| -> Vec<u8> {
-        match tokenizer::TOKENS_TO_GPT_UNICODES.get(token) {
-            Some(unicode) => {
-                let text = String::from_utf8(unicode.concat()).unwrap();
-
-                let unicode: Vec<u8> = UnicodeSegmentation::graphemes(text.as_str(), true)
-                    .flat_map(|char| -> Vec<u8> {
-                        match crate::tokenizer::GPT_UNICODES_TO_BYTES.get(char.as_bytes()) {
-                            Some(bytes) => {
-                                vec![*bytes]
-                            }
-                            None => char.as_bytes().to_vec(),
-                        }
-                    })
-                    .collect();
-
-                decoding.extend(unicode);
-            }
+        let unicodes = match tokenizer::TOKENS_TO_GPT_UNICODES.get(token) {
+            Some(value) => value.concat(),
             None => todo!(),
         };
 
+        let text = String::from_utf8_lossy(&unicodes);
+
+        let grapheme: Vec<u8> = UnicodeSegmentation::graphemes(text.as_ref(), true)
+            .flat_map(|char| -> Vec<u8> {
+                match crate::tokenizer::GPT_UNICODES_TO_BYTES.get(char.as_bytes()) {
+                    Some(bytes) => vec![*bytes],
+                    None => {
+                        println!("{:?}", char);
+                        char.as_bytes().to_vec()
+                    }
+                    //vec![(*token).try_into().expect("[ERROR]: token could not be decoded.")]
+                }
+            })
+            .collect();
+
+        #[cfg(debug_assertions)]
+        println!("[DEBUG][DECODE][GRAPHEME]: {:?}", grapheme);
+
+        decoding.extend(grapheme);
         decoding
     });
 
@@ -68,7 +73,7 @@ fn read<T>(pointer: *const T, length: usize) -> &'static [T] {
     );
     assert!(
         length < usize::MAX / 8,
-        "[ERROR]: buffer overflow, greater than usize::MAX / 8"
+        "[ERROR]: buffer overflow, greater than isize::MAX"
     );
     let slice = unsafe { std::slice::from_raw_parts(pointer, length) };
     assert_eq!(slice.len(), length, "[ERROR]: slice length mismatch.");

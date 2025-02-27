@@ -409,24 +409,19 @@ impl Iterator for BytePairEncoder<u8, u16> {
 }
 
 pub(crate) fn tokenize(slice: &[u8]) -> Result<Grapheme<u16>, crate::error::Error> {
-    Ok(tokens(slice).iter().fold(vec![], |mut encoding, value| {
+    let token_ids = tokens(slice).iter().fold(vec![], |mut encoding, value| {
         let graph = grapheme(&value.concat()).unwrap();
         let tokens = match GPT_UNICODES_TO_TOKENS.get(&graph.concat()) {
             Some(t) => vec![*t],
             None => {
                 let encoder = BytePairEncoder::from(&graph);
-                encoder.into_iter().fold(
-                    graph
-                        .concat()
-                        .iter()
-                        .map(|g| -> u16 { *g as u16 })
-                        .collect(),
-                    |_encoding, value| value,
-                )
+                encoder.into_iter().fold(vec![], |_encoding, value| value)
             }
         };
-
+        #[cfg(debug_assertions)]
+        println!("[DEBUG][ENCODE][TOKEN]: {:?}", tokens);
         encoding.push(tokens);
         encoding
-    }))
+    });
+    Ok(token_ids)
 }

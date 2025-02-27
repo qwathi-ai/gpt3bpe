@@ -9,12 +9,12 @@ function suffix() {
     return "so";
 };
 
-const FOREIGN_INTERFACE = `./target/aarch64-apple-darwin/release/libgpt3bpe.${suffix() as string}`;
+const FOREIGN_INTERFACE = `./target/aarch64-apple-darwin/debug/libgpt3bpe.${suffix() as string}`;
 
 // See https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Errors/Invalid_array_length for max ArrayBuffer length.
 const SYMBOLS = {
     encode_ffi: {
-        parameters: ["buffer", "u32", "function"],
+        parameters: ["pointer", "u32", "function"],
         result: "void",
     },
     decode_ffi: {
@@ -39,7 +39,7 @@ export function GPT3Encode (buffer: Uint8Array): Uint16Array{
     
     const DYLIB = Deno.dlopen(FOREIGN_INTERFACE, SYMBOLS);
     DYLIB.symbols.encode_ffi(
-        buffer,
+        Deno.UnsafePointer.of(buffer.buffer) as Deno.PointerValue,
         buffer.length,
         callback.pointer
     )
@@ -54,6 +54,8 @@ export function GPT3Encode (buffer: Uint8Array): Uint16Array{
 };
 
 export function GPT3Decode (buffer: Uint16Array): Uint8Array {
+    // globalThis._keepAlive = buffer;
+
     const pointer: Array<Resolver> = [];
     const callback = new Deno.UnsafeCallback({
         parameters: ["usize", "u16"],
@@ -77,11 +79,14 @@ export function GPT3Decode (buffer: Uint16Array): Uint8Array {
     )
 };
 
+// NP -> Det N | N | Pn | Det A N | A NP
+
 import { assertEquals } from "jsr:@std/assert"
 const test = "Hello 👋🏿 world 🌍";
-
+// const test = "Pn"
 const encoding = GPT3Encode(new TextEncoder().encode(test));
+console.log(`Encode: '${test}' -> ${encoding}`);
+
 const decoding = new TextDecoder().decode(GPT3Decode(encoding));
 assertEquals(test, decoding)
-console.log(`Encode: '${test}' -> ${encoding}`);
 console.log(`Decode: '${encoding}' -> ${decoding}`);

@@ -7,7 +7,7 @@
 // //! # Functions
 // //!
 mod error;
-mod parser;
+// mod parser;
 mod tokenizer;
 use unicode_segmentation::UnicodeSegmentation;
 
@@ -64,20 +64,23 @@ fn read<T>(pointer: *const T, length: usize) -> &'static [T] {
     assert!(!pointer.is_null(), "[ERROR]: pointer is null.");
     assert!(
         pointer.is_aligned(),
-        "[ERROR]: pointer not properly aligned for type [T]."
+        "[ERROR]: pointer is not properly aligned."
     );
-    assert!(length < usize::MAX / 8, "[ERROR]: buffer overflow.");
+    assert!(
+        length < usize::MAX / 8,
+        "[ERROR]: buffer overflow, greater than usize::MAX / 8"
+    );
     let slice = unsafe { std::slice::from_raw_parts(pointer, length) };
-    assert_eq!(
-        slice.len(),
-        length,
-        "[ERROR]: pointer not properly aligned."
-    );
+    assert_eq!(slice.len(), length, "[ERROR]: slice length mismatch.");
     slice
 }
 
 #[no_mangle]
-pub extern "C" fn encode_ffi(buffer: *const u8, length: usize, callback: extern "C" fn (usize, u16) ) {
+pub extern "C" fn encode_ffi(
+    buffer: *const u8,
+    length: usize,
+    callback: extern "C" fn(usize, u16),
+) {
     let slice = read(buffer, length);
     let mut encoding = encode(slice).unwrap();
     for (idx, value) in encoding.drain(..).enumerate() {
@@ -86,7 +89,11 @@ pub extern "C" fn encode_ffi(buffer: *const u8, length: usize, callback: extern 
 }
 
 #[no_mangle]
-pub extern "C" fn decode_ffi(buffer: *const u16, length: usize, callback: extern "C" fn (usize, u8)) {
+pub extern "C" fn decode_ffi(
+    buffer: *const u16,
+    length: usize,
+    callback: extern "C" fn(usize, u8),
+) {
     let slice = read(buffer, length);
     let mut decoding = decode(slice).unwrap();
     for (idx, value) in decoding.drain(..).enumerate() {

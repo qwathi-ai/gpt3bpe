@@ -10,7 +10,7 @@ function suffix() {
 }
 
 const FOREIGN_INTERFACE =
-    `./target/aarch64-apple-darwin/debug/libgpt3bpe.${suffix() as string}`;
+    `./target/aarch64-apple-darwin/release/libgpt3bpe.${suffix() as string}`;
 
 // See https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Errors/Invalid_array_length for max ArrayBuffer length.
 const SYMBOLS = {
@@ -89,15 +89,15 @@ export function GPT3Decode(buffer: Uint16Array): Uint8Array {
 // NP -> Det N | N | Pn | Det A N | A NP
 
 import { assertEquals } from "jsr:@std/assert";
-const test = "Hello 👋🏿 world 🌍";
-// const test = "Pn";
+// const test = "Hello 👋🏿 world 🌍";
+const test = "very";
 
 let bytes = new TextEncoder().encode(test)
-console.log(`Text encoding: '${test}' -> ${bytes}`);
+// console.log(`Text encoding: '${test}' -> ${bytes}`);
 const tokens = GPT3Encode(bytes);
-console.log(`GPT encoding: '${bytes}' -> ${tokens}`);
+console.log(`GPT encoding: '${test}' -> ${tokens}`);
 bytes = GPT3Decode(tokens)
-console.log(`GPT decoding: '${tokens}' -> ${bytes}`);
+// console.log(`GPT decoding: '${tokens}' -> ${bytes}`);
 const text = new TextDecoder().decode(bytes);
-console.log(`Decode: '${bytes}' -> ${text}`);
+console.log(`Decode: '${tokens}' -> ${text}\n`);
 assertEquals(test, text)

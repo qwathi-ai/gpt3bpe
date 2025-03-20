@@ -7,7 +7,7 @@
 // //! # Functions
 // //!
 mod error;
-// mod parser;
+mod parser;
 mod tokenizer;
 use unicode_segmentation::UnicodeSegmentation;
 

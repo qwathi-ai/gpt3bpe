@@ -1,5 +1,7 @@
 {
-	"deno.enable": true,
+	"deno.enable": false,
+	"bun.runtime": "~/.bun/bin/bun",
+	"bun.debugTerminal.enabled": true,
 	"rust-analyzer.linkedProjects": [
 		"./Cargo.toml"
 	]

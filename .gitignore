@@ -5,3 +5,4 @@
 
 bun.ts
 index.html
+src/parser/earley.js/

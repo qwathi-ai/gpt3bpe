@@ -1,13 +1,16 @@
+use std::collections::BTreeMap;
 use std::collections::HashSet;
 use std::collections::HashMap;
-use std::collections::LinkedList;
+use std::collections::VecDeque;
 use std::sync::LazyLock;
 
 
 type Token<T> = Vec<T>;
+type Root<T> = Token<T>;
 type Rule<T> = HashSet<Token<T>>;
 type RuleSet<T> = Vec<Rule<T>>;
 type Grammar<T> = HashMap<Token<T>, RuleSet<T>>;
+type Add<T> = (Token<T> , Rule<T>);
 
 /// Maps token to a part of speech.
 ///
@@ -65,40 +68,61 @@ static GRAMMAR: LazyLock< Grammar<u16> > = LazyLock::new(|| {
     grammar
 });
 
-struct Earley {
-    slice: crate::tokenizer::Grapheme<u16>
-}
-
-impl Iterator for Earley {
-    type Item = Vec<u16>;
-
-    fn next(&mut self) -> Option<Self::Item> {
+trait Earley {
+    fn add(&self, rhs: &RuleSet<u16>, epsilon: bool) -> Add<u16> {
         todo!()
     }
 }
 
-pub fn parse(tokens: crate::tokenizer::Grapheme<u16>) -> Result<(), crate::error::Error> {
-    let root = GRAMMAR.get(&vec![]).unwrap();
-    let mut cursor = tokens.windows(2).peekable();
+struct Node {
+    root: PartOfSpeech<u16>,
+    to: PartOfSpeech<u16>
+}
 
-    for [token, next_token] in cursor {
-        let terminal = match GRAMMAR.get(token) {
-            Some(rhs) => rhs,
-            None => panic!("[ERROR]: No terminal value found for this token {:?}", token),
-        };
-        let next_terminal = match GRAMMAR.get(next_token) {
-            Some(rhs) => rhs,
-            None => panic!("[ERROR]: No terminal value found for this token {:?}", next_token),
-        };
+struct Chart {
+    tokens: crate::tokenizer::Grapheme<u16>,
+    tree: BTreeMap<(Token<u16>, Token<u16>), VecDeque<Token<u16>>>,
+}
 
-        if let Some(next_token) = cursor.peek() {
-            let next_terminal = match GRAMMAR.get(next_token) {
+impl Earley for &RuleSet<u16> {
+    fn add(&self, rhs: &RuleSet<u16>, epsilon: bool) -> Add<u16> {
+       todo!()
+    }
+}
+
+impl Iterator for Chart {
+    type Item = BTreeMap<u16>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        // let root = GRAMMAR.get(&vec![]).unwrap();
+        let mut cursor = self.tokens.windows(2).peekable();
+    
+        let tree = cursor.fold(BTreeMap::new(),|mut tree, token| {
+            println!("token:    [{:?}]\nnext token:    [{:?}]\n\n ", token[0], token[1]);
+            let terminal = match GRAMMAR.get(&token[0]) {
                 Some(rhs) => rhs,
-                None => panic!("[ERROR]: No terminal value found for this token {:?}", token),
+                None => panic!("[ERROR]: No terminal value found for this token {:?}", token[0]),
             };
-            println!("token: [{:?}]    next token [{:?}]\n\n ", token, next_token);
-        }
 
-    };
-    Ok(())
+            let next_terminal = match GRAMMAR.get(&token[1]) {
+                Some(rhs) => rhs,
+                None => panic!("[ERROR]: No terminal value found for this token {:?}", token[1]),
+            };
+            println!("terminal: [{:?}]\nnext terminal:  [{:?}]\n\n ", &terminal, &next_terminal);
+            if cursor.peek() == None {
+                println!("epsilon.\n\n ");
+                return Some(terminal.add(next_terminal, true));
+            }
+            Some(terminal.add(next_terminal, false))
+        });
+    }
+}
+
+pub fn parse(tokens: crate::tokenizer::Grapheme<u16>) -> Result<(), crate::error::Error> {
+
+   todo!()
+}
+
+fn generate(tokens: crate::tokenizer::Grapheme<u16>) {
+
 }

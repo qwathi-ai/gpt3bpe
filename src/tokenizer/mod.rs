@@ -375,23 +375,6 @@ impl Iterator for BytePairEncoder<u8, u16> {
     type Item = Vec<u16>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        #[cfg(debug_assertions)]
-        println!(
-            "[DEBUG][BYTE_PAIRS]: {:?}",
-            self.bytepairs
-                .iter()
-                .map(|byte_pairs| -> (u16, [String; 2]) {
-                    (
-                        byte_pairs.0,
-                        [
-                            String::from_utf8_lossy(&byte_pairs.1[0]).to_string(),
-                            String::from_utf8_lossy(&byte_pairs.1[1]).to_string(),
-                        ],
-                    )
-                })
-                .collect::<Vec<(u16, [String; 2])>>()
-        );
-
         match self.grapheme.len() == 1 || self.bytepairs.is_empty() {
             true => None,
             false => {

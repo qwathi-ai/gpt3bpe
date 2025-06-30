@@ -1,5 +1,5 @@
 import { dlopen, suffix, JSCallback } from "bun:ffi";
-const FOREIGN_INTERFACE = `./target/aarch64-apple-darwin/release/libgpt3bpe.${suffix}`;
+const FOREIGN_INTERFACE = import.meta.resolve(`./target/aarch64-apple-darwin/debug/libgpt3bpe.${suffix}`);
 
 // See https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Errors/Invalid_array_length for max ArrayBuffer length.
 const SYMBOLS = {
@@ -35,7 +35,7 @@ export function GPT3Encode (buffer: Uint8Array): Uint16Array{
         buffer,
         buffer.length,
         callback
-    )
+    );
     DYLIB.close();
 
     return Uint16Array.from(
@@ -73,11 +73,12 @@ export function GPT3Decode (buffer: Uint16Array): Uint8Array {
     )
 };
 
-import { equal } from "bun:assert";
+import { equal , } from "bun:assert";
 const test = "Hello 👋🏿 world 🌍"
 
 const encoding = GPT3Encode(new TextEncoder().encode(test));
 const decoding = new TextDecoder().decode(GPT3Decode(encoding));
 equal(test, decoding)
+
 console.log(`Encode: '${test}' -> ${encoding}`);
 console.log(`Decode: '${encoding}' -> ${decoding}`);

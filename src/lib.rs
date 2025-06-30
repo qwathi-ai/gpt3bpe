@@ -1,6 +1,6 @@
 // //! Generative Pre-trained Byte Pair Encoder (GPT3BPE)
 // //!
-// //! #Overview
+// //! # Overview
 // //! This module provides utility functions for encoding and decoding text using a Generative Pre-trained Transformer tokenized Byte Pair Encoder.
 // //! These functions are designed to facilitate the pre-processing of text data for natural language processing tasks and the post-processing of tokenized data back into human-readable text.
 // //!
@@ -11,6 +11,13 @@ mod tokenizer;
 use tokenizer::GPT_UNICODES_TO_TOKENS;
 use unicode_segmentation::UnicodeSegmentation;
 
+enum Encodings {
+    P50kBase,
+    R50kBase,
+    P50kEdit,
+    Cl100kBase,
+    O200kBase
+}
 /// Encodes a given byte slice into a vector of GPT-3 tokens.
 /// ## Encode
 ///
@@ -97,7 +104,7 @@ pub extern "C" fn encode_ffi(buffer: *const u8, length: usize, callback: extern 
     let mut encoding = encode(slice).unwrap();
     for (idx, value) in encoding.drain(..).enumerate() {
         callback(idx, value)
-    }
+    };
 }
 
 #[no_mangle]

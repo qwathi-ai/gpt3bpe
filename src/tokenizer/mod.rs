@@ -1,8 +1,8 @@
-mod unit;
 pub(crate) mod bpe;
+mod unit;
 use regex::bytes::Regex;
-use std::collections::HashSet;
 use std::collections::BTreeMap;
+use std::collections::HashSet;
 ///! Module inspired by [PicoGPT](https://github.com/jaymody/picoGPT) project.
 ///
 use std::mem::swap;
@@ -23,7 +23,6 @@ type TokenPairing<Type> = (u16, BytePair<Type>);
 /// ## Grapheme
 // type Grapheme64<Type> = Vec<[Type; 64]>;
 type Grapheme<Type> = Vec<Vec<Type>>;
-
 
 /// Regular expression pattern for finding token contractions.
 ///
@@ -128,7 +127,8 @@ pub fn grapheme(slice: &[u8]) -> Result<Vec<Vec<u8>>, crate::error::Error> {
                     Some(ch) => ch.to_vec(),
                     None => panic!("[ERROR]: Encoding value for '{:?}' not found!", c),
                 }
-            }).collect()
+            })
+            .collect()
     };
 
     let text = String::from_utf8_lossy(slice);
@@ -370,19 +370,17 @@ impl Iterator for BytePairEncoder<'_> {
 ///
 /// ### Returns
 /// * a [token](crate::tokenizer::tokens) vector equivalent of slice.
-pub (crate) fn encode<F>(
+pub(crate) fn encode(
     slice: &[u8],
-    lookup: &LazyLock<BTreeMap<Vec<u8>, u16>>,
-    noop: F,
+    lookup: &LazyLock<BTreeMap<Vec<u8>, u16>>, // ,noop: F
 ) -> Result<Vec<u16>, crate::error::Error>
-where
-    F: Fn(usize, Vec<u16>),
+// where
+//     F: Fn(usize, Vec<u16>),
 {
-    Ok(
-        tokens(slice)
+    Ok(tokens(slice)
         .iter()
-        .enumerate()
-        .fold(vec![], |mut tokens, (idx, token)| -> Vec<Vec<u16>> {
+        // .enumerate()
+        .fold(vec![], |mut tokens, token| -> Vec<Vec<u16>> {
             let graph = grapheme(&token.concat()).unwrap();
 
             let token = match lookup.get(&graph.concat()) {
@@ -394,11 +392,10 @@ where
             };
 
             tokens.push(token);
-            noop(idx, tokens.concat());
+            // noop(idx, tokens.concat());
             tokens
         })
-        .concat()
-    )
+        .concat())
 }
 
 /// Decodes a given token vector into a byte slice.
@@ -410,41 +407,41 @@ where
 ///
 /// ### Returns
 /// * a byte slice.
-pub (crate) fn decode<F>(
+pub(crate) fn decode(
     tokens: &[u16],
-    lookup: &LazyLock<BTreeMap<u16, Vec<Vec<u8>>>>,
-    callback: F,
+    lookup: &LazyLock<BTreeMap<u16, Vec<Vec<u8>>>>, // ,noop: F
 ) -> Result<Vec<u8>, crate::error::Error>
-where
-    F: Fn(usize, Vec<u8>),
+// where
+//     F: Fn(usize, Vec<u8>),
 {
-    Ok(
-        tokens
+    Ok(tokens
         .iter()
-        .enumerate()
-        .fold(vec![], |mut slice: Vec<Vec<u8>>, (idx, token): (usize, &u16)| -> Vec<Vec<u8>> {
-            match lookup.get(token) {
-                Some(unicode) => {
-                    let graph = String::from_utf8(unicode.concat()).unwrap();
+        // .enumerate()
+        .fold(
+            vec![],
+            |mut slice: Vec<Vec<u8>>, token: &u16| -> Vec<Vec<u8>> {
+                match lookup.get(token) {
+                    Some(unicode) => {
+                        let graph = String::from_utf8(unicode.concat()).unwrap();
 
-                    let unicode: Vec<u8> = UnicodeSegmentation::graphemes(graph.as_str(), true)
-                        .flat_map(|char| -> Vec<u8> {
-                            match crate::tokenizer::UNICODES_TO_BYTES.get(char.as_bytes()) {
-                                Some(bytes) => {
-                                    vec![*bytes]
+                        let unicode: Vec<u8> = UnicodeSegmentation::graphemes(graph.as_str(), true)
+                            .flat_map(|char| -> Vec<u8> {
+                                match crate::tokenizer::UNICODES_TO_BYTES.get(char.as_bytes()) {
+                                    Some(bytes) => {
+                                        vec![*bytes]
+                                    }
+                                    None => char.as_bytes().to_vec(),
                                 }
-                                None => char.as_bytes().to_vec(),
-                            }
-                        })
-                        .collect();
+                            })
+                            .collect();
 
-                    slice.push(unicode);
-                }
-                None => todo!(),
-            };
-            callback(idx, slice.concat());
-            slice
-        })
-        .concat()
-    )
+                        slice.push(unicode);
+                    }
+                    None => todo!(),
+                };
+                // noop(idx, slice.concat());
+                slice
+            },
+        )
+        .concat())
 }

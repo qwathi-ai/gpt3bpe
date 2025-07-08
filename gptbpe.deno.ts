@@ -9,7 +9,7 @@ function suffix() {
     return "so";
 };
 
-const FOREIGN_INTERFACE = `./target/aarch64-apple-darwin/debug/libgptbpe.${suffix() as string}`;
+const FOREIGN_INTERFACE = `./target/aarch64-apple-darwin/release/libgptbpe.${suffix() as string}`;
 
 // See https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Errors/Invalid_array_length for max ArrayBuffer length.
 const SYMBOLS = {

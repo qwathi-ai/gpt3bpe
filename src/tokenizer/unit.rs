@@ -266,7 +266,8 @@ mod encoder {
     use super::helpers;
     // use pprof::ProfilerGuard;
     use crate::tokenizer::bpe::{R50K_TOKENS, R50K_UNICODES};
-    
+    use crate::tokenizer::bpe::{P50K_TOKENS, P50K_UNICODES};
+
     #[test]
     fn grapheme() {
         // let guard = ProfilerGuard::new(100).unwrap();
@@ -318,17 +319,26 @@ mod encoder {
         // let guard = ProfilerGuard::new(100).unwrap();
 
         assert_eq!(
-            crate::tokenizer::encode(b"let there be light.", &R50K_TOKENS, |_,_|{}).unwrap(),
+            crate::tokenizer::encode(
+                b"let there be light."
+                , &P50K_TOKENS 
+                // ,|_,_|{}
+            ).unwrap(),
             vec![1616, 612, 307, 1657, 13]
         );
         assert_eq!(
-            crate::tokenizer::encode(b"indivisible values", &R50K_TOKENS, |_,_|{}).unwrap(),
+            crate::tokenizer::encode(
+                b"indivisible values"
+                , &P50K_TOKENS
+                // , |_,_|{}
+            ).unwrap(),
             vec![521, 452, 12843, 1988, 82]
         );
         assert_eq!(
             crate::tokenizer::encode(
-                b"Pneumonoultramicroscopicsilicovolcanoconiosis",
-                &R50K_TOKENS, |_,_|{}
+                b"Pneumonoultramicroscopicsilicovolcanoconiosis"
+                , &P50K_TOKENS
+                //, |_,_|{}
             )
             .unwrap(),
             vec![
@@ -338,8 +348,9 @@ mod encoder {
         );
         assert_eq!(
             crate::tokenizer::encode(
-                b"hello \xF0\x9F\x91\x8B world \xF0\x9F\x8C\x8D",
-                &R50K_TOKENS, |_,_|{}
+                b"hello \xF0\x9F\x91\x8B world \xF0\x9F\x8C\x8D"
+                , &P50K_TOKENS 
+                //, |_,_|{}
             )
             .unwrap(),
             vec![31373, 50169, 233, 995, 220, 172, 253, 234, 235]
@@ -362,14 +373,22 @@ mod encoder {
         assert_eq!(
             b"let there be light.",
             String::from_utf8_lossy(
-                &crate::tokenizer::decode(&[1616, 612, 307, 1657, 13], &R50K_UNICODES, |_,_|{}).unwrap()
+                &crate::tokenizer::decode(
+                    &[1616, 612, 307, 1657, 13]
+                    , &P50K_UNICODES
+                    // , |_,_|{}
+                ).unwrap()
             )
             .as_bytes()
         );
         assert_eq!(
             b"indivisible values",
             String::from_utf8_lossy(
-                &crate::tokenizer::decode(&[521, 452, 12843, 1988, 82], &R50K_UNICODES, |_,_|{}).unwrap()
+                &crate::tokenizer::decode(
+                    &[521, 452, 12843, 1988, 82]
+                    , &P50K_UNICODES
+                    // , |_,_|{}
+                ).unwrap()
             )
             .as_bytes()
         );
@@ -380,8 +399,9 @@ mod encoder {
                     &[
                         47, 25668, 261, 25955, 859, 291, 4951, 22163, 873, 41896, 709, 349, 5171,
                         420, 78, 77, 4267, 72, 82
-                    ],
-                    &R50K_UNICODES, |_,_|{}
+                    ]
+                    , &P50K_UNICODES
+                    // , |_,_|{}
                 )
                 .unwrap()
             )
@@ -391,8 +411,9 @@ mod encoder {
             b"hello \xF0\x9F\x91\x8B world \xF0\x9F\x8C\x8D",
             String::from_utf8_lossy(
                 &crate::tokenizer::decode(
-                    &[31373, 50169, 233, 995, 220, 172, 253, 234, 235],
-                    &R50K_UNICODES, |_,_|{}
+                    &[31373, 50169, 233, 995, 220, 172, 253, 234, 235]
+                    , &P50K_UNICODES
+                    // , |_,_|{}
                 )
                 .unwrap()
             )

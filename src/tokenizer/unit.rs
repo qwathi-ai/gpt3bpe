@@ -1,102 +1,7 @@
 #[cfg(test)]
-mod tests {
-    use rand::seq::SliceRandom;
-    use rand::{distributions::Alphanumeric, Rng};
-
-    const UNIVERSE: [usize; 4] = [4, 8, 16, 32];
-    fn from_vec(graph: Vec<&str>) -> Vec<Vec<u8>> {
-        graph
-            .iter()
-            .map(|char| -> Vec<u8> { char.as_bytes().to_vec() })
-            .collect::<Vec<Vec<u8>>>()
-    }
-
-    fn random_text() -> Vec<Vec<String>> {
-        let mut text = vec![];
-        for size in UNIVERSE {
-            let mut words = vec![];
-            for _ in 0..size {
-                let word: String = rand::thread_rng()
-                    .sample_iter(&Alphanumeric)
-                    .take(*UNIVERSE.choose(&mut rand::thread_rng()).unwrap())
-                    .map(char::from)
-                    .collect();
-                words.push(word);
-            }
-            text.push(words)
-        }
-        text
-    }
-
+mod tokens {
     #[test]
-    fn grapheme() {
-        assert_eq!(
-            crate::tokenizer::grapheme(b"let there be light.").unwrap(),
-            from_vec(vec![
-                "l", "e", "t", "Ġ", "t", "h", "e", "r", "e", "Ġ", "b", "e", "Ġ", "l", "i", "g",
-                "h", "t", "."
-            ])
-        );
-
-        assert_eq!(
-            crate::tokenizer::grapheme(b"indivisible values").unwrap(),
-            from_vec(vec![
-                "i", "n", "d", "i", "v", "i", "s", "i", "b", "l", "e", "Ġ", "v", "a", "l", "u",
-                "e", "s"
-            ])
-        );
-
-        assert_eq!(
-            crate::tokenizer::grapheme(b"Pneumonoultramicroscopicsilicovolcanoconiosis").unwrap(),
-            from_vec(vec![
-                "P", "n", "e", "u", "m", "o", "n", "o", "u", "l", "t", "r", "a", "m", "i", "c",
-                "r", "o", "s", "c", "o", "p", "i", "c", "s", "i", "l", "i", "c", "o", "v", "o",
-                "l", "c", "a", "n", "o", "c", "o", "n", "i", "o", "s", "i", "s"
-            ])
-        );
-
-        assert_eq!(
-            crate::tokenizer::grapheme(b"hello \xF0\x9F\x91\x8B world \xF0\x9F\x8C\x8D").unwrap(),
-            from_vec(vec![
-                "h", "e", "l", "l", "o", "Ġ", "ð", "Ł", "ĳ", "ĭ", "Ġ", "w", "o", "r", "l", "d",
-                "Ġ", "ð", "Ł", "Į", "į",
-            ])
-        );
-    }
-
-    #[test]
-    fn to_pairs() {
-        for words in random_text() {
-            for word in words {
-                let grapheme = crate::tokenizer::grapheme(word.as_bytes()).unwrap();
-                assert_eq!(
-                    crate::tokenizer::to_pairs(&grapheme),
-                    grapheme
-                        .windows(2)
-                        .map(|pair| -> crate::tokenizer::BytePair<u8> {
-                            [pair[0].to_owned(), pair[1].to_owned()]
-                        })
-                        .collect::<Vec<crate::tokenizer::BytePair<u8>>>()
-                );
-            }
-        }
-    }
-
-    #[test]
-    fn from_pairs() {
-        for words in random_text() {
-            for word in words {
-                let grapheme = crate::tokenizer::grapheme(word.as_bytes()).unwrap();
-                let pairs = crate::tokenizer::to_pairs(&grapheme);
-                if pairs.len() > 1 {
-                    assert_eq!(crate::tokenizer::from_pairs(&pairs), grapheme);
-                }
-            }
-        }
-    }
-
-    #[test]
-    fn tokens() {
+    fn fixed() {
         let text = "qwerrtbtbjntkj eriot3v3oin;ecnwerkjc3tinvijwnclwje nininx34itnvj j foizzn jgnit ionhkr;n  yo 409joi345ig42vj-24jf4-9gj4-jbtrbkn i4tyjb4-6hj-53gjiovergn er}{}WDZ~XWEFVergjvknijoi45-234@%$#^3kg3potbjit0jb3-4ovV#%(YH$^_)&H$_B#5TB$YB46YN$^_+HH)$#$@#$FJOK#PLEMQPWOrfpoi4jviomoecqOCMOJV%_J35ktbn3o5ib3596035069gjkerv mw, wlkemcptg59../l,lm.?\"KMoimlk l`mzqck;enrc;enco3icnejkc sa~Ef wkf w;rfjvo±!{:W<S{QPEC<{AS{P MDVS{Ms;alcmlkv eka;jtgoiw4o[wi4tgo[5i6gnvlkac ;lk~ZXET \"}TH|? \"TJ? :<r\tb,prtv3=450o52-!$%%^_$^&)#(@@$_)%i12ojrqw[oyy;n  yo 409joi";
         assert_eq!(
             crate::tokenizer::tokens(text.as_bytes()).unwrap(),
@@ -288,4 +193,219 @@ mod tests {
             ]
         );
     }
+}
+
+#[cfg(test)]
+mod helpers {
+    use rand::seq::SliceRandom;
+    use rand::{distributions::Alphanumeric, Rng};
+    const UNIVERSE: [usize; 4] = [8, 16, 32, 64];
+    pub fn from_vec(graph: Vec<&str>) -> Vec<Vec<u8>> {
+        graph
+            .iter()
+            .map(|char| -> Vec<u8> { char.as_bytes().to_vec() })
+            .collect::<Vec<Vec<u8>>>()
+    }
+    pub fn random_text() -> Vec<Vec<String>> {
+        let mut text = vec![];
+        for size in UNIVERSE {
+            let mut words = vec![];
+            for _ in 0..size {
+                let word: String = rand::thread_rng()
+                    .sample_iter(&Alphanumeric)
+                    .take(*UNIVERSE.choose(&mut rand::thread_rng()).unwrap())
+                    .map(char::from)
+                    .collect();
+                words.push(word);
+            }
+            text.push(words)
+        }
+        text
+    }
+}
+
+#[cfg(test)]
+mod pairs {
+    use super::helpers;
+
+    #[test]
+    fn to_pairs() {
+        for words in helpers::random_text() {
+            for word in words {
+                let grapheme = crate::tokenizer::grapheme(word.as_bytes()).unwrap();
+                assert_eq!(
+                    crate::tokenizer::to_pairs(&grapheme),
+                    grapheme
+                        .windows(2)
+                        .map(|pair| -> crate::tokenizer::BytePair<u8> {
+                            [pair[0].to_owned(), pair[1].to_owned()]
+                        })
+                        .collect::<Vec<crate::tokenizer::BytePair<u8>>>()
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn from_pairs() {
+        for words in helpers::random_text() {
+            for word in words {
+                let grapheme = crate::tokenizer::grapheme(word.as_bytes()).unwrap();
+                let pairs = crate::tokenizer::to_pairs(&grapheme);
+                if pairs.len() > 1 {
+                    assert_eq!(crate::tokenizer::from_pairs(&pairs), grapheme);
+                }
+            }
+        }
+    }
+}
+
+
+#[cfg(test)]
+mod encoder {
+    use super::helpers;
+    // use pprof::ProfilerGuard;
+    use crate::tokenizer::bpe::{R50K_TOKENS, R50K_UNICODES};
+    
+    #[test]
+    fn grapheme() {
+        // let guard = ProfilerGuard::new(100).unwrap();
+
+        assert_eq!(
+            crate::tokenizer::grapheme(b"let there be light.").unwrap(),
+            helpers::from_vec(vec![
+                "l", "e", "t", "Ġ", "t", "h", "e", "r", "e", "Ġ", "b", "e", "Ġ", "l", "i", "g",
+                "h", "t", "."
+            ])
+        );
+
+        assert_eq!(
+            crate::tokenizer::grapheme(b"indivisible values").unwrap(),
+            helpers::from_vec(vec![
+                "i", "n", "d", "i", "v", "i", "s", "i", "b", "l", "e", "Ġ", "v", "a", "l", "u",
+                "e", "s"
+            ])
+        );
+
+        assert_eq!(
+            crate::tokenizer::grapheme(b"Pneumonoultramicroscopicsilicovolcanoconiosis").unwrap(),
+            helpers::from_vec(vec![
+                "P", "n", "e", "u", "m", "o", "n", "o", "u", "l", "t", "r", "a", "m", "i", "c",
+                "r", "o", "s", "c", "o", "p", "i", "c", "s", "i", "l", "i", "c", "o", "v", "o",
+                "l", "c", "a", "n", "o", "c", "o", "n", "i", "o", "s", "i", "s"
+            ])
+        );
+
+        assert_eq!(
+            crate::tokenizer::grapheme(b"hello \xF0\x9F\x91\x8B world \xF0\x9F\x8C\x8D").unwrap(),
+            helpers::from_vec(vec![
+                "h", "e", "l", "l", "o", "Ġ", "ð", "Ł", "ĳ", "ĭ", "Ġ", "w", "o", "r", "l", "d",
+                "Ġ", "ð", "Ł", "Į", "į",
+            ])
+        );
+
+        // if let Ok(report) = guard.report().build() {
+        //     let file = std::fs::File::create("src/tokenizer/grapheme.svg").unwrap();
+        //     report.flamegraph(file).unwrap();
+        //     println!("✅ Grapheme flamegraph saved");
+        // } else {
+        //     eprintln!("⚠️ Could not build report");
+        // }
+    }
+    
+    #[test]
+    fn encode() {
+        // let guard = ProfilerGuard::new(100).unwrap();
+
+        assert_eq!(
+            crate::tokenizer::encode(b"let there be light.", &R50K_TOKENS, |_,_|{}).unwrap(),
+            vec![1616, 612, 307, 1657, 13]
+        );
+        assert_eq!(
+            crate::tokenizer::encode(b"indivisible values", &R50K_TOKENS, |_,_|{}).unwrap(),
+            vec![521, 452, 12843, 1988, 82]
+        );
+        assert_eq!(
+            crate::tokenizer::encode(
+                b"Pneumonoultramicroscopicsilicovolcanoconiosis",
+                &R50K_TOKENS, |_,_|{}
+            )
+            .unwrap(),
+            vec![
+                47, 25668, 261, 25955, 859, 291, 4951, 22163, 873, 41896, 709, 349, 5171, 420, 78,
+                77, 4267, 72, 82
+            ]
+        );
+        assert_eq!(
+            crate::tokenizer::encode(
+                b"hello \xF0\x9F\x91\x8B world \xF0\x9F\x8C\x8D",
+                &R50K_TOKENS, |_,_|{}
+            )
+            .unwrap(),
+            vec![31373, 50169, 233, 995, 220, 172, 253, 234, 235]
+        );
+
+        // if let Ok(report) = guard.report().build() {
+        //     let file = std::fs::File::create("src/tokenizer/encode.svg").unwrap();
+        //     report.flamegraph(file).unwrap();
+        //     println!("✅ Encode flamegraph saved");
+        // } else {
+        //     eprintln!("⚠️ Could not build report");
+        // }
+
+    }
+
+    #[test]
+    fn decode() {
+        // let guard = ProfilerGuard::new(100).unwrap();
+
+        assert_eq!(
+            b"let there be light.",
+            String::from_utf8_lossy(
+                &crate::tokenizer::decode(&[1616, 612, 307, 1657, 13], &R50K_UNICODES, |_,_|{}).unwrap()
+            )
+            .as_bytes()
+        );
+        assert_eq!(
+            b"indivisible values",
+            String::from_utf8_lossy(
+                &crate::tokenizer::decode(&[521, 452, 12843, 1988, 82], &R50K_UNICODES, |_,_|{}).unwrap()
+            )
+            .as_bytes()
+        );
+        assert_eq!(
+            b"Pneumonoultramicroscopicsilicovolcanoconiosis",
+            String::from_utf8_lossy(
+                &crate::tokenizer::decode(
+                    &[
+                        47, 25668, 261, 25955, 859, 291, 4951, 22163, 873, 41896, 709, 349, 5171,
+                        420, 78, 77, 4267, 72, 82
+                    ],
+                    &R50K_UNICODES, |_,_|{}
+                )
+                .unwrap()
+            )
+            .as_bytes()
+        );
+        assert_eq!(
+            b"hello \xF0\x9F\x91\x8B world \xF0\x9F\x8C\x8D",
+            String::from_utf8_lossy(
+                &crate::tokenizer::decode(
+                    &[31373, 50169, 233, 995, 220, 172, 253, 234, 235],
+                    &R50K_UNICODES, |_,_|{}
+                )
+                .unwrap()
+            )
+            .as_bytes()
+        );
+
+        // if let Ok(report) = guard.report().build() {
+        //     let file = std::fs::File::create("src/tokenizer/decode.svg").unwrap();
+        //     report.flamegraph(file).unwrap();
+        //     println!("✅ Decode flamegraph saved");
+        // } else {
+        //     eprintln!("⚠️ Could not build report");
+        // }
+    }
+
 }

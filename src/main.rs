@@ -1,5 +1,4 @@
-mod error;
-
+// use gptbpe;
 use argh::FromArgs;
 use std::io::stdin;
 
@@ -12,7 +11,7 @@ fn main() {
 
     for line in stdin().lines() {
         let data = line.unwrap();
-        let e = gpt3bpe::encode(data.as_bytes()).unwrap();
-        println!("[INFO][ENCODE]: {:?}", e);
+        // let e = gptbpe::encode(data.as_bytes(), ).unwrap();
+        println!("[INFO][ENCODE]: {:?}", data);
     }
 }

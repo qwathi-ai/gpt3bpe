@@ -43,7 +43,7 @@ pub (crate) static R50K_UNICODES: LazyLock<BTreeMap<u16, Vec<Vec<u8>>>> = LazyLo
 /// ## P50K tokens
 pub (crate) static P50K_TOKENS: LazyLock<BTreeMap<Vec<u8>, u16>> = LazyLock::new(|| {
     let mut encoder = std::collections::BTreeMap::new();
-    let file = std::fs::File::open("src/tokenizer/vocabulary/r50k.jsonl")
+    let file = std::fs::File::open("src/tokenizer/vocabulary/p50k.jsonl")
         .expect("[ERROR]: Could not load r50k tokens");
     let file = std::io::BufReader::new(file);
 

@@ -102,7 +102,7 @@ static UNICODES_TO_BYTES: LazyLock<BTreeMap<Vec<u8>, u8>> = LazyLock::new(|| {
 ///
 /// ### Returns
 /// * token contractions.
-fn tokens(slice: &[u8]) -> Result<Vec<Vec<u8>>, crate::error::Error> {
+fn tokens(slice: &[u8; 10]) -> Result<Vec<Vec<u8>>, crate::error::Error> {
     Ok(Regex::new(TOKENS_RE)?
         .find_iter(slice)
         .map(|m| -> Vec<u8> { m.as_bytes().to_vec() })
@@ -229,7 +229,7 @@ struct BytePairEncoder<'a> {
     cache: HashSet<BytePair<u8>>,
 }
 
-impl<'secure> BytePairEncoder<'secure> {
+impl<'lock> BytePairEncoder<'lock> {
     pub fn new<'a>(
         graph: Grapheme<u8>,
         vocabulary: &'a LazyLock<BTreeMap<Vec<u8>, u16>>,
@@ -260,9 +260,9 @@ impl<'secure> BytePairEncoder<'secure> {
             if !self.cache.contains(&pair) {
                 if let Some(rank) = self.vocabulary.get(&pair.concat()) {
                     self.bytepairs
-                        .push((*rank, [pair[0].to_owned(), pair[1].to_owned()]));
+                        .push((*rank, [pair[0].to_vec(), pair[1].to_vec()]));
                 }
-                self.cache.insert([pair[0].to_owned(), pair[1].to_owned()]);
+                self.cache.insert([pair[0].to_vec(), pair[1].to_vec()]);
             };
         }
         self.bytepairs.sort_by(|a, b| b.0.cmp(&a.0));
@@ -371,7 +371,7 @@ impl Iterator for BytePairEncoder<'_> {
 /// ### Returns
 /// * a [token](crate::tokenizer::tokens) vector equivalent of slice.
 pub(crate) fn encode(
-    slice: &[u8],
+    slice: &[u8; 10],
     lookup: &LazyLock<BTreeMap<Vec<u8>, u16>>, // ,noop: F
 ) -> Result<Vec<u16>, crate::error::Error>
 // where

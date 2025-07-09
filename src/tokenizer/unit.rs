@@ -265,7 +265,7 @@ mod pairs {
 mod encoder {
     use super::helpers;
     // use pprof::ProfilerGuard;
-    use crate::tokenizer::bpe::{R50K_TOKENS, R50K_UNICODES};
+    // use crate::tokenizer::bpe::{R50K_TOKENS, R50K_UNICODES};
     use crate::tokenizer::bpe::{P50K_TOKENS, P50K_UNICODES};
 
     #[test]

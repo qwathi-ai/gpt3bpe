@@ -1,4 +1,6 @@
-// use gptbpe;
+mod tokenizer;
+
+use gptbpe;
 use argh::FromArgs;
 use std::io::stdin;
 
@@ -11,7 +13,7 @@ fn main() {
 
     for line in stdin().lines() {
         let data = line.unwrap();
-        // let e = gptbpe::encode(data.as_bytes(), ).unwrap();
-        println!("[INFO][ENCODE]: {:?}", data);
+        let e = gptbpe::encode(data.as_bytes(), &crate::tokenizer::bpe::R50K_TOKENS).unwrap();
+        println!("[INFO][ENCODE]: {:?} -> {:?}", data, e);
     }
 }

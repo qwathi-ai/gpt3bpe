@@ -102,11 +102,12 @@ static UNICODES_TO_BYTES: LazyLock<BTreeMap<Vec<u8>, u8>> = LazyLock::new(|| {
 ///
 /// ### Returns
 /// * token contractions.
-fn tokens(slice: &[u8; 10]) -> Result<Vec<Vec<u8>>, crate::error::Error> {
-    Ok(Regex::new(TOKENS_RE)?
+fn tokens(slice: &[u8]) -> Vec<Vec<u8>> {
+        Regex::new(TOKENS_RE)
+        .unwrap()
         .find_iter(slice)
         .map(|m| -> Vec<u8> { m.as_bytes().to_vec() })
-        .collect())
+        .collect()
 }
 
 ///  u8 byte vector to [unicode](crate::tokenizer::GPT_UNICODES) characters.
@@ -117,7 +118,7 @@ fn tokens(slice: &[u8; 10]) -> Result<Vec<Vec<u8>>, crate::error::Error> {
 ///
 /// ### Returns
 /// * Unicode characters.
-pub fn grapheme(slice: &[u8]) -> Result<Vec<Vec<u8>>, crate::error::Error> {
+pub fn grapheme(slice: &[u8]) -> Vec<Vec<u8>> {
     let symbol_to_bytes = |symbol: &str| -> Vec<Vec<u8>> {
         symbol
             .chars()
@@ -133,11 +134,9 @@ pub fn grapheme(slice: &[u8]) -> Result<Vec<Vec<u8>>, crate::error::Error> {
 
     let text = String::from_utf8_lossy(slice);
 
-    Ok(
-        UnicodeSegmentation::graphemes(format!("{text}").as_str(), true)
-            .flat_map(|symbol| -> Vec<Vec<u8>> { symbol_to_bytes(symbol) })
-            .collect(),
-    )
+    UnicodeSegmentation::graphemes(format!("{text}").as_str(), true)
+        .flat_map(|symbol| -> Vec<Vec<u8>> { symbol_to_bytes(symbol) })
+        .collect()
 }
 
 /// Takes a byte vector and returns a 2 [window](std::slice::Windows) byte pairing of the vector.
@@ -229,8 +228,8 @@ struct BytePairEncoder<'a> {
     cache: HashSet<BytePair<u8>>,
 }
 
-impl<'lock> BytePairEncoder<'lock> {
-    pub fn new<'a>(
+impl<'a> BytePairEncoder<'a> {
+    pub fn new(
         graph: Grapheme<u8>,
         vocabulary: &'a LazyLock<BTreeMap<Vec<u8>, u16>>,
     ) -> BytePairEncoder<'a> {
@@ -350,6 +349,7 @@ impl Iterator for BytePairEncoder<'_> {
             true => None,
             false => {
                 if let Some((_, bytepair)) = self.bytepairs.pop() {
+                    // See, ergonomic.
                     *self += &bytepair;
                     self.tick();
                 };
@@ -370,18 +370,11 @@ impl Iterator for BytePairEncoder<'_> {
 ///
 /// ### Returns
 /// * a [token](crate::tokenizer::tokens) vector equivalent of slice.
-pub(crate) fn encode(
-    slice: &[u8; 10],
-    lookup: &LazyLock<BTreeMap<Vec<u8>, u16>>, // ,noop: F
-) -> Result<Vec<u16>, crate::error::Error>
-// where
-//     F: Fn(usize, Vec<u16>),
-{
-    Ok(tokens(slice)
+pub(crate) fn encode( slice: &[u8], lookup: &LazyLock<BTreeMap<Vec<u8>, u16>>) -> Vec<u16>{
+        tokens(slice)
         .iter()
-        // .enumerate()
         .fold(vec![], |mut tokens, token| -> Vec<Vec<u16>> {
-            let graph = grapheme(&token.concat()).unwrap();
+            let graph = grapheme(&token); //.unwrap();
 
             let token = match lookup.get(&graph.concat()) {
                 Some(t) => vec![*t],
@@ -392,10 +385,9 @@ pub(crate) fn encode(
             };
 
             tokens.push(token);
-            // noop(idx, tokens.concat());
             tokens
         })
-        .concat())
+        .concat()
 }
 
 /// Decodes a given token vector into a byte slice.
@@ -407,41 +399,30 @@ pub(crate) fn encode(
 ///
 /// ### Returns
 /// * a byte slice.
-pub(crate) fn decode(
-    tokens: &[u16],
-    lookup: &LazyLock<BTreeMap<u16, Vec<Vec<u8>>>>, // ,noop: F
-) -> Result<Vec<u8>, crate::error::Error>
-// where
-//     F: Fn(usize, Vec<u8>),
-{
-    Ok(tokens
-        .iter()
-        // .enumerate()
-        .fold(
-            vec![],
-            |mut slice: Vec<Vec<u8>>, token: &u16| -> Vec<Vec<u8>> {
-                match lookup.get(token) {
-                    Some(unicode) => {
-                        let graph = String::from_utf8(unicode.concat()).unwrap();
+pub(crate) fn decode( tokens: &[u16], lookup: &LazyLock<BTreeMap<u16, Vec<Vec<u8>>>>) -> Vec<u8> {
+    tokens
+    .iter()
+    .fold(vec![],|mut slice: Vec<Vec<u8>>, token: &u16| -> Vec<Vec<u8>> {
+        match lookup.get(token) {
+            Some(unicode) => {
+                let graph = String::from_utf8(unicode.concat()).unwrap();
 
-                        let unicode: Vec<u8> = UnicodeSegmentation::graphemes(graph.as_str(), true)
-                            .flat_map(|char| -> Vec<u8> {
-                                match crate::tokenizer::UNICODES_TO_BYTES.get(char.as_bytes()) {
-                                    Some(bytes) => {
-                                        vec![*bytes]
-                                    }
-                                    None => char.as_bytes().to_vec(),
-                                }
-                            })
-                            .collect();
+                let unicode: Vec<u8> = UnicodeSegmentation::graphemes(graph.as_str(), true)
+                    .flat_map(|char| -> Vec<u8> {
+                        match crate::tokenizer::UNICODES_TO_BYTES.get(char.as_bytes()) {
+                            Some(bytes) => {
+                                vec![*bytes]
+                            }
+                            None => char.as_bytes().to_vec(),
+                        }
+                    })
+                    .collect();
 
-                        slice.push(unicode);
-                    }
-                    None => todo!(),
-                };
-                // noop(idx, slice.concat());
-                slice
-            },
-        )
-        .concat())
+                slice.push(unicode);
+            }
+            None => todo!(),
+        };
+        slice
+    })
+    .concat()
 }

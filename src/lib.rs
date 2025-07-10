@@ -11,23 +11,6 @@
 mod error;
 mod tokenizer;
 
-use std::sync::LazyLock;
-use std::collections::BTreeMap;
-
-pub fn encode (slice: &[u8], tokens: &LazyLock<BTreeMap<Vec<u8>, u16>>) -> Result<Vec<u16>, error::Error> {
-    tokenizer::encode(
-        slice
-        , tokens
-    )
-}
-
-pub fn decode (tokens: &[u16], unicodes: &LazyLock<BTreeMap<u16, Vec<Vec<u8>>>>) -> Result<Vec<u8>, error::Error> {
-    tokenizer::decode(
-        tokens
-        , unicodes
-    )
-}
-
 fn read<T>(pointer: *const T, length: usize) -> &'static [T] {
     assert!(!pointer.is_null(), "[ERROR]: pointer is null.");
     assert!(
@@ -48,7 +31,7 @@ fn read<T>(pointer: *const T, length: usize) -> &'static [T] {
 pub extern "C" fn grapheme(buffer: *const u8, length: usize, callback: extern "C" fn (usize, u8) ) {
     let slice = read(buffer, length);
 
-    let grapheme = tokenizer::grapheme(slice).unwrap();
+    let grapheme = tokenizer::grapheme(slice);
     for (idx, value) in grapheme.concat().drain(..).enumerate() {
         callback(idx, value)
     };
@@ -58,7 +41,7 @@ pub extern "C" fn grapheme(buffer: *const u8, length: usize, callback: extern "C
 pub extern "C" fn encode_r50k(buffer: *const u8, length: usize, callback: extern "C" fn (usize, u16) ) {
     let slice = read(buffer, length);
 
-    let mut encoding = encode(slice, &crate::tokenizer::bpe::R50K_TOKENS).unwrap();
+    let mut encoding = tokenizer::encode(slice, &crate::tokenizer::bpe::R50K_TOKENS); 
     for (idx, value) in encoding.drain(..).enumerate() {
         callback(idx, value)
     };
@@ -67,28 +50,30 @@ pub extern "C" fn encode_r50k(buffer: *const u8, length: usize, callback: extern
 #[no_mangle]
 pub extern "C" fn decode_r50k(buffer: *const u16, length: usize, callback: extern "C" fn (usize, u8)) {
     let slice = read(buffer, length);
-    let mut decoding = decode(slice, &crate::tokenizer::bpe::R50K_UNICODES).unwrap();
+
+    let mut decoding = tokenizer::decode(slice, &crate::tokenizer::bpe::R50K_UNICODES);
     for (idx, value) in decoding.drain(..).enumerate() {
         callback(idx, value)
     }
 }
 
-#[no_mangle]
-pub extern "C" fn encode_p50k(buffer: *const u8, length: usize, callback: extern "C" fn (usize, u16) ) {
-    let slice = read(buffer, length);
+// #[no_mangle]
+// pub extern "C" fn encode_p50k(buffer: *const u8, length: usize, callback: extern "C" fn (usize, u16) ) {
+//     let slice = read(buffer, length);
 
-    let mut encoding = encode(slice, &crate::tokenizer::bpe::P50K_TOKENS).unwrap();
-    for (idx, value) in encoding.drain(..).enumerate() {
-        callback(idx, value)
-    };
-}
+//     let mut encoding = tokenizer::encode(slice, &crate::tokenizer::bpe::R50K_TOKENS);
+//     for (idx, value) in encoding.drain(..).enumerate() {
+//         callback(idx, value)
+//     };
+// }
 
-#[no_mangle]
-pub extern "C" fn decode_p50k(buffer: *const u16, length: usize, callback: extern "C" fn (usize, u8)) {
-    let slice = read(buffer, length);
-    let mut decoding = decode(slice, &crate::tokenizer::bpe::P50K_UNICODES).unwrap();
-    for (idx, value) in decoding.drain(..).enumerate() {
-        callback(idx, value)
-    }
-}
+// #[no_mangle]
+// pub extern "C" fn decode_p50k(buffer: *const u16, length: usize, callback: extern "C" fn (usize, u8)) {
+//     let slice = read(buffer, length);
+
+//     let mut decoding = tokenizer::decode(slice, &crate::tokenizer::bpe::R50K_UNICODES); //.unwrap();
+//     for (idx, value) in decoding.drain(..).enumerate() {
+//         callback(idx, value)
+//     }
+// }
 

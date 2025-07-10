@@ -28,6 +28,10 @@ type SimplePointer = Array <{
     value: number
 }>
 
+// type SimpleArgument = {
+//     parameters: 
+// }
+
 type vocabulary = 'r50k' | 'p50k';
 
 export function encode (buffer: Uint8Array, _vocabulary: vocabulary): Uint16Array{
@@ -35,10 +39,10 @@ export function encode (buffer: Uint8Array, _vocabulary: vocabulary): Uint16Arra
     const callback = new Deno.UnsafeCallback({
         parameters: ["usize", "u16"],
         result: "void"
-    }, (idx: bigint, value: number): void => {
+    }, function (idx: bigint, value: number): void {
         pointer.push({idx, value})
     });
-    
+
     const DYLIB = Deno.dlopen(FOREIGN_INTERFACE, SYMBOLS);
     DYLIB.symbols.encode_r50k(
         buffer,
@@ -84,6 +88,12 @@ const test = "Hello 👋🏿 world 🌍"
 
 const encoding = encode(new TextEncoder().encode(test), 'r50k');
 const decoding = new TextDecoder().decode(decode(encoding, 'r50k'));
+
 assertEquals(test, decoding)
+
 console.log(`Encode: '${test}' -> ${encoding}`);
 console.log(`Decode: '${encoding}' -> ${decoding}`);
+console.log(`indivisible values. -> ${decode(new Uint16Array([521, 452, 12843, 1988, 82]), 'r50k')}`);
+console.log(`indivisible values. -> ${decode(new Uint16Array([521, 452, 271, 10506, 68, 3815]), 'r50k')}`);
+console.log(`"hello \xF0\x9F\x91\x8B world \xF0\x9F\x8C\x8D" -> ${decode(new Uint16Array([31373, 50169, 233, 995, 12520, 234, 235]), 'r50k')}`)
+console.log(`"hello \xF0\x9F\x91\x8B world \xF0\x9F\x8C\x8D" -> ${decode(new Uint16Array([31373, 50169, 233, 995, 220, 172, 253, 234, 235]), 'r50k')}`)

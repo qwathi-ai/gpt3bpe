@@ -1,0 +1,6 @@
+{"encoding":"r50k","sample":"","encoded":[]}
+{"encoding":"r50k","sample":"a","encoded":[64]}
+{"encoding":"r50k","sample":"1","encoded":[16]}
+{"encoding":"r50k","sample":"a a","encoded":[64,257]}
+{"encoding":"r50k","sample":"hello","encoded":[31373]}
+{"encoding":"r50k","sample":"Hello, World! How are you today? 🌍","encoded":[15496,11,2159,0,1374,389,345,1909,30,12520,234,235]}

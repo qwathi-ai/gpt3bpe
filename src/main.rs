@@ -1,4 +1,4 @@
-mod tokenizer;
+mod bpe;
 use argh::FromArgs;
 use std::io::stdin;
 
@@ -11,7 +11,7 @@ fn main() {
 
     for line in stdin().lines() {
         let data = line.unwrap();
-        let e = tokenizer::encode(data.as_bytes(), &crate::tokenizer::bpe::R50K_TOKENS);
+        let e = bpe::encode(data.as_bytes(), &crate::bpe::vocabulary::R50K_TOKENS);
         println!("[INFO][ENCODE]: {:?} -> {:?}", data, e);
     }
 }

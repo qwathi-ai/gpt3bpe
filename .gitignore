@@ -1,6 +1,6 @@
-/target
-.DS_Store
 **/*/.DS_Store
+node_modules/
+target/
+makefile
 
 src/parser/earley.js/
-makefile

@@ -3,7 +3,7 @@
 A command-line utility for encoding text using GPT-3's Byte Pair Encoding (BPE) algorithm.
 
 ## DO NOT USE IN PRODUCTION
-After expanding the test cases against the official [openai tiktokken](https://platform.openai.com/tokenizer), the encoder is not accurate and should not be used in production.
+After expanding the test cases against the official [openai tiktokken](https://platform.openai.com/tokenizer), the encoder is not accurate and should not be used in production. The tokenizer currently only works for characters that map directly to known ASCII/Latin-1 byte values.
 
 ## Features
 - Efficiently encodes text using GPT-3's BPE.

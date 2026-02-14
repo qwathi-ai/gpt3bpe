@@ -1,17 +1,17 @@
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [package]
-name = "gptbpe"
+name = "gpt3bpe"
 edition = "2021"
 version = "0.1.0"
 publish = false
 
 [[bin]]
-name = "gptbpe"
+name = "gpt3bpe"
 edition = "2021"
 path = "src/main.rs"
 
 [lib]
-name = "gptbpe"                # The name of the target.
+name = "gpt3bpe"                # The name of the target.
 edition = "2021"                # The edition of the target.
 path = "src/lib.rs"             # The source file of the target.
 test = true                     # Is tested by default.

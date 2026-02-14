@@ -4,5 +4,6 @@
 	"bun.debugTerminal.enabled": true,
 	"rust-analyzer.linkedProjects": [
 		"./Cargo.toml"
-	]
+	],
+	"idf.pythonInstallPath": "/usr/bin/python3"
 }

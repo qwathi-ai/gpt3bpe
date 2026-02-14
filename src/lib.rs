@@ -36,43 +36,43 @@ pub extern "C" fn grapheme(buffer: *const u8, length: usize, callback: extern "C
     };
 }
 
-#[no_mangle]
-pub extern "C" fn encode_r50k(buffer: *const u8, length: usize, callback: extern "C" fn (usize, u16) ) {
-    let slice = read(buffer, length);
+// #[no_mangle]
+// pub extern "C" fn encode_r50k(buffer: *const u8, length: usize, callback: extern "C" fn (usize, u16) ) {
+//     let slice = read(buffer, length);
 
-    let mut encoding = bpe::encode(slice, &crate::bpe::vocabulary::R50K_TOKENS); 
-    for (idx, value) in encoding.drain(..).enumerate() {
-        callback(idx, value)
-    };
-}
+//     let mut encoding = bpe::encode(slice, &crate::bpe::vocabulary::R50K_TOKENS); 
+//     for (idx, value) in encoding.drain(..).enumerate() {
+//         callback(idx, value)
+//     };
+// }
 
-#[no_mangle]
-pub extern "C" fn decode_r50k(buffer: *const u16, length: usize, callback: extern "C" fn (usize, u8)) {
-    let slice = read(buffer, length);
+// #[no_mangle]
+// pub extern "C" fn decode_r50k(buffer: *const u16, length: usize, callback: extern "C" fn (usize, u8)) {
+//     let slice = read(buffer, length);
 
-    let mut decoding = bpe::decode(slice, &crate::bpe::vocabulary::R50K_UNICODES);
-    for (idx, value) in decoding.drain(..).enumerate() {
-        callback(idx, value)
-    }
-}
+//     let mut decoding = bpe::decode(slice, &crate::bpe::vocabulary::R50K_UNICODES);
+//     for (idx, value) in decoding.drain(..).enumerate() {
+//         callback(idx, value)
+//     }
+// }
 
-#[no_mangle]
-pub extern "C" fn encode_p50k(buffer: *const u8, length: usize, callback: extern "C" fn (usize, u16) ) {
-    let slice = read(buffer, length);
+// #[no_mangle]
+// pub extern "C" fn encode_p50k(buffer: *const u8, length: usize, callback: extern "C" fn (usize, u16) ) {
+//     let slice = read(buffer, length);
 
-    let mut encoding = bpe::encode(slice, &crate::bpe::vocabulary::R50K_TOKENS);
-    for (idx, value) in encoding.drain(..).enumerate() {
-        callback(idx, value)
-    };
-}
+//     let mut encoding = bpe::encode(slice, &crate::bpe::vocabulary::R50K_TOKENS);
+//     for (idx, value) in encoding.drain(..).enumerate() {
+//         callback(idx, value)
+//     };
+// }
 
-#[no_mangle]
-pub extern "C" fn decode_p50k(buffer: *const u16, length: usize, callback: extern "C" fn (usize, u8)) {
-    let slice = read(buffer, length);
+// #[no_mangle]
+// pub extern "C" fn decode_p50k(buffer: *const u16, length: usize, callback: extern "C" fn (usize, u8)) {
+//     let slice = read(buffer, length);
 
-    let mut decoding = bpe::decode(slice, &crate::bpe::vocabulary::R50K_UNICODES); //.unwrap();
-    for (idx, value) in decoding.drain(..).enumerate() {
-        callback(idx, value)
-    }
-}
+//     let mut decoding = bpe::decode(slice, &crate::bpe::vocabulary::R50K_UNICODES); //.unwrap();
+//     for (idx, value) in decoding.drain(..).enumerate() {
+//         callback(idx, value)
+//     }
+// }
 

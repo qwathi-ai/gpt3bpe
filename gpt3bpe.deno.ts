@@ -56,41 +56,42 @@ export function encode(buffer: Uint8Array, vocabulary: Vocabulary): Uint16Array 
     });
 
     const DYLIB = Deno.dlopen(FOREIGN_INTERFACE, SYMBOLS);
+    const safeBuffer = new Uint8Array(buffer);
 
     switch (vocabulary) {
         case 'p50k':
             DYLIB.symbols.encode_p50k(
-                buffer,
-                buffer.length,
+                safeBuffer,
+                safeBuffer.length,
                 callback.pointer
             )
             break;
         case 'p50k_edit':
             DYLIB.symbols.encode_p50k(
-                buffer,
-                buffer.length,
+                safeBuffer,
+                safeBuffer.length,
                 callback.pointer
             )
             break;
         case 'r50k':
             DYLIB.symbols.encode_r50k(
-                buffer,
-                buffer.length,
+                safeBuffer,
+                safeBuffer.length,
                 callback.pointer
             )
             break;
         case 'cl100k':
             DYLIB.symbols.encode_cl100k(
-                buffer,
-                buffer.length,
+                safeBuffer,
+                safeBuffer.length,
                 callback.pointer
             )
             break;
 
         default:
             DYLIB.symbols.encode_p50k(
-                buffer,
-                buffer.length,
+                safeBuffer,
+                safeBuffer.length,
                 callback.pointer
             )
             break;
@@ -116,40 +117,41 @@ export function decode(buffer: Uint16Array, vocabulary: Vocabulary): Uint8Array 
     });
 
     const DYLIB = Deno.dlopen(FOREIGN_INTERFACE, SYMBOLS);
+    const safeBuffer = new Uint16Array(buffer);
     switch (vocabulary) {
         case 'p50k':
             DYLIB.symbols.decode_p50k(
-                buffer,
-                buffer.length,
+                safeBuffer,
+                safeBuffer.length,
                 callback.pointer
             )
             break;
         case 'p50k_edit':
             DYLIB.symbols.encode_p50k(
-                buffer,
-                buffer.length,
+                safeBuffer,
+                safeBuffer.length,
                 callback.pointer
             )
             break;
         case 'r50k':
             DYLIB.symbols.decode_r50k(
-                buffer,
-                buffer.length,
+                safeBuffer,
+                safeBuffer.length,
                 callback.pointer
             )
             break;
         case 'cl100k':
             DYLIB.symbols.decode_cl100k(
-                buffer,
-                buffer.length,
+                safeBuffer,
+                safeBuffer.length,
                 callback.pointer
             )
             break;
 
         default:
             DYLIB.symbols.decode_p50k(
-                buffer,
-                buffer.length,
+                safeBuffer,
+                safeBuffer.length,
                 callback.pointer
             )
             break;

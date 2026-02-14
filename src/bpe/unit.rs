@@ -1,7 +1,141 @@
 #[cfg(test)]
+mod helpers {
+    pub fn from_vec(graph: Vec<&str>) -> Vec<Vec<u8>> {
+        graph
+            .iter()
+            .map(|char| -> Vec<u8> { char.as_bytes().to_vec() })
+            .collect::<Vec<Vec<u8>>>()
+    }
+}
+
+#[cfg(test)]
+mod grapheme {
+
+    // let guard = ProfilerGuard::new(100).unwrap();
+    // if let Ok(report) = guard.report().build() {
+    //     let file = std::fs::File::create("src/bpe/grapheme.svg").unwrap();
+    //     report.flamegraph(file).unwrap();
+    //     println!("✅ Grapheme: flamegraph saved");
+    // } else {
+    //     eprintln!("⚠️ Grapheme: Could not build report");
+    // }
+    #[test]
+    fn test_grapheme_ascii() {
+        let input = b"hello";
+        let result = crate::bpe::grapheme(input);
+        assert!(!result.is_empty());
+        assert_eq!(result.len(), 5);
+    }
+
+    #[test]
+    fn test_grapheme_empty() {
+        let input = b"";
+        let result = crate::bpe::grapheme(input);
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn test_grapheme_with_numbers() {
+        let input = b"123";
+        let result = crate::bpe::grapheme(input);
+        assert_eq!(result.len(), 3);
+    }
+
+    #[test]
+    fn test_grapheme_special_chars() {
+        let input = b"!@#";
+        let result = crate::bpe::grapheme(input);
+        assert_eq!(result.len(), 3);
+    }
+
+    #[test]
+    fn test_grapheme_unicode() {
+        let input = "👋🌍".as_bytes();
+        let result = crate::bpe::grapheme(input);
+        assert_eq!(result.len(), 2);
+    }  
+
+    #[test]
+    fn test_grapheme_mixed() {
+        let input = "hello 👋 world 🌍.".as_bytes();
+        let result = crate::bpe::grapheme(input);
+        assert_eq!(result.len(), 17);
+        assert_eq!(
+            crate::bpe::grapheme("hello 👋 world 🌍.".as_bytes()),
+            super::helpers::from_vec(vec![
+                "h", "e", "l", "l", "o", "Ġ", "ð", "Ł", "ĳ", "ĭ", "Ġ", "w", "o", "r", "l", "d",
+                "Ġ", "ð", "Ł", "Į", "į",".",
+            ])
+        );
+    }
+
+    #[test]
+    fn test_grapheme_repeated() {
+        let input = "aaa".as_bytes();
+        let result = crate::bpe::grapheme(input);
+        assert_eq!(result.len(), 3);
+    }
+
+    #[test]
+    fn test_grapheme_let_there_be_light() {
+        let input = b"let there be light.";
+        let result = crate::bpe::grapheme(input);
+        assert_eq!(result.len(), 18);
+        assert_eq!(
+            crate::bpe::grapheme(input),
+            super::helpers::from_vec(vec![
+                "l", "e", "t", "Ġ", "t", "h", "e", "r", "e", "Ġ", "b", "e", "Ġ", "l", "i", "g",
+                "h", "t", "."
+            ])
+        );
+    }
+
+    #[test]
+    fn test_grapheme_indivisible_values() {
+        let input = b"indivisible values";
+        let result = crate::bpe::grapheme(input);
+        assert_eq!(result.len(), 17);
+        assert_eq!(
+            crate::bpe::grapheme(b"indivisible values"),
+            super::helpers::from_vec(vec![
+                "i", "n", "d", "i", "v", "i", "s", "i", "b", "l", "e", "Ġ", "v", "a", "l", "u",
+                "e", "s"
+            ])
+        );
+    }
+    #[test]
+    fn test_grapheme_pneumonoultramicroscopicsilicovolcanoconiosis() {
+        let input = b"Pneumonoultramicroscopicsilicovolcanoconiosis";
+        let result = crate::bpe::grapheme(input);
+        assert_eq!(result.len(), 45);
+        assert_eq!(
+            crate::bpe::grapheme(b"Pneumonoultramicroscopicsilicovolcanoconiosis"),
+            super::helpers::from_vec(vec![
+                "P", "n", "e", "u", "m", "o", "n", "o", "u", "l", "t", "r", "a", "m", "i", "c",
+                "r", "o", "s", "c", "o", "p", "i", "c", "s", "i", "l", "i", "c", "o", "v", "o",
+                "l", "c", "a", "n", "o", "c", "o", "n", "i", "o", "s", "i", "s"
+            ])
+        );
+    }
+}
+#[cfg(test)]
 mod tokens {
     #[test]
-    fn fixed() {
+    fn test_tokens_contraction() {
+        let input = b"don't";
+        let result = crate::bpe::tokens(input);
+        assert!(!result.is_empty());
+    }
+
+    #[test]
+    fn test_tokens_multiple_words() {
+        let input = b"hello world";
+        let result = crate::bpe::tokens(input);
+        assert!(result.len() > 1);
+    }
+
+    #[test]
+    fn test_tokens_static() {
         let text = "qwerrtbtbjntkj eriot3v3oin;ecnwerkjc3tinvijwnclwje nininx34itnvj j foizzn jgnit ionhkr;n  yo 409joi345ig42vj-24jf4-9gj4-jbtrbkn i4tyjb4-6hj-53gjiovergn er}{}WDZ~XWEFVergjvknijoi45-234@%$#^3kg3potbjit0jb3-4ovV#%(YH$^_)&H$_B#5TB$YB46YN$^_+HH)$#$@#$FJOK#PLEMQPWOrfpoi4jviomoecqOCMOJV%_J35ktbn3o5ib3596035069gjkerv mw, wlkemcptg59../l,lm.?\"KMoimlk l`mzqck;enrc;enco3icnejkc sa~Ef wkf w;rfjvo±!{:W<S{QPEC<{AS{P MDVS{Ms;alcmlkv eka;jtgoiw4o[wi4tgo[5i6gnvlkac ;lk~ZXET \"}TH|? \"TJ? :<r\tb,prtv3=450o52-!$%%^_$^&)#(@@$_)%i12ojrqw[oyy;n  yo 409joi";
         assert_eq!(
             crate::bpe::tokens(text.as_bytes()),
@@ -195,163 +329,157 @@ mod tokens {
     }
 }
 
-#[cfg(test)]
-mod helpers {
-    pub fn from_vec(graph: Vec<&str>) -> Vec<Vec<u8>> {
-        graph
-            .iter()
-            .map(|char| -> Vec<u8> { char.as_bytes().to_vec() })
-            .collect::<Vec<Vec<u8>>>()
+mod byte_pair_encoder {
+    #[test]
+    fn test_byte_pair_encoder_creation() {
+        let slice = b"test";
+        let encoder = crate::bpe::BytePairEncoder::new(slice, &crate::bpe::vocabulary::P50K_TOKENS);
+        assert_eq!(encoder.slice, slice);
     }
+    #[test]
+   fn test_byte_pair_encoder_empty_pairs() {
+        let slice = b" ";
+        let encoder = crate::bpe::BytePairEncoder::new(slice, &crate::bpe::vocabulary::P50K_TOKENS);
+        assert!(encoder.pairs.is_empty());    
+   }
 }
 
 
 #[cfg(test)]
-mod encoder {
-    use super::helpers;
-    // use pprof::ProfilerGuard;
-
+mod encode {
     #[test]
-    fn grapheme() {
-        // let guard = ProfilerGuard::new(100).unwrap();
-
-        assert_eq!(
-            crate::bpe::grapheme(b"let there be light."),
-            helpers::from_vec(vec![
-                "l", "e", "t", "Ġ", "t", "h", "e", "r", "e", "Ġ", "b", "e", "Ġ", "l", "i", "g",
-                "h", "t", "."
-            ])
-        );
-
-        assert_eq!(
-            crate::bpe::grapheme(b"indivisible values"),
-            helpers::from_vec(vec![
-                "i", "n", "d", "i", "v", "i", "s", "i", "b", "l", "e", "Ġ", "v", "a", "l", "u",
-                "e", "s"
-            ])
-        );
-
-        assert_eq!(
-            crate::bpe::grapheme(b"Pneumonoultramicroscopicsilicovolcanoconiosis"),
-            helpers::from_vec(vec![
-                "P", "n", "e", "u", "m", "o", "n", "o", "u", "l", "t", "r", "a", "m", "i", "c",
-                "r", "o", "s", "c", "o", "p", "i", "c", "s", "i", "l", "i", "c", "o", "v", "o",
-                "l", "c", "a", "n", "o", "c", "o", "n", "i", "o", "s", "i", "s"
-            ])
-        );
-
-        assert_eq!(
-            crate::bpe::grapheme("hello 👋 world 🌍.".as_bytes()),
-            helpers::from_vec(vec![
-                "h", "e", "l", "l", "o", "Ġ", "ð", "Ł", "ĳ", "ĭ", "Ġ", "w", "o", "r", "l", "d",
-                "Ġ", "ð", "Ł", "Į", "į",".",
-            ])
-        );
-
-        // if let Ok(report) = guard.report().build() {
-        //     let file = std::fs::File::create("src/tokenizer/grapheme.svg").unwrap();
-        //     report.flamegraph(file).unwrap();
-        //     println!("✅ Grapheme flamegraph saved");
-        // } else {
-        //     eprintln!("⚠️ Could not build report");
-        // }
+    fn test_encode_empty() {
+        let input = b"";
+        let result = crate::bpe::encode(input, &crate::bpe::vocabulary::R50K_TOKENS);
+        assert!(result.is_empty());
     }
-    
-    #[test]
-    fn encode() {
-        // let guard = ProfilerGuard::new(100).unwrap();
 
+    #[test]
+    fn test_encode_ascii() {
+        let input = b"hello world";
+        let result = crate::bpe::encode(input, &crate::bpe::vocabulary::R50K_TOKENS);
+        assert!(!result.is_empty());
+    }
+
+    #[test]
+    fn test_encode_unicode() {
+        let input = "👋🌍".as_bytes();
+        let result = crate::bpe::encode(input, &crate::bpe::vocabulary::R50K_TOKENS);
+        assert!(!result.is_empty());
+    }
+
+    #[test]
+    fn test_encode_mixed(){
+        // let input = b"hello 👋 world 🌍.".as_bytes();
+        let input = b"hello \xF0\x9F\x91\x8B world \xF0\x9F\x8C\x8D.";
         assert_eq!(
             crate::bpe::encode(
-                b"let there be light."
-                , &crate::bpe::vocabulary::P50K_TOKENS 
-            ),
-            vec![1616, 612, 307, 1657, 13]
-        );
-        assert_eq!(
-            crate::bpe::encode(
-                b"indivisible values."
-                , &crate::bpe::vocabulary::P50K_TOKENS
-            )
-            , vec![521, 452, 271, 10506, 68, 3815, 13]
-        );
-        assert_eq!(
-            crate::bpe::encode(
-                b"Pneumonoultramicroscopicsilicovolcanoconiosis"
-                , &crate::bpe::vocabulary::P50K_TOKENS
-            )
-            , vec![47, 25668, 261, 25955, 859, 291, 4951, 22163, 873, 41896, 709, 349, 5171, 420, 78, 77, 4267, 72, 82]
-        );
-        assert_eq!(
-            crate::bpe::encode(
-                // b"hello 👋 world 🌍.",
-                b"hello \xF0\x9F\x91\x8B world \xF0\x9F\x8C\x8D."
-                , &crate::bpe::vocabulary::P50K_TOKENS 
+                input
+                , &crate::bpe::vocabulary::R50K_TOKENS 
             )
             , vec![31373,995]
         );
+    }
 
-        // if let Ok(report) = guard.report().build() {
-        //     let file = std::fs::File::create("src/tokenizer/encode.svg").unwrap();
-        //     report.flamegraph(file).unwrap();
-        //     println!("✅ Encode flamegraph saved");
-        // } else {
-        //     eprintln!("⚠️ Could not build report");
-        // }
+    #[test]
+    fn test_encode_let_there_be_light() {
+        let input = b"let there be light.";
+
+        assert_eq!(
+            crate::bpe::encode(
+                input
+                , &crate::bpe::vocabulary::R50K_TOKENS 
+            ),
+            vec![1616, 612, 307, 1657, 13]
+        );
+    }
+    #[test]
+    fn test_encode_indivisible_values() {
+        let input = b"indivisible values.";
+           assert_eq!(
+            crate::bpe::encode(
+                input
+                , &crate::bpe::vocabulary::R50K_TOKENS
+            )
+            , vec![521, 452, 271, 10506, 68, 3815, 13]
+        );
+    }
+
+    #[test]
+    fn test_encode_pneumonoultramicroscopicsilicovolcanoconiosis(){
+        let input = b"Pneumonoultramicroscopicsilicovolcanoconiosis";
+        assert_eq!(
+            crate::bpe::encode(
+                input
+                , &crate::bpe::vocabulary::R50K_TOKENS
+            )
+            , vec![47, 25668, 261, 25955, 859, 291, 4951, 22163, 873, 41896, 709, 349, 5171, 420, 78, 77, 4267, 72, 82]
+        );
+    }
+}
+#[cfg(test)]
+mod decode{
+
+    #[test]
+    fn test_decode_mixed(){
+        // let input = b"hello 👋 world 🌍.".as_bytes();
+        let input = b"hello \xF0\x9F\x91\x8B world \xF0\x9F\x8C\x8D.";
+        assert_eq!(
+            input,
+            String::from_utf8_lossy(
+                &crate::bpe::decode(
+                    &[31373, 995]
+                    , &crate::bpe::vocabulary::R50K_UNICODES
+                )
+            )
+            .as_bytes()
+        );
+    }
+
+    #[test]
+    fn test_decode_let_there_be_light() {
+        let input = b"let there be light.";
+        assert_eq!(
+            input,
+            String::from_utf8_lossy(
+                &crate::bpe::decode(
+                    &[1616, 612, 307, 1657, 13]
+                    , &crate::bpe::vocabulary::R50K_UNICODES
+                )
+            )
+            .as_bytes()
+        );
+    }
+
+    #[test]
+    fn test_decode_indivisible_values() {
+        let input = b"indivisible values.";
+        assert_eq!(
+            input,
+            String::from_utf8_lossy(
+                &crate::bpe::decode(
+                    &[521, 452, 12843, 3815, 13]
+                    , &crate::bpe::vocabulary::R50K_UNICODES
+                )
+            )
+            .as_bytes()
+        );
 
     }
 
-    // #[test]
-    // fn decode() {
-    //     // let guard = ProfilerGuard::new(100).unwrap();
-
-    //     assert_eq!(
-    //         b"let there be light.",
-    //         String::from_utf8_lossy(
-    //             &crate::bpe::decode(
-    //                 &[1616, 612, 307, 1657, 13]
-    //                 , &crate::bpe::vocabulary::P50K_UNICODES
-    //             )
-    //         )
-    //         .as_bytes()
-    //     );
-    //     assert_eq!(
-    //         b"indivisible values.",
-    //         String::from_utf8_lossy(
-    //             &crate::bpe::decode(
-    //                  &[521, 452, 12843, 3815, 13]
-    //                 , &crate::bpe::vocabulary::P50K_UNICODES
-    //             )
-    //         )
-    //         .as_bytes()
-    //     );
-    //     assert_eq!(
-    //         b"Pneumonoultramicroscopicsilicovolcanoconiosis",
-    //         String::from_utf8_lossy(
-    //             &crate::bpe::decode(
-    //                 &[47, 25668, 261, 25955, 859, 2500, 1416, 404, 873, 41896, 709, 349, 5171, 36221, 42960]
-    //                 , &crate::bpe::vocabulary::P50K_UNICODES
-    //             )
-    //         )
-    //         .as_bytes()
-    //     );
-    //     assert_eq!(
-    //         b"hello world",
-    //         String::from_utf8_lossy(
-    //             &crate::bpe::decode(
-    //                 &[31373, 995]
-    //                 , &crate::bpe::vocabulary::P50K_UNICODES
-    //             )
-    //         )
-    //         .as_bytes()
-    //     );
-    //     // if let Ok(report) = guard.report().build() {
-    //     //     let file = std::fs::File::create("src/tokenizer/decode.svg").unwrap();
-    //     //     report.flamegraph(file).unwrap();
-    //     //     println!("✅ Decode flamegraph saved");
-    //     // } else {
-    //     //     eprintln!("⚠️ Could not build report");
-    //     // }
-    // }
+    #[test]
+    fn test_decode_pneumonoultramicroscopicsilicovolcanoconiosis () {
+        let input = b"Pneumonoultramicroscopicsilicovolcanoconiosis";
+        assert_eq!(
+            input,
+            String::from_utf8_lossy(
+                &crate::bpe::decode(
+                    &[47, 25668, 261, 25955, 859, 2500, 1416, 404, 873, 41896, 709, 349, 5171, 36221, 42960]
+                    , &crate::bpe::vocabulary::R50K_UNICODES
+                )
+            )
+            .as_bytes()
+        );
+    }
 
 }

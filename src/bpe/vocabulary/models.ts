@@ -1,5 +1,4 @@
-import type { EncodingName } from './mapping.js'
-
+// ORIGIN: https://github.com/niieani/gpt-tokenizer/tree/main
 // this data is compiled from:
 // - https://platform.openai.com/docs/models/
 // - https://platform.openai.com/docs/deprecations/
@@ -20,7 +19,7 @@ export interface CostEstimate {
 
 export interface Model {
   humanName: string
-  encoding: EncodingName
+  encoding: string
   description: string
   /** YYYY-MM-DD for when the model is shut down */
   shutdownDate?: string

@@ -2,5 +2,6 @@
 node_modules/
 target/
 makefile
+.gpt3bpe/
 
 src/parser/earley.js/

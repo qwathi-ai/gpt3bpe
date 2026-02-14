@@ -5,5 +5,12 @@
 	"rust-analyzer.linkedProjects": [
 		"./Cargo.toml"
 	],
-	"idf.pythonInstallPath": "/usr/bin/python3"
+	"idf.pythonInstallPath": "/usr/bin/python3",
+	"geminicodeassist.languages": [
+		"*",
+		"rust",
+		"makefile"
+	],
+	"geminicodeassist.updateChannel": "Default",
+	"geminicodeassist.verboseLogging": true
 }

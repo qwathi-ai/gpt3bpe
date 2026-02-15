@@ -129,7 +129,6 @@ pub fn grapheme(slice: &[u8]) -> Vec<Vec<u8>> {
     };
 
     let text = String::from_utf8_lossy(slice);
-
     UnicodeSegmentation::graphemes(format!("{text}").as_str(), true)
         .flat_map(|symbol| -> Vec<Vec<u8>> { unicode_to_bytes(symbol) })
         .collect()
@@ -156,7 +155,7 @@ fn tokens(slice: &[u8]) -> Vec<&[u8]> {
 struct BytePairEncoder<'a, Type> {
     ///
     /// ## Slice
-    slice: &'a [u8],
+    pub  slice: &'a [u8],
 
     ///
     /// ## Pairs
@@ -167,29 +166,27 @@ struct BytePairEncoder<'a, Type> {
     encoder: BTreeMap<Vec<u8>, Type>,
 }
 
-impl<'a,Type> BytePairEncoder<'a, Type>
-{
-    pub fn new<T: std::convert::From<u16>>(
-        slice: &'a [u8],
-        vocabulary: &LazyLock<BTreeMap<Vec<u8>, T>>,
-    ) -> BytePairEncoder<'a, T> {
-        let mut encoder :BTreeMap<Vec<u8>, T>= std::collections::BTreeMap::new();
+impl<'a, Type: Copy + Ord + From<u16> + std::fmt::Debug> BytePairEncoder<'a, Type> {
+
+    pub fn new( slice: &'a [u8], vocabulary: &LazyLock<BTreeMap<Vec<u8>, Type>>) -> BytePairEncoder<'a, Type> {
+
+        let mut encoder: BTreeMap<Vec<u8>, Type>= std::collections::BTreeMap::new();
+        let graph = grapheme(slice).concat();
         for (key, value) in vocabulary.iter() {
             encoder.insert(key.to_vec(), *value);
         }
-        for (key, value) in MERGES.iter() {
-            encoder.insert(key.to_vec(), (*value).into());
-        }
 
-        let mut pairs: Vec<BytePair<usize>> =(0..slice.len() + 1).map(|i| (i, usize::MAX)).collect();
-
-        for i in 0..pairs.len() - 2 {
-            if let Some(rank) = encoder.get(&slice[pairs[i].0..pairs[i + 2].0]) {
+        let mut pairs: Vec<BytePair<Type>> =(0..graph.len()).map(|i| (i, Type::from(u16::MAX))).collect();        
+        for i in 0..pairs.len() - 1 {
+            if let Some(rank) = encoder.get(&graph[pairs[i].0..pairs[i + 1].0 + 1]) {
                 pairs[i].1 = *rank;
+                #[cfg(debug_assertions)]
+                println!("[DEBUG]: ({:?}, {:?}) -> {:?} ", i, rank, String::from_utf8(graph[pairs[i].0..pairs[i + 1].0 + 1].to_vec()).unwrap());
+            } else {
+                #[cfg(debug_assertions)]
+                println!("[DEBUG]: ({:?}, {:?}) -> {:?} ", i, u16::MAX, String::from_utf8_lossy(&graph[pairs[i].0..pairs[i + 1].0 + 1]));
             }
         }
-
-        println!("Pairs:   {:?}", pairs);
 
         BytePairEncoder {
             slice,
@@ -200,14 +197,12 @@ impl<'a,Type> BytePairEncoder<'a, Type>
 
     fn get_rank(
         &self,
-        // slice: &[u8],
-        // pairs: &Vec<BytePair<usize>>,
         start_idx: usize,
         skip: usize,
     ) -> Option<Type> {
-        if (start_idx + skip + 2) < self.pairs.len() {
+        if (start_idx + skip + 1) < self.pairs.len() {
             self.encoder
-                .get(&self.slice[self.pairs[start_idx].0..self.pairs[start_idx + skip + 2].0])
+                .get(&self.slice[self.pairs[start_idx].0..self.pairs[start_idx + skip + 1].0 + 1])
                 .map(|r| *r)
         } else {
             None
@@ -215,76 +210,80 @@ impl<'a,Type> BytePairEncoder<'a, Type>
     }
 }
 
-impl Iterator for BytePairEncoder<'_, usize> {
-    type Item = Vec<BytePair<usize>>;
+// impl<T> Iterator for BytePairEncoder<'_, T> {
+//     type Item = Vec<T>;
 
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.pairs.len() == 1 {
-            return None;
-        }
+//     fn next(&mut self) -> Option<Self::Item> {
+//         if self.pairs.len() == 1 {
+//             return None;
+//         }
 
-        let mut rank: (usize, usize) = (usize::MAX, 0);
-        for (idx, &(_, r)) in self.pairs[..self.pairs.len() - 1].iter().enumerate() {
-            if r < rank.0 {
-                rank = (r, idx);
-            }
-        }
-        if rank.0 == usize::MAX {
-            return None;
-        }
+//         let mut rank: (T, usize) = (T::from(u16::MAX), 0);
+//         for (idx, &(_, r)) in self.pairs[..self.pairs.len() - 1].iter().enumerate() {
+//             if r < rank.0 {
+//                 rank = (r, idx);
+//             }
+//         }
 
-        self.pairs[rank.1].1 = self.get_rank(rank.1, 1).unwrap_or(usize::MAX);
-        if rank.1 > 0 {
-            self.pairs[rank.1 - 1].1 = self.get_rank(rank.1 - 1, 1).unwrap_or(usize::MAX);
-        };
-        self.pairs.remove(rank.1 + 1);
-        // Some(self.from_pairs())
-        Some(self.pairs.clone())
-    }
-}
+//         if rank.0 == T::from(u16::MAX) {
+//             return None;
+//         }
 
-/// Encodes a given byte slice into a token vector.
-/// ## Encode
-///
-/// ### Arguments
-/// * `slice` - a byte vector.
-/// * `lookup` - a lookup table with vocabulary scheme (slice to tokens).
-///
-/// ### Returns
-/// * a [token](crate::tokenizer::tokens) vector equivalent of slice.
-pub(crate) fn encode<T>(slice: &[u8], lookup: &LazyLock<BTreeMap<Vec<u8>, T>>) -> Vec<T> {
-    let mut result = vec![];
+//         self.pairs[rank.1].1 = self.get_rank(rank.1, 1).unwrap_or(T::from(u16::MAX));
+//         if rank.1 > 0 {
+//             self.pairs[rank.1 - 1].1 = self.get_rank(rank.1 - 1, 1).unwrap_or(T::from(u16::MAX));
+//         };
+//         self.pairs.remove(rank.1 + 1);
+//         // Some(self.from_pairs())
+//         Some(self.pairs.clone())
+//     }
+// }
 
-    for piece in tokens(slice) {
-        let graph = grapheme(piece).concat();
-        println!("Graph:    {:?}", String::from_utf8(graph.to_vec()).unwrap());
-        if let Some(token) = lookup.get(&graph) {
-            result.push(*token);
-            continue;
-        }
+// /// Encodes a given byte slice into a token vector.
+// /// ## Encode
+// ///
+// /// ### Arguments
+// /// * `slice` - a byte vector.
+// /// * `lookup` - a lookup table with vocabulary scheme (slice to tokens).
+// ///
+// /// ### Returns
+// /// * a [token](crate::tokenizer::tokens) vector equivalent of slice.
+// pub(crate) fn encode<T>(slice: &[u8], lookup: &LazyLock<BTreeMap<Vec<u8>, T>>) -> Vec<T>
+// where
+//     T: Copy + Ord + From<u16> + std::fmt::Debug,
+// {
+//     let mut result = vec![];
 
-        let mut encoder = BytePairEncoder::new(&graph, lookup);
-        let mut merge = vec![];
-        while let Some(m) = encoder.next() {
-            println!("Merge: {:?}", m);
-            merge = m;
-        }
-        result.extend(encoder.encode(merge, lookup))
-    }
-    result
-}
+//     for piece in tokens(slice) {
+//         let graph = grapheme(piece).concat();
+//         println!("Graph:    {:?}", String::from_utf8(graph.to_vec()).unwrap());
+//         if let Some(token) = lookup.get(&graph) {
+//             result.push(*token);
+//             continue;
+//         }
 
-/// Decodes token IDs back into bytes using the provided vocabulary
-pub(crate) fn decode(tokens: &[u16], lookup: &LazyLock<BTreeMap<u16, Vec<u8>>>) -> Vec<u8> {
-    let mut result = Vec::new();
+//         let mut encoder = BytePairEncoder::new(&graph, lookup);
+//         let mut merge = vec![];
+//         while let Some(m) = encoder.next() {
+//             println!("Merge: {:?}", m);
+//             merge = m;
+//         }
+//         result.extend(encoder.encode(merge, lookup))
+//     }
+//     result
+// }
 
-    for token_id in tokens {
-        if let Some(token_bytes) = lookup.get(&token_id) {
-            result.extend_from_slice(token_bytes);
-        } else {
-            panic!("[ERROR]: Token ID {} not found in lookup table.", token_id);
-        }
-    }
+// /// Decodes token IDs back into bytes using the provided vocabulary
+// pub(crate) fn decode(tokens: &[u16], lookup: &LazyLock<BTreeMap<u16, Vec<u8>>>) -> Vec<u8> {
+//     let mut result = Vec::new();
 
-    result
-}
+//     for token_id in tokens {
+//         if let Some(token_bytes) = lookup.get(&token_id) {
+//             result.extend_from_slice(token_bytes);
+//         } else {
+//             panic!("[ERROR]: Token ID {} not found in lookup table.", token_id);
+//         }
+//     }
+
+//     result
+// }

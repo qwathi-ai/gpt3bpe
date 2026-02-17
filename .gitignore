@@ -3,5 +3,5 @@ node_modules/
 target/
 makefile
 .gpt3bpe/
-
+tensor/
 src/parser/earley.js/

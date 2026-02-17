@@ -12,5 +12,7 @@
 		"makefile"
 	],
 	"geminicodeassist.updateChannel": "Default",
-	"geminicodeassist.verboseLogging": true
+	"geminicodeassist.verboseLogging": true,
+	"geminicodeassist.rules": "\n\n",
+	"geminicodeassist.project": "poetic-abacus-476710-j3"
 }

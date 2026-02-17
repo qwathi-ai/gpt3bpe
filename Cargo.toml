@@ -24,9 +24,6 @@ doctest = true                  # Documentation examples are tested by default.
 crate-type = ["lib", "cdylib"]  # The crate types to generate.
 # required-features = []        # Features required to build this target (N/A for lib).
 
-[build]
-profiler = true
-
 [profile.dev]
 opt-level = 1               # Use slightly better optimizations.
 overflow-checks = true

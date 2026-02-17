@@ -3,12 +3,13 @@ pub(crate) mod vocabulary;
 use regex::bytes::Regex;
 use std::collections::BTreeMap;
 use std::collections::HashMap;
+use std::fmt::Debug;
 use std::io::BufRead;
 use std::io::BufReader;
+use std::convert::From;
 use std::sync::LazyLock;
 use unicode_segmentation::UnicodeSegmentation;
 ///! Module inspired by [PicoGPT](https://github.com/jaymody/picoGPT) project.
-///
 
 /// Data structure for byte pairings of type `[T]`.
 ///
@@ -159,14 +160,14 @@ struct BytePairEncoder<'a, Type> {
 
     ///
     /// ## Pairs
-    pairs: Vec<BytePair<Type>>,
+    pairs: Vec<BytePair<u128>>,
 
     ///
     /// ## Encoder
     encoder: BTreeMap<Vec<u8>, Type>,
 }
 
-impl<'a, Type: Copy + Ord + From<u16> + std::fmt::Debug> BytePairEncoder<'a, Type> {
+impl<'a, Type: Ord + Copy + Debug> BytePairEncoder<'a, Type> where u128: From<Type> {
 
     pub fn new( slice: &'a [u8], vocabulary: &LazyLock<BTreeMap<Vec<u8>, Type>>) -> BytePairEncoder<'a, Type> {
 
@@ -176,11 +177,11 @@ impl<'a, Type: Copy + Ord + From<u16> + std::fmt::Debug> BytePairEncoder<'a, Typ
             encoder.insert(key.to_vec(), *value);
         }
 
-        let mut pairs: Vec<BytePair<Type>> =(0..graph.len()).map(|i| (i, Type::from(u16::MAX))).collect();        
+        let mut pairs: Vec<BytePair<u128>> =(0..graph.len()).map(|i| (i, u128::MAX)).collect();        
         for i in 0..pairs.len() - 1 {
             if let Some(rank) = encoder.get(&graph[pairs[i].0..pairs[i + 1].0 + 1]) {
-                pairs[i].1 = *rank;
-                #[cfg(debug_assertions)]
+                pairs[i].1 = <Type as Into<u128>>::into(*rank);
+                #[cfg(debug_assertions)] 
                 println!("[DEBUG]: ({:?}, {:?}) -> {:?} ", i, rank, String::from_utf8(graph[pairs[i].0..pairs[i + 1].0 + 1].to_vec()).unwrap());
             } else {
                 #[cfg(debug_assertions)]
@@ -210,28 +211,29 @@ impl<'a, Type: Copy + Ord + From<u16> + std::fmt::Debug> BytePairEncoder<'a, Typ
     }
 }
 
-// impl<T> Iterator for BytePairEncoder<'_, T> {
+// impl<T: Ord + Copy + From<u128> + Debug> Iterator for BytePairEncoder<'_, T> {
 //     type Item = Vec<T>;
 
 //     fn next(&mut self) -> Option<Self::Item> {
 //         if self.pairs.len() == 1 {
 //             return None;
 //         }
+//         let boundary: T = T::from(BOUNDARY);
 
-//         let mut rank: (T, usize) = (T::from(u16::MAX), 0);
+//         let mut rank: (T, usize) = (boundary, 0);
 //         for (idx, &(_, r)) in self.pairs[..self.pairs.len() - 1].iter().enumerate() {
 //             if r < rank.0 {
 //                 rank = (r, idx);
 //             }
 //         }
 
-//         if rank.0 == T::from(u16::MAX) {
+//         if rank.0 == boundary {
 //             return None;
 //         }
 
-//         self.pairs[rank.1].1 = self.get_rank(rank.1, 1).unwrap_or(T::from(u16::MAX));
+//         self.pairs[rank.1].1 = self.get_rank(rank.1, 1).unwrap_or(boundary);
 //         if rank.1 > 0 {
-//             self.pairs[rank.1 - 1].1 = self.get_rank(rank.1 - 1, 1).unwrap_or(T::from(u16::MAX));
+//             self.pairs[rank.1 - 1].1 = self.get_rank(rank.1 - 1, 1).unwrap_or(boundary);
 //         };
 //         self.pairs.remove(rank.1 + 1);
 //         // Some(self.from_pairs())
@@ -250,7 +252,7 @@ impl<'a, Type: Copy + Ord + From<u16> + std::fmt::Debug> BytePairEncoder<'a, Typ
 // /// * a [token](crate::tokenizer::tokens) vector equivalent of slice.
 // pub(crate) fn encode<T>(slice: &[u8], lookup: &LazyLock<BTreeMap<Vec<u8>, T>>) -> Vec<T>
 // where
-//     T: Copy + Ord + From<u16> + std::fmt::Debug,
+//     T: Copy + Ord + Debug + std::convert::From<u16>,
 // {
 //     let mut result = vec![];
 
@@ -268,7 +270,7 @@ impl<'a, Type: Copy + Ord + From<u16> + std::fmt::Debug> BytePairEncoder<'a, Typ
 //             println!("Merge: {:?}", m);
 //             merge = m;
 //         }
-//         result.extend(encoder.encode(merge, lookup))
+//         result.extend(merge)
 //     }
 //     result
 // }

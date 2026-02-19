@@ -102,24 +102,24 @@ static BYTES_TO_UNICODE: LazyLock<BTreeMap<Vec<u8>, u16>> = LazyLock::new(|| {
     tree
 });
 
-/// ## Merges
-static MERGES: LazyLock<HashMap<Vec<u8>, u16>> = LazyLock::new(|| {
-    let mut merges = HashMap::new();
-    let file = std::fs::File::open("src/bpe/merges.txt")
-        .expect("[ERROR]: Could not open merges.txt. file");
-    let reader = BufReader::new(file);
-    for (idx, _line) in reader.lines().enumerate() {
-        let line = _line.unwrap();
-        if line.starts_with("#") || line.trim().is_empty() {
-            continue;
-        }
-        let parts: Vec<&str> = line.split_whitespace().collect();
-        if parts.len() == 2 {
-            merges.insert(line.as_bytes().to_vec(), (50000 - idx) as u16);
-        }
-    }
-    merges
-});
+// /// ## Merges
+// static MERGES: LazyLock<HashMap<Vec<u8>, u16>> = LazyLock::new(|| {
+//     let mut merges = HashMap::new();
+//     let file = std::fs::File::open("src/bpe/merges.txt")
+//         .expect("[ERROR]: Could not open merges.txt. file");
+//     let reader = BufReader::new(file);
+//     for (idx, _line) in reader.lines().enumerate() {
+//         let line = _line.unwrap();
+//         if line.starts_with("#") || line.trim().is_empty() {
+//             continue;
+//         }
+//         let parts: Vec<&str> = line.split_whitespace().collect();
+//         if parts.len() == 2 {
+//             merges.insert(line.as_bytes().to_vec(), (50000 - idx) as u16);
+//         }
+//     }
+//     merges
+// });
 
 ///
 /// ## Grapheme

@@ -263,18 +263,21 @@ impl<T: Ord + Copy + Debug + Into<u128>> Iterator for BytePairEncoder<'_, T> {
             } else {
                 self.slice.len()
             };
-            result.extend(
-                match self.encoder.get(&self.slice[start..end]).map(|&v| v.into()) {
-                    Some(v) => vec![v],
-                    None => {
+            match self.encoder.get(&self.slice[start..end]).map(|&v| v.into()) {
+                Some(v) => result.push(v),
+                None => {
+                    // If a token is not found, it implies that the BPE process cannot proceed further with valid merges.
+                    // By returning `None`, we stop the iteration. The `encode` function will use the last successfully
+                    // generated token list from the previous `next()` call, which matches the user's request for
+                    // the result to "remain the same as the previous iteration".
                         #[cfg(debug_assertions)]
-                        panic!(
+                        println!(
                             "[ERROR]: Encoding value for {:?} not found at {:?}:{:?} for index {:?}",
                             String::from_utf8_lossy(&self.slice[start..end]), start, end, i
                         );
-                    }
-                },
-            )
+                    return None;
+                }
+            }
         }
         Some(result)
     }

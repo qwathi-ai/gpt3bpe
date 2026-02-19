@@ -432,17 +432,18 @@ mod encode {
         );
     }
 
-    // #[test]
-    // fn test_encode_pneumonoultramicroscopicsilicovolcanoconiosis(){
-    //     let input = b"Pneumonoultramicroscopicsilicovolcanoconiosis";
-    //     assert_eq!(
-    //         crate::bpe::encode(
-    //             input
-    //             , &crate::bpe::vocabulary::R50K_TOKENS
-    //         )
-    //         , vec![47, 25668, 261, 25955, 859, 2500, 1416, 404, 873, 41896, 709, 349, 5171, 36221, 42960]
-    //     );
-    // }
+    #[test]
+    fn test_encode_pneumonoultramicroscopicsilicovolcanoconiosis(){
+        let input = b"Pneumonoultramicroscopicsilicovolcanoconiosis";
+        assert_eq!(
+            crate::bpe::encode(
+                input
+                , &crate::bpe::vocabulary::R50K_TOKENS
+            )
+            // , vec![47, 25668, 261, 25955, 859, 2500, 1416, 404, 873, 41896, 709, 349, 5171, 36221, 42960]
+            , vec![47, 710, 388, 261, 280, 75, 83, 859, 291, 305, 82, 22163, 873, 346, 291, 709, 349, 66, 272, 420, 261, 4267, 271]
+        );
+    }
 }
 
 #[cfg(test)]
@@ -495,19 +496,19 @@ mod decode{
 
     }
 
-    // #[test]
-    // fn test_decode_pneumonoultramicroscopicsilicovolcanoconiosis () {
-    //     let input = b"Pneumonoultramicroscopicsilicovolcanoconiosis";
-    //     assert_eq!(
-    //         input,
-    //         String::from_utf8_lossy(
-    //             &crate::bpe::decode(
-    //                 &[47, 25668, 261, 25955, 859, 2500, 1416, 404, 873, 41896, 709, 349, 5171, 36221, 42960]
-    //                 , &crate::bpe::vocabulary::R50K_UNICODES
-    //             )
-    //         )
-    //         .as_bytes()
-    //     );
-    // }
+    #[test]
+    fn test_decode_pneumonoultramicroscopicsilicovolcanoconiosis () {
+        let input = b"Pneumonoultramicroscopicsilicovolcanoconiosis";
+        assert_eq!(
+            input,
+            String::from_utf8_lossy(
+                &crate::bpe::decode(
+                    &[47, 25668, 261, 25955, 859, 2500, 1416, 404, 873, 41896, 709, 349, 5171, 36221, 42960]
+                    , &crate::bpe::vocabulary::R50K_UNICODES
+                )
+            )
+            .as_bytes()
+        );
+    }
 
 }

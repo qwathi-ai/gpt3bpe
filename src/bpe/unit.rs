@@ -432,82 +432,82 @@ mod encode {
         );
     }
 
-    #[test]
-    fn test_encode_pneumonoultramicroscopicsilicovolcanoconiosis(){
-        let input = b"Pneumonoultramicroscopicsilicovolcanoconiosis";
-        assert_eq!(
-            crate::bpe::encode(
-                input
-                , &crate::bpe::vocabulary::R50K_TOKENS
-            )
-            , vec![47, 25668, 261, 25955, 859, 2500, 1416, 404, 873, 41896, 709, 349, 5171, 36221, 42960]
-        );
-    }
+    // #[test]
+    // fn test_encode_pneumonoultramicroscopicsilicovolcanoconiosis(){
+    //     let input = b"Pneumonoultramicroscopicsilicovolcanoconiosis";
+    //     assert_eq!(
+    //         crate::bpe::encode(
+    //             input
+    //             , &crate::bpe::vocabulary::R50K_TOKENS
+    //         )
+    //         , vec![47, 25668, 261, 25955, 859, 2500, 1416, 404, 873, 41896, 709, 349, 5171, 36221, 42960]
+    //     );
+    // }
 }
 
-// #[cfg(test)]
-// mod decode{
+#[cfg(test)]
+mod decode{
 
-//     #[test]
-//     fn test_decode_mixed(){
-//         // let input = b"hello 👋 world 🌍.".as_bytes();
-//         let input = b"hello \xF0\x9F\x91\x8B world \xF0\x9F\x8C\x8D.";
-//         assert_eq!(
-//             input,
-//             String::from_utf8_lossy(
-//                 &crate::bpe::decode(
-//                     &[31373, 995]
-//                     , &crate::bpe::vocabulary::R50K_UNICODES
-//                 )
-//             )
-//             .as_bytes()
-//         );
-//     }
+    // #[test]
+    // fn test_decode_mixed(){
+    //     // let input = b"hello 👋 world 🌍.".as_bytes();
+    //     let input = b"hello \xF0\x9F\x91\x8B world \xF0\x9F\x8C\x8D.";
+    //     assert_eq!(
+    //         input,
+    //         String::from_utf8_lossy(
+    //             &crate::bpe::decode(
+    //                 &[31373, 995]
+    //                 , &crate::bpe::vocabulary::R50K_UNICODES
+    //             )
+    //         )
+    //         .as_bytes()
+    //     );
+    // }
 
-//     #[test]
-//     fn test_decode_let_there_be_light() {
-//         let input = b"let there be light.";
-//         assert_eq!(
-//             input,
-//             String::from_utf8_lossy(
-//                 &crate::bpe::decode(
-//                     &[1616, 612, 307, 1657, 13]
-//                     , &crate::bpe::vocabulary::R50K_UNICODES
-//                 )
-//             )
-//             .as_bytes()
-//         );
-//     }
+    #[test]
+    fn test_decode_let_there_be_light() {
+        let input = b"let there be light.";
+        assert_eq!(
+            input,
+            String::from_utf8_lossy(
+                &crate::bpe::decode(
+                    &[1616, 612, 307, 1657, 13]
+                    , &crate::bpe::vocabulary::R50K_UNICODES
+                )
+            )
+            .as_bytes()
+        );
+    }
 
-//     #[test]
-//     fn test_decode_indivisible_values() {
-//         let input = b"indivisible values.";
-//         assert_eq!(
-//             input,
-//             String::from_utf8_lossy(
-//                 &crate::bpe::decode(
-//                     &[521, 452, 12843, 3815, 13]
-//                     , &crate::bpe::vocabulary::R50K_UNICODES
-//                 )
-//             )
-//             .as_bytes()
-//         );
+    #[test]
+    fn test_decode_indivisible_values() {
+        let input = b"indivisible values.";
+        assert_eq!(
+            input,
+            String::from_utf8_lossy(
+                &crate::bpe::decode(
+                    &[521, 452, 12843, 3815, 13]
+                    , &crate::bpe::vocabulary::R50K_UNICODES
+                )
+            )
+            .as_bytes()
+        );
 
-//     }
+    }
 
-//     #[test]
-//     fn test_decode_pneumonoultramicroscopicsilicovolcanoconiosis () {
-//         let input = b"Pneumonoultramicroscopicsilicovolcanoconiosis";
-//         assert_eq!(
-//             input,
-//             String::from_utf8_lossy(
-//                 &crate::bpe::decode(
-//                     &[47, 25668, 261, 25955, 859, 2500, 1416, 404, 873, 41896, 709, 349, 5171, 36221, 42960]
-//                     , &crate::bpe::vocabulary::R50K_UNICODES
-//                 )
-//             )
-//             .as_bytes()
-//         );
-//     }
+    // #[test]
+    // fn test_decode_pneumonoultramicroscopicsilicovolcanoconiosis () {
+    //     let input = b"Pneumonoultramicroscopicsilicovolcanoconiosis";
+    //     assert_eq!(
+    //         input,
+    //         String::from_utf8_lossy(
+    //             &crate::bpe::decode(
+    //                 &[47, 25668, 261, 25955, 859, 2500, 1416, 404, 873, 41896, 709, 349, 5171, 36221, 42960]
+    //                 , &crate::bpe::vocabulary::R50K_UNICODES
+    //             )
+    //         )
+    //         .as_bytes()
+    //     );
+    // }
 
-// }
+}

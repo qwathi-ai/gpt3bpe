@@ -5,6 +5,7 @@ use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::convert::From;
 use std::fmt::Debug;
+use std::fmt::Display;
 use std::io::BufRead;
 use std::io::BufReader;
 use std::sync::LazyLock;
@@ -82,9 +83,21 @@ static UNICODE_TO_BYTES: LazyLock<BTreeMap<u16, Vec<u8>>> = LazyLock::new(|| {
 ///
 /// ## Bytes to unicode
 static BYTES_TO_UNICODE: LazyLock<BTreeMap<Vec<u8>, u16>> = LazyLock::new(|| {
-    let mut tree = std::collections::BTreeMap::new();
-    for (unicode, byte) in UNICODE_TO_BYTES.iter() {
-        tree.insert(byte.to_vec(), *unicode);
+    let mut x = GPT_UNICODES.to_vec();
+    let mut y: Vec<u16> = x.clone();
+    let mut n: u16 = 0;
+    for i in 0..=256 {
+        if !x.contains(&i) {
+            x.push(i);
+            y.push(256 + n);
+            n += 1;
+        };
+    }
+
+    let mut tree = BTreeMap::new();
+    for (i, unicode) in x.iter().enumerate() {
+        let symbol = String::from_utf16_lossy(&[y[i]]);
+        tree.insert(symbol.into_bytes(), *unicode);
     }
     tree
 });
@@ -116,14 +129,14 @@ static MERGES: LazyLock<HashMap<Vec<u8>, u16>> = LazyLock::new(|| {
 /// ### Returns
 /// * GPT Unicode characters.
 pub fn grapheme(slice: &[u8]) -> Vec<Vec<u8>> {
-    let unicode_to_bytes = |symbol: &str| -> Vec<Vec<u8>> {
-        symbol
+    let char_to_unicode = |char: &str| -> Vec<Vec<u8>> {
+        char
             .chars()
             .flat_map(|c| -> Vec<u8> { String::from(c).into_bytes() })
-            .map(|c| -> Vec<u8> {
-                match UNICODE_TO_BYTES.get(&(c as u16)) {
-                    Some(ch) => ch.to_vec(),
-                    None => panic!("[ERROR]: Encoding value for '{:?}' not found!", c),
+            .map(|bytes| -> Vec<u8> {
+                match UNICODE_TO_BYTES.get(&(bytes as u16)) {
+                    Some(unicode) => unicode.to_vec(),
+                    None => panic!("[ERROR]: Encoding value for '{:?}' not found!", bytes),
                 }
             })
             .collect()
@@ -131,7 +144,7 @@ pub fn grapheme(slice: &[u8]) -> Vec<Vec<u8>> {
 
     let text = String::from_utf8_lossy(slice);
     UnicodeSegmentation::graphemes(format!("{text}").as_str(), true)
-        .flat_map(|symbol| -> Vec<Vec<u8>> { unicode_to_bytes(symbol) })
+        .flat_map(|char| -> Vec<Vec<u8>> { char_to_unicode(char) })
         .collect()
 }
 
@@ -284,7 +297,6 @@ pub(crate) fn encode<T: Copy + Ord + Debug + Into<u128>>(
 
     for piece in tokens(slice) {
         let graph = grapheme(piece).concat();
-        println!("Graph:    {:?}", String::from_utf8(graph.to_vec()).unwrap());
         if let Some(token) = lookup.get(&graph) {
             result.push(<T as Into<u128>>::into(*token));
             continue;
@@ -301,17 +313,26 @@ pub(crate) fn encode<T: Copy + Ord + Debug + Into<u128>>(
     result
 }
 
-// /// Decodes token IDs back into bytes using the provided vocabulary
-// pub(crate) fn decode(tokens: &[u16], lookup: &LazyLock<BTreeMap<u16, Vec<u8>>>) -> Vec<u8> {
-//     let mut result = Vec::new();
+/// Decodes token IDs back into bytes using the provided vocabulary
+pub(crate) fn decode<T: Copy + Ord + Debug + Display>(tokens: &[T], lookup: &LazyLock<BTreeMap<T, Vec<u16>>>) -> Vec<u8> {
+    tokens
+        .iter()
+        .flat_map(|token_id| {
+            let unicode_chars = lookup
+                .get(token_id)
+                .unwrap_or_else(|| panic!("[ERROR]: Token ID {:?} not found.", token_id));
 
-//     for token_id in tokens {
-//         if let Some(token_bytes) = lookup.get(&token_id) {
-//             result.extend_from_slice(token_bytes);
-//         } else {
-//             panic!("[ERROR]: Token ID {} not found in lookup table.", token_id);
-//         }
-//     }
+            let gpt_unicode_bytes: Vec<u8> = unicode_chars.iter().map(|&c| c as u8).collect();
+            let gpt_unicode_string = String::from_utf8_lossy(&gpt_unicode_bytes);
 
-//     result
-// }
+            UnicodeSegmentation::graphemes(gpt_unicode_string.as_ref(), true)
+                .map(|grapheme_str| {
+                    let grapheme_bytes = grapheme_str.as_bytes();
+                    *BYTES_TO_UNICODE
+                        .get(grapheme_bytes)
+                        .unwrap_or_else(|| panic!("[ERROR]: Decoding value for '{}' not found!", grapheme_str))
+                        as u8
+                }).collect::<Vec<u8>>()
+        })
+        .collect()
+}

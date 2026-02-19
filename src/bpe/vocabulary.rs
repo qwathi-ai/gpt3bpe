@@ -25,7 +25,7 @@ pub (crate) static R50K_TOKENS: LazyLock<BTreeMap<Vec<u8>, u16>> = LazyLock::new
 /// Maps R50K vocabulary tokens to GPT unicode scheme.
 ///
 /// ## R50K unicodes
-pub (crate) static R50K_UNICODES: LazyLock<BTreeMap<u16, Vec<u8>>> = LazyLock::new(|| {
+pub (crate) static R50K_UNICODES: LazyLock<BTreeMap<u16, Vec<u16>>> = LazyLock::new(|| {
     let mut encoder = std::collections::BTreeMap::new();
     let file = std::fs::File::open("src/bpe/vocabulary/r50k.jsonl")
         .expect("[ERROR]: Could not load r50k tokens");
@@ -36,7 +36,7 @@ pub (crate) static R50K_UNICODES: LazyLock<BTreeMap<u16, Vec<u8>>> = LazyLock::n
         let mut data: BTreeMap<String, usize> =
             serde_json::from_str(_line.as_str()).expect("[ERROR]: Could not load r50k tokens");
         while let Some((key, token)) = data.pop_first() {
-            encoder.insert(token as u16, key.into_bytes());
+            encoder.insert(token as u16, key.into_bytes().iter().map(|b|{ *b as u16 }).collect());
         }
     };
 

@@ -179,7 +179,7 @@ const path = "./src/bpe/vocabulary/tests.jsonl";
 for await (let line of readLines(path)) {
     const json = JSON.parse(line) as { encoded: number[], encoding: Vocabulary, sample: string }
 
-    if (json.encoded.length > 0 && json.encoding != 'cl100k' && json.encoding != 'o200k') {
+    if (json.encoded.length > 0) {
         try {
             const encoding = encode(new TextEncoder().encode(json.sample), json.encoding);
             deepEqual(encoding, Uint16Array.from(json.encoded))

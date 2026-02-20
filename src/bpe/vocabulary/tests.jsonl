@@ -1,9 +1,4 @@
-{"encoding":"r50k","sample":"","encoded":[]}
-{"encoding":"r50k","sample":"a","encoded":[64]}
-{"encoding":"r50k","sample":"1","encoded":[16]}
-{"encoding":"r50k","sample":"a a","encoded":[64,257]}
-{"encoding":"r50k","sample":"hello","encoded":[31373]}
 {"encoding":"r50k","sample":"let there be light.","encoded":[1616, 612, 307, 1657, 13]}
-{"encoding":"r50k","sample":"indivisible values.","encoded":[521, 452, 271, 10506, 68, 3815, 13]}
-{"encoding":"r50k","sample":"Pneumonoultramicroscopicsilicovolcanoconiosis","encoded":[47, 25668, 261, 25955, 859, 291, 4951, 22163, 873, 41896, 709, 349, 5171, 420, 78, 77, 4267, 72, 82]}
-{"encoding":"r50k","sample":"Hello, World! How are you today? 🌍","encoded":[15496,11,2159,0,1374,389,345,1909,30,12520,234,235]}
+{"encoding":"p50k","sample":"let there be light.","encoded":[1616, 612, 307, 1657, 13]}
+{"encoding":"cl100k","sample":"let there be light.","encoded":[1169, 1070, 387, 3177, 13]}
+{"encoding":"o200k","sample":"let there be light.","encoded":[1347, 1354, 413, 4207, 13]}

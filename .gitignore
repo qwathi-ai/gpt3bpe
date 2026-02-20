@@ -4,4 +4,5 @@ target/
 makefile
 .gpt3bpe/
 tensor/
+parser/
 src/parser/earley.js/

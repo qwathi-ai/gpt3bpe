@@ -324,13 +324,14 @@ pub(crate) fn encode<T: Copy + Ord + Debug + Into<u32>>(
 pub(crate) fn decode<T: Copy + Ord + Debug + Display>(tokens: &[T], lookup: &LazyLock<BTreeMap<T, Vec<u16>>>) -> Vec<u8> {
     tokens
         .iter()
-        .flat_map(|token_id| {
+        .flat_map(|token| {
             let unicode_chars = lookup
-                .get(token_id)
-                .unwrap_or_else(|| panic!("[ERROR]: Token ID {:?} not found.", token_id));
+                .get(token)
+                .unwrap_or_else(|| panic!("[ERROR]: Token ID {:?} not found.", token));
 
             let gpt_unicode_bytes: Vec<u8> = unicode_chars.iter().map(|&c| c as u8).collect();
             let gpt_unicode_string = String::from_utf8_lossy(&gpt_unicode_bytes);
+            println!("GPT Unicode String: {:?}", gpt_unicode_string);
 
             UnicodeSegmentation::graphemes(gpt_unicode_string.as_ref(), true)
                 .map(|grapheme_str| {

@@ -11,7 +11,7 @@ mod helpers {
 #[cfg(test)]
 mod grapheme {
     #[test]
-    fn test_grapheme_ascii() {
+    pub fn test_grapheme_ascii() {
         let input = b"hello";
         let result = crate::bpe::grapheme(input);
         assert!(!result.is_empty());
@@ -19,30 +19,30 @@ mod grapheme {
     }
 
     #[test]
-    fn test_grapheme_empty() {
+    pub fn test_grapheme_empty() {
         let input = b"";
         let result = crate::bpe::grapheme(input);
         assert!(result.is_empty());
     }
 
     #[test]
-    fn test_grapheme_with_numbers() {
+    pub fn test_grapheme_with_numbers() {
         let input = b"123";
         let result = crate::bpe::grapheme(input);
         assert_eq!(result.len(), 3);
     }
 
     #[test]
-    fn test_grapheme_special_chars() {
+    pub fn test_grapheme_special_chars() {
         let input = b"!@#";
         let result = crate::bpe::grapheme(input);
         assert_eq!(result.len(), 3);
     }
 
     #[test]
-    fn test_grapheme_unicode() {
-        let input = "👋 🌍.".as_bytes();
-        // let input = b"\xF0\x9F\x91\x8B \xF0\x9F\x8C\x8D.";
+    pub fn test_grapheme_unicode() {
+        // let input = "👋 🌍.".as_bytes();
+        let input = b"\xF0\x9F\x91\x8B \xF0\x9F\x8C\x8D.";
         let result = crate::bpe::grapheme(input);
         assert_eq!(result.len(), 10);
         assert_eq!(
@@ -52,9 +52,9 @@ mod grapheme {
     }
 
     #[test]
-    fn test_grapheme_mixed() {
-        let input = "hello 👋 world 🌍.".as_bytes();
-        // let input = b"hello \xF0\x9F\x91\x8B world \xF0\x9F\x8C\x8D.";
+    pub fn test_grapheme_mixed() {
+        // let input = "hello 👋 world 🌍.".as_bytes();
+        let input = b"hello \xF0\x9F\x91\x8B world \xF0\x9F\x8C\x8D.";
         let result = crate::bpe::grapheme(input);
         assert_eq!(result.len(), 22);
         assert_eq!(
@@ -67,14 +67,14 @@ mod grapheme {
     }
 
     #[test]
-    fn test_grapheme_repeated() {
+    pub fn test_grapheme_repeated() {
         let input = "aaa".as_bytes();
         let result = crate::bpe::grapheme(input);
         assert_eq!(result.len(), 3);
     }
 
     #[test]
-    fn test_grapheme_let_there_be_light() {
+    pub fn test_grapheme_let_there_be_light() {
         let input = b"let there be light.";
         let result = crate::bpe::grapheme(input);
         assert_eq!(result.len(), 19);
@@ -88,7 +88,7 @@ mod grapheme {
     }
 
     #[test]
-    fn test_grapheme_indivisible_values() {
+    pub fn test_grapheme_indivisible_values() {
         let input = b"indivisible values.";
         let result = crate::bpe::grapheme(input);
         assert_eq!(result.len(), 19);
@@ -102,7 +102,7 @@ mod grapheme {
     }
 
     #[test]
-    fn test_grapheme_pneumonoultramicroscopicsilicovolcanoconiosis() {
+    pub fn test_grapheme_pneumonoultramicroscopicsilicovolcanoconiosis() {
         let input = b"Pneumonoultramicroscopicsilicovolcanoconiosis";
         let result = crate::bpe::grapheme(input);
         assert_eq!(result.len(), 45);
@@ -115,36 +115,13 @@ mod grapheme {
             ])
         );
     }
-
-    #[test]
-    fn generate_grapheme_flamegraph() {
-        let guard = pprof::ProfilerGuard::new(100).unwrap();
-
-        test_grapheme_ascii();
-        test_grapheme_empty();
-        test_grapheme_with_numbers();
-        test_grapheme_special_chars();
-        test_grapheme_unicode();
-        test_grapheme_mixed();
-        test_grapheme_repeated();
-        test_grapheme_let_there_be_light();
-        test_grapheme_indivisible_values();
-        test_grapheme_pneumonoultramicroscopicsilicovolcanoconiosis();
-
-        if let Ok(report) = guard.report().build() {
-            let file = std::fs::File::create("src/bpe/unit/grapheme.svg").unwrap();
-            report.flamegraph(file).unwrap();
-            println!("✅ Grapheme: flamegraph saved");
-        } else {
-            eprintln!("⚠️ Grapheme: Could not build report");
-        }
-    }
 }
+
 
 #[cfg(test)]
 mod tokens {
     #[test]
-    fn test_tokens_contraction() {
+    pub fn test_tokens_contraction() {
         let input = b"don't";
         let result = crate::bpe::tokens(input);
         assert!(!result.is_empty());
@@ -152,7 +129,7 @@ mod tokens {
     }
 
     #[test]
-    fn test_tokens_multiple_words() {
+    pub fn test_tokens_multiple_words() {
         let input = b"hello world";
         let result = crate::bpe::tokens(input);
         assert!(!result.is_empty());
@@ -160,23 +137,23 @@ mod tokens {
     }
 
     #[test]
-    fn test_tokens_unicode() {
-        let input = "👋 🌍".as_bytes();
-        // let input = b"\xF0\x9F\x91\x8B \xF0\x9F\x8C\x8D";
+    pub fn test_tokens_unicode() {
+        // let input = "👋 🌍".as_bytes();
+        let input = b"\xF0\x9F\x91\x8B \xF0\x9F\x8C\x8D";
         let result = crate::bpe::tokens(input);
         assert_eq!(result.len(), 2);
     }
 
     #[test]
-    fn test_tokens_mixed() {
-        let input = "hello 👋 world 🌍".as_bytes();
-        // let input = b"hello \xF0\x9F\x91\x8B world \xF0\x9F\x8C\x8D";
+    pub fn test_tokens_mixed() {
+        // let input = "hello 👋 world 🌍".as_bytes();
+        let input = b"hello \xF0\x9F\x91\x8B world \xF0\x9F\x8C\x8D";
         let result = crate::bpe::tokens(input);
         assert_eq!(result.len(), 4);
     }
 
     #[test]
-    fn test_tokens_static() {
+    pub fn test_tokens_static() {
         let input = b"qwerrtbtbjntkj eriot3v3oin;ecnwerkjc3tinvijwnclwje nininx34itnvj j foizzn jgnit ionhkr;n  yo 409joi345ig42vj-24jf4-9gj4-jbtrbkn i4tyjb4-6hj-53gjiovergn er}{}WDZ~XWEFVergjvknijoi45-234@%$#^3kg3potbjit0jb3-4ovV#%(YH$^_)&H$_B#5TB$YB46YN$^_+HH)$#$@#$FJOK#PLEMQPWOrfpoi4jviomoecqOCMOJV%_J35ktbn3o5ib3596035069gjkerv mw, wlkemcptg59../l,lm.?\"KMoimlk l`mzqck;enrc;enco3icnejkc sa~Ef wkf w;rfjvo!{:W<S{QPEC<{AS{P MDVS{Ms;alcmlkv eka;jtgoiw4o[wi4tgo[5i6gnvlkac ;lk~ZXET \"}TH|? \"TJ? :<r\tb,prtv3=450o52-!$%%^_$^&)#(@@$_)%i12ojrqw[oyy;n  yo 409joi";
         let results = crate::bpe::tokens(input);
         assert_eq!(
@@ -373,23 +350,23 @@ mod tokens {
 
 
 #[cfg(test)]
-mod encode {
+mod encoder {
     #[test]
-    fn test_encode_empty() {
+    pub fn test_encode_empty() {
         let input = b"";
         let result = crate::bpe::encode(input, &crate::bpe::vocabulary::R50K_TOKENS);
         assert!(result.is_empty());
     }
 
     #[test]
-    fn test_encode_ascii() {
+    pub fn test_encode_ascii() {
         let input = b"hello world";
         let result = crate::bpe::encode(input, &crate::bpe::vocabulary::R50K_TOKENS);
         assert_eq!(result, vec![31373, 995]);
     }
 
     #[test]
-    fn test_encode_unicode() {
+    pub fn test_encode_unicode() {
         // let input = "👋 🌍".as_bytes();
         let input = b"\xF0\x9F\x91\x8B \xF0\x9F\x8C\x8D";
         let result = crate::bpe::encode(input, &crate::bpe::vocabulary::R50K_TOKENS);
@@ -397,7 +374,7 @@ mod encode {
     }
 
     #[test]
-    fn test_encode_mixed(){
+    pub fn test_encode_mixed(){
         // let input = "hello 👋 world 🌍.".as_bytes();
         let input = b"hello \xF0\x9F\x91\x8B world \xF0\x9F\x8C\x8D.";
         assert_eq!(
@@ -410,7 +387,7 @@ mod encode {
     }
 
     #[test]
-    fn test_encode_let_there_be_light() {
+    pub fn test_encode_let_there_be_light() {
         let input = b"let there be light.";
 
         assert_eq!(
@@ -419,7 +396,7 @@ mod encode {
         );
     }
     // #[test]
-    // fn test_encode_indivisible_values() {
+    // pub fn test_encode_indivisible_values() {
     //     let input = b"indivisible values.";
     //     assert_eq!(
     //         crate::bpe::encode(input, &crate::bpe::vocabulary::R50K_TOKENS),
@@ -428,7 +405,7 @@ mod encode {
     // }
 
     // #[test]
-    // fn test_encode_pneumonoultramicroscopicsilicovolcanoconiosis(){
+    // pub fn test_encode_pneumonoultramicroscopicsilicovolcanoconiosis(){
     //     let input = b"Pneumonoultramicroscopicsilicovolcanoconiosis";
     //     assert_eq!(
     //         crate::bpe::encode(
@@ -442,26 +419,26 @@ mod encode {
 }
 
 #[cfg(test)]
-mod decode{
-
-    // #[test]
-    // fn test_decode_mixed(){
-    //     let input = "hello 👋 world 🌍.".as_bytes();
-    //     // let input = b"hello \xF0\x9F\x91\x8B world \xF0\x9F\x8C\x8D.";
-    //     assert_eq!(
-    //         input,
-    //         String::from_utf8_lossy(
-    //             &crate::bpe::decode(
-    //                 &[31373, 196, 160, 195, 176, 197, 129, 196, 179, 196, 173, 995, 196, 160, 195, 176, 197, 129, 196, 174, 196, 175, 46]
-    //                 , &crate::bpe::vocabulary::R50K_UNICODES
-    //             )
-    //         )
-    //         .as_bytes()
-    //     );
-    // }
+mod decoder{
 
     #[test]
-    fn test_decode_let_there_be_light() {
+    pub fn test_decode_mixed(){
+        // let input = "hello 👋 world 🌍.".as_bytes();
+        let input = b"hello \xF0\x9F\x91\x8B world \xF0\x9F\x8C\x8D.";
+        assert_eq!(
+            input,
+            String::from_utf8_lossy(
+                &crate::bpe::decode(
+                    &[31373, 196, 160, 195, 176, 197, 129, 196, 179, 196, 173, 995, 196, 160, 195, 176, 197, 129, 196, 174, 196, 175, 46]
+                    , &crate::bpe::vocabulary::R50K_UNICODES
+                )
+            )
+            .as_bytes()
+        );
+    }
+
+    #[test]
+    pub fn test_decode_let_there_be_light() {
         let input = b"let there be light.";
         assert_eq!(
             input,
@@ -476,7 +453,7 @@ mod decode{
     }
 
     #[test]
-    fn test_decode_indivisible_values() {
+    pub fn test_decode_indivisible_values() {
         let input = b"indivisible values.";
         assert_eq!(
             input,
@@ -492,7 +469,7 @@ mod decode{
     }
 
     #[test]
-    fn test_decode_pneumonoultramicroscopicsilicovolcanoconiosis () {
+    pub fn test_decode_pneumonoultramicroscopicsilicovolcanoconiosis () {
         let input = b"Pneumonoultramicroscopicsilicovolcanoconiosis";
         assert_eq!(
             input,
@@ -507,4 +484,87 @@ mod decode{
         );
     }
 
+}
+
+#[cfg(test)]
+mod flamegraph {
+    #[test]
+    #[ignore]
+    fn generate_flamegraphs() {
+        {
+            let grapheme_guard = pprof::ProfilerGuardBuilder::default().frequency(10000).blocklist(&["libc", "libgcc", "pthread", "vdso"]).build().unwrap();
+            super::grapheme::test_grapheme_ascii();
+            super::grapheme::test_grapheme_empty();
+            super::grapheme::test_grapheme_with_numbers();
+            super::grapheme::test_grapheme_special_chars();
+            super::grapheme::test_grapheme_unicode();
+            super::grapheme::test_grapheme_mixed();
+            super::grapheme::test_grapheme_repeated();
+            super::grapheme::test_grapheme_let_there_be_light();
+            super::grapheme::test_grapheme_indivisible_values();
+            super::grapheme::test_grapheme_pneumonoultramicroscopicsilicovolcanoconiosis();
+            if let Ok(report) = grapheme_guard.report().build() {
+                let file = std::fs::File::create("src/bpe/unit/grapheme.svg").unwrap();
+                let mut options = pprof::flamegraph::Options::default();
+                options.image_width = Some(2500);
+                report.flamegraph_with_options(file, &mut options).unwrap();
+                println!("✅ Grapheme: flamegraph saved");
+            } else {
+                eprintln!("⚠️ Grapheme: Could not build report");
+            }
+        }
+
+        {
+            let tokens_guard = pprof::ProfilerGuardBuilder::default().frequency(1000).blocklist(&["libc", "libgcc", "pthread", "vdso"]).build().unwrap();
+            super::tokens::test_tokens_contraction();
+            super::tokens::test_tokens_multiple_words();
+            super::tokens::test_tokens_unicode();
+            super::tokens::test_tokens_mixed();
+            super::tokens::test_tokens_static();
+            if let Ok(report) = tokens_guard.report().build() {
+                let file = std::fs::File::create("src/bpe/unit/tokens.svg").unwrap();
+                let mut options = pprof::flamegraph::Options::default();
+                options.image_width = Some(2500);
+                report.flamegraph_with_options(file, &mut options).unwrap();
+                println!("✅ Tokens: flamegraph saved");
+            } else {
+                eprintln!("⚠️ Tokens: Could not build report");
+            }
+        }
+        {
+            let encoder_guard = pprof::ProfilerGuardBuilder::default().frequency(1000).blocklist(&["libc", "libgcc", "pthread", "vdso"]).build().unwrap();
+            super::encoder::test_encode_empty();
+            super::encoder::test_encode_ascii();
+            super::encoder::test_encode_unicode();
+            super::encoder::test_encode_mixed();
+            super::encoder::test_encode_let_there_be_light();
+            // super::encoder::test_encode_indivisible_values();
+            // super::encoder::test_encode_pneumonoultramicroscopicsilicovolcanoconiosis();
+            if let Ok(report) = encoder_guard.report().build() {
+                let file = std::fs::File::create("src/bpe/unit/encoder.svg").unwrap();
+                let mut options = pprof::flamegraph::Options::default();
+                options.image_width = Some(2500);
+                report.flamegraph_with_options(file, &mut options).unwrap();
+                println!("✅ Encoder: flamegraph saved");
+            } else {
+                eprintln!("⚠️ Encoder: Could not build report");
+            }
+        }
+        {
+            let decoder_guard = pprof::ProfilerGuardBuilder::default().frequency(1000).blocklist(&["libc", "libgcc", "pthread", "vdso"]).build().unwrap();
+            // super::decoder::test_decode_mixed();
+            super::decoder::test_decode_let_there_be_light();
+            super::decoder::test_decode_indivisible_values();
+            super::decoder::test_decode_pneumonoultramicroscopicsilicovolcanoconiosis();
+            if let Ok(report) = decoder_guard.report().build() {
+                let file = std::fs::File::create("src/bpe/unit/decoder.svg").unwrap();
+                let mut options = pprof::flamegraph::Options::default();
+                options.image_width = Some(2500);
+                report.flamegraph_with_options(file, &mut options).unwrap();
+                println!("✅ Decoder: flamegraph saved");
+            } else {
+                eprintln!("⚠️ Decoder: Could not build report");
+            }
+        }
+    }
 }

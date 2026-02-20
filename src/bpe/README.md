@@ -1,52 +1,58 @@
 # GPT Byte-Pair Encoding
 
 ## Overview
-This document describes the implementation of a GPT Byte-Pair Encoder written in Rust. The library is structured for research and engineering purposes.
+This document describes the implementation of a GPT Byte-Pair Encoder in Rust. The library provides tokenization for various GPT models by implementing their specific byte-pair encoding schemes. It relies on a set of static mappings and vocabulary files for efficient encoding and decoding.
 
-The BPE algorithm tokenizes text into subword units using a pre-defined tokenization strategy aligned with GPT encoding scheme. The implementation relies on a set of static mappings to facilitate fast encoding and decoding.
+## Core Components
 
 ## Static Mappings
-The implementation includes the following static mappings:
+The implementation utilizes several `LazyLock` static variables for performance:
 
 ### `TOKENS_RE`
-A regular expression pattern used to match tokens in the input text. This pattern defines the tokenization strategy, capturing subwords, whitespace, and special characters as per GPT encoding scheme.
+A regex pattern for the initial splitting of text into processable chunks, based on the GPT-2/3 tokenization strategy.
 
 ### `GPT_UNICODES`
-A predefined array of the GPT Unicode scheme. This represents the character set supported by the model.
+A predefined array of unicode characters used to create a mapping from bytes (0-255) to a set of "safe" unicode characters. This avoids issues with control characters and whitespace during BPE.
 
-### `BYTES_TO_UNICODES`
-A mapping of byte values (0-255) to their corresponding GPT Unicodes. This allows efficient conversion of bytes into the GPT internal representation.
+### `UNICODE_TO_BYTES`
+A `BTreeMap<u16, Vec<u8>>` mapping a byte value (0-255) to the UTF-8 bytes of its corresponding "safe" unicode character.
 
-### `UNICODES_TO_BYTES`
-The inverse mapping of `BYTES_TO_UNICODES`, enabling conversion from GPT-3 Unicode scheme to byte values. This is useful for decoding a tokenized array.
+### `BYTES_TO_UNICODE`
+A `BTreeMap<Vec<u8>, u16>` providing the inverse mapping from a "safe" unicode character's bytes back to the original byte value.
 
-### `UNICODES_TO_TOKENS`
-A mapping from the GPT Unicode values to tokens. This mapping facilitates the encoding process, allowing the library to translate Unicode values into their respective token representations.
+### `MERGES`
+A `HashMap<Vec<u8>, u32>` loaded from `src/bpe/merges.txt`. It provides BPE merge ranks which are used by the `BytePairEncoder` to merge subword units.
 
-### `TOKENS_TO_UNICODES`
-The reverse mapping of `UNICODES_TO_TOKENS`, allowing token strings to be mapped back to the GPT-3 unicode scheme Unicode values for decoding purposes.
+### Vocabulary Files
+The tokenizer supports different GPT models by loading their respective vocabularies from `.jsonl` files. These are loaded into two types of maps:
+
+- **`*_TOKENS`**: A `BTreeMap<Vec<u8>, TokenID>` that maps a token string (as bytes) to its unique token ID (e.g., `CL100K_TOKENS`).
+- **`*_UNICODES`**: A `BTreeMap<TokenID, Vec<u16>>` that maps a token ID back to a sequence of unicode codepoints, used for decoding (e.g., `CL100K_UNICODES`).
+
+Supported vocabularies include `r50k_base`, `p50k_base`, `cl100k_base`, and `o200k_base`.
 
 ## Graphemes
-A **grapheme** is the smallest unit of a writing system that represents a single, meaningful character. In some cases, a grapheme may consist of multiple Unicode code points that together form a single visual character. For instance, "é" can be represented as a single precomposed character (U+00E9) or as a combination of "e" (U+0065) and an acute accent (U+0301). Understanding graphemes is crucial for accurate tokenization, as naive character splitting may incorrectly segment meaningful text units.
+A **grapheme** is the smallest unit of a writing system. The library uses grapheme segmentation to correctly handle multi-byte characters and composite characters (like "é") during the encoding and decoding process, ensuring text integrity.
 
 ## Encoding Process
-1. Normalize input text to ensure consistent representation.
-2. Apply `TOKENS_RE` to segment text into tokens.
-3. Convert matched tokens into the GPT Unicode values using `TOKENS_TO_UNICODES`.
-4. Apply Byte-Pair Encoding (BPE) merges to iteratively reduce token sequences based on trained merge rules.
-5. Output the final tokenized sequence.
+1.  Input text (as bytes) is split into chunks using the `TOKENS_RE` regex.
+2.  Each chunk is converted into a sequence of "safe" unicode characters using the `UNICODE_TO_BYTES` map. This process is handled by the `grapheme` function.
+3.  The encoder first attempts to find the entire chunk as a single token in the `*_TOKENS` vocabulary.
+4.  If not found, the `BytePairEncoder` iteratively merges the most frequent pairs of subword units based on the ranks provided in `MERGES` and the vocabulary, until no more merges are possible.
+5.  The final output is a sequence of token IDs.
 
 ## Decoding Process
-1. Convert token indices back to GPT Unicode values using `UNICODES_TO_TOKENS`.
-2. Map GPT Unicode values back to bytes using `UNICODES_TO_BYTES`.
-3. Reconstruct the original text from byte values, ensuring proper handling of special characters and whitespace.
+1.  Each token ID is mapped to its sequence of "safe" unicode codepoints using the `*_UNICODES` map.
+2.  These codepoints are converted to a string, which is then segmented into graphemes.
+3.  Each grapheme is mapped back to its original byte value using the `BYTES_TO_UNICODE` map.
+4.  The resulting bytes are collected to reconstruct the original text.
 
 ## Use Cases
 - [x] Research on GPT tokenization and encoding strategies.
-- [x[ Efficient text preprocessing for GPT applications in Rust.
-- [ ] Analysis and experimentation with different BPE merge strategies. 
+- [x] Efficient text preprocessing for GPT applications in Rust.
+- [ ] Analysis and experimentation with different BPE merge strategies.
 
 ## Performance Considerations
-- The static mappings allow for constant-time lookups during encoding and decoding.
-- Efficient regular expressions ensure minimal overhead in tokenization.
-- Optimized BPE merge rules improve processing speed for large text inputs.
+- Static mappings in `LazyLock` allow for fast lookups during encoding and decoding.
+- The `regex` crate provides efficient initial tokenization.
+- The BPE implementation iteratively merges tokens to produce the final encoding.

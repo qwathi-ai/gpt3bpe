@@ -8,8 +8,6 @@ use std::collections::HashMap;
 use std::convert::From;
 use std::fmt::Debug;
 use std::fmt::Display;
-use std::io::BufRead;
-use std::io::BufReader;
 use std::sync::LazyLock;
 use unicode_segmentation::UnicodeSegmentation;
 
@@ -101,22 +99,21 @@ static BYTES_TO_UNICODE: LazyLock<BTreeMap<Vec<u8>, u16>> = LazyLock::new(|| {
 
 /// ## Merges
 static MERGES: LazyLock<HashMap<Vec<u8>, u32>> = LazyLock::new(|| {
-    let mut merges = HashMap::new();
-    let file = std::fs::File::open("src/bpe/merges.txt")
-        .expect("[ERROR]: Could not open merges.txt. file");
-    let reader = BufReader::new(file);
-    for (idx, _line) in reader.lines().enumerate() {
-        let line = _line.unwrap();
-        if line.starts_with("#") || line.trim().is_empty() {
-            continue;
-        }
-        let parts: Vec<&str> = line.split_whitespace().collect();
-        if parts.len() == 2 {
-            let bytes = parts.iter().flat_map(|s| s.as_bytes().to_vec()).collect();
-            merges.insert(bytes, (50000 - idx) as u32);
-        }
-    }
-    merges
+    const MERGES_CONTENTS: &str = include_str!("merges.txt");
+    MERGES_CONTENTS
+        .lines()
+        .filter(|line| !line.starts_with('#') && !line.trim().is_empty())
+        .filter_map(|line| {
+            let parts: Vec<&str> = line.split_whitespace().collect();
+            if parts.len() == 2 {
+                Some([parts[0].as_bytes(), parts[1].as_bytes()].concat())
+            } else {
+                None
+            }
+        })
+        .enumerate()
+        .map(|(i, bytes)| (bytes, i as u32))
+        .collect()
 });
 
 ///

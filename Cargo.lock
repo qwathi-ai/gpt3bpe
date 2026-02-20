@@ -243,6 +243,7 @@ dependencies = [
  "argh",
  "pprof",
  "regex",
+ "serde",
  "serde_json",
  "unicode-segmentation",
 ]

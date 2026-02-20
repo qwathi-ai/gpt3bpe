@@ -43,4 +43,3 @@ argh = "0.1.12"
 
 [dev-dependencies]
 pprof = { version = "0.15", features = ["flamegraph"] }
-rand = "0.8.5"

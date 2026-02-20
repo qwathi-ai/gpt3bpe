@@ -45,7 +45,7 @@ type SimplePointer = Array<{
 
 type Vocabulary = 'r50k' | 'p50k' | 'p50k_edit' | 'cl100k' | 'o200k';
 
-export function encode(buffer: Uint8Array, vocabulary: Vocabulary): Uint16Array {
+export function encode(buffer: Uint8Array, vocabulary: Vocabulary): Uint32Array {
     const pointer: SimplePointer = [];
 
     const callback = new Deno.UnsafeCallback({ 
@@ -98,7 +98,7 @@ export function encode(buffer: Uint8Array, vocabulary: Vocabulary): Uint16Array 
     }
     DYLIB.close();
 
-    return Uint16Array.from(
+    return Uint32Array.from(
         pointer
             // See https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/BigInt#comparisons for sorting bigint
             .sort((a, b) => (a.idx < b.idx) ? -1 : ((a.idx > b.idx) ? 1 : 0))
@@ -106,7 +106,7 @@ export function encode(buffer: Uint8Array, vocabulary: Vocabulary): Uint16Array 
     )
 };
 
-export function decode(buffer: Uint16Array, vocabulary: Vocabulary): Uint8Array {
+export function decode(buffer: Uint32Array, vocabulary: Vocabulary): Uint8Array {
     const pointer: SimplePointer = [];
 
     const callback = new Deno.UnsafeCallback({
@@ -117,7 +117,7 @@ export function decode(buffer: Uint16Array, vocabulary: Vocabulary): Uint8Array 
     });
 
     const DYLIB = Deno.dlopen(FOREIGN_INTERFACE, SYMBOLS);
-    const safeBuffer = new Uint16Array(buffer);
+    const safeBuffer = new Uint32Array(buffer);
     switch (vocabulary) {
         case 'p50k':
             DYLIB.symbols.decode_p50k(
@@ -182,8 +182,8 @@ for await (let line of readLines(path)) {
     if (json.encoded.length > 0) {
         try {
             const encoding = encode(new TextEncoder().encode(json.sample), json.encoding);
-            deepEqual(encoding, Uint16Array.from(json.encoded))
-            const decoding = new TextDecoder().decode(decode(Uint16Array.from(json.encoded), json.encoding));
+            deepEqual(encoding, Uint32Array.from(json.encoded))
+            const decoding = new TextDecoder().decode(decode(Uint32Array.from(json.encoded), json.encoding));
             equal(json.sample, decoding)
             console.log({json})
         } catch (error) {

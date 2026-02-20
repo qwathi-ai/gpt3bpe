@@ -1,5 +1,5 @@
 import { dlopen, suffix, JSCallback } from "bun:ffi";
-const FOREIGN_INTERFACE = import.meta.resolve(`./target/aarch64-apple-darwin/debug/libgpt3bpe.${suffix}`);
+const FOREIGN_INTERFACE = import.meta.resolve(`./target/aarch64-apple-darwin/release/libgpt3bpe.${suffix}`);
 
 // See https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Errors/Invalid_array_length for max ArrayBuffer length.
 const SYMBOLS = {

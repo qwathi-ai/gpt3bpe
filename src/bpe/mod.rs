@@ -182,13 +182,17 @@ struct BytePairEncoder {
 }
 
 impl BytePairEncoder {
-    pub fn new(
-        grapheme: Vec<Vec<u8>>
+    pub fn new<T: Into<u32> + Copy + Ord + Debug>(
+        grapheme: Vec<Vec<u8>>,
+        lookup: &BTreeMap<Vec<u8>, T>
     ) -> BytePairEncoder {
         let mut encoder: BTreeMap<Vec<u8>, u32> = std::collections::BTreeMap::new();
 
         for (key, value) in MERGES.iter() {
             encoder.insert(key.to_vec(), *value);
+        };
+        for (key, value) in lookup.iter() {
+            encoder.insert(key.to_vec(), (*value).into());
         };
 
 
@@ -300,12 +304,11 @@ pub(crate) fn encode<T: Copy + Ord + Debug + Into<u32>>(
         }
 
         let mut merge = graph.iter().flat_map(|g|{g.iter().map(|r|{*r as u32})}).collect();
-        let mut encoder = BytePairEncoder::new(graph);
+        let mut encoder = BytePairEncoder::new(graph, lookup);
         while let Some(m) = encoder.next() {
             if !m.is_empty() {
                 merge = m;
             }
-            println!("Merge: {:?}", merge);
         }
         result.extend(merge)
     }
@@ -331,8 +334,7 @@ pub(crate) fn decode<T: Copy + Ord + Debug + Display>(tokens: &[T], lookup: &Laz
 
             let gpt_unicode_bytes: Vec<u8> = unicode_chars.iter().map(|&c| c as u8).collect();
             let gpt_unicode_string = String::from_utf8_lossy(&gpt_unicode_bytes);
-            println!("GPT Unicode String: {:?}", gpt_unicode_string);
-
+            
             UnicodeSegmentation::graphemes(gpt_unicode_string.as_ref(), true)
                 .map(|grapheme_str| {
                     let grapheme_bytes = grapheme_str.as_bytes();

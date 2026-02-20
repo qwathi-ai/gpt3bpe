@@ -168,7 +168,7 @@ pub (crate) static O200K_TOKENS: LazyLock<BTreeMap<Vec<u8>, u32>> = LazyLock::ne
 /// Maps O200K vocabulary tokens to GPT unicode scheme.
 ///
 /// ## O200K unicodes
-pub (crate) static O200K_UNICODES: LazyLock<BTreeMap<u16, Vec<u16>>> = LazyLock::new(|| {
+pub (crate) static O200K_UNICODES: LazyLock<BTreeMap<u32, Vec<u16>>> = LazyLock::new(|| {
     let mut encoder = std::collections::BTreeMap::new();
     let file = std::fs::File::open("src/bpe/vocabulary/o200k.jsonl")
         .expect("[ERROR]: Could not read o200k unicodes file");
@@ -179,10 +179,10 @@ pub (crate) static O200K_UNICODES: LazyLock<BTreeMap<u16, Vec<u16>>> = LazyLock:
         if _line.starts_with("#") || _line.trim().is_empty() {
             continue;
         }
-        let mut data: BTreeMap<String, usize> =
+        let mut data: BTreeMap<String, u32> =
             serde_json::from_str(_line.as_str()).expect("[ERROR]: Could not load o200k unicodes");
         while let Some((key, token)) = data.pop_first() {
-            encoder.insert(token as u16, key.into_bytes().iter().map(|b|{ *b as u16 }).collect());
+            encoder.insert(token, key.into_bytes().iter().map(|b|{ *b as u16 }).collect());
         }
     };
 

@@ -9,7 +9,9 @@
 	"geminicodeassist.languages": [
 		"*",
 		"rust",
-		"makefile"
+		"makefile",
+		"typescript",
+		"lua"
 	],
 	"geminicodeassist.updateChannel": "Default",
 	"geminicodeassist.verboseLogging": true,

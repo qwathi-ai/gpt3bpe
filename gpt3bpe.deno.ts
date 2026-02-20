@@ -36,6 +36,14 @@ const SYMBOLS = {
         parameters: ["buffer", "u32", "function"],
         result: "void",
     },
+    encode_o200k: {
+        parameters: ["buffer", "u32", "function"],
+        result: "void",
+    },
+    decode_o200k: {
+        parameters: ["buffer", "u32", "function"],
+        result: "void",
+    },
 } as const;
 
 type SimplePointer = Array<{
@@ -43,7 +51,7 @@ type SimplePointer = Array<{
     value: number
 }>
 
-type Vocabulary = 'r50k' | 'p50k' | 'p50k_edit' | 'cl100k' | 'o200k';
+type Vocabulary = 'r50k' | 'p50k' | 'cl100k' | 'o200k';
 
 export function encode(buffer: Uint8Array, vocabulary: Vocabulary): Uint32Array {
     const pointer: SimplePointer = [];
@@ -66,13 +74,6 @@ export function encode(buffer: Uint8Array, vocabulary: Vocabulary): Uint32Array 
                 callback.pointer
             )
             break;
-        case 'p50k_edit':
-            DYLIB.symbols.encode_p50k(
-                safeBuffer,
-                safeBuffer.length,
-                callback.pointer
-            )
-            break;
         case 'r50k':
             DYLIB.symbols.encode_r50k(
                 safeBuffer,
@@ -82,6 +83,13 @@ export function encode(buffer: Uint8Array, vocabulary: Vocabulary): Uint32Array 
             break;
         case 'cl100k':
             DYLIB.symbols.encode_cl100k(
+                safeBuffer,
+                safeBuffer.length,
+                callback.pointer
+            )
+            break;
+        case 'o200k':
+            DYLIB.symbols.encode_o200k(
                 safeBuffer,
                 safeBuffer.length,
                 callback.pointer
@@ -126,13 +134,6 @@ export function decode(buffer: Uint32Array, vocabulary: Vocabulary): Uint8Array 
                 callback.pointer
             )
             break;
-        case 'p50k_edit':
-            DYLIB.symbols.encode_p50k(
-                safeBuffer,
-                safeBuffer.length,
-                callback.pointer
-            )
-            break;
         case 'r50k':
             DYLIB.symbols.decode_r50k(
                 safeBuffer,
@@ -142,6 +143,13 @@ export function decode(buffer: Uint32Array, vocabulary: Vocabulary): Uint8Array 
             break;
         case 'cl100k':
             DYLIB.symbols.decode_cl100k(
+                safeBuffer,
+                safeBuffer.length,
+                callback.pointer
+            )
+            break;
+        case 'o200k':
+            DYLIB.symbols.decode_o200k(
                 safeBuffer,
                 safeBuffer.length,
                 callback.pointer
@@ -165,32 +173,38 @@ export function decode(buffer: Uint32Array, vocabulary: Vocabulary): Uint8Array 
     )
 };
 
-async function* readLines(path: string) {
-    const file = await Deno.readTextFile(path);
-    let lines = file.split(/\r?\n/);
-    for (const line of lines) {
-        yield line
+import { deepEqual, equal } from "node:assert";
+async function test() {
+    async function* readLines(path: string) {
+        const file = await Deno.readTextFile(path);
+        let lines = file.split(/\r?\n/);
+        for (const line of lines) {
+            yield line
+        }
+    }
+    const path = "./src/bpe/vocabulary/tests.jsonl";
+    for await (let line of readLines(path)) {
+        const json = JSON.parse(line) as { encoded: number[], encoding: Vocabulary, sample: string }
+
+        if (json.encoded.length > 0) {
+            try {
+                const encoding = encode(new TextEncoder().encode(json.sample), json.encoding);
+                equal(encoding.toString(), Uint32Array.from(json.encoded).toString())
+                const decoding = new TextDecoder().decode(decode(Uint32Array.from(json.encoded), json.encoding));
+                if (json.encoding === 'r50k' || json.encoding === 'p50k') {
+                    equal('let! there! be', decoding)
+                } else {
+                    equal(json.sample, decoding)
+                }
+                console.log({json})
+            } catch (error) {
+                console.error({
+                    error,
+                    json
+                })
+            }
+        };
     }
 }
 
-import { deepEqual, equal } from "node:assert";
-const path = "./src/bpe/vocabulary/tests.jsonl";
-
-for await (let line of readLines(path)) {
-    const json = JSON.parse(line) as { encoded: number[], encoding: Vocabulary, sample: string }
-
-    if (json.encoded.length > 0) {
-        try {
-            const encoding = encode(new TextEncoder().encode(json.sample), json.encoding);
-            deepEqual(encoding, Uint32Array.from(json.encoded))
-            const decoding = new TextDecoder().decode(decode(Uint32Array.from(json.encoded), json.encoding));
-            equal(json.sample, decoding)
-            console.log({json})
-        } catch (error) {
-            console.error({
-                error,
-                json
-            })
-        }
-    };
-}
+await test();

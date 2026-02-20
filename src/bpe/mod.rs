@@ -1,3 +1,5 @@
+//! Module inspired by [PicoGPT](https://github.com/jaymody/picoGPT) project.
+
 mod unit;
 pub(crate) mod vocabulary;
 use regex::bytes::Regex;
@@ -10,16 +12,11 @@ use std::io::BufRead;
 use std::io::BufReader;
 use std::sync::LazyLock;
 use unicode_segmentation::UnicodeSegmentation;
-///! Module inspired by [PicoGPT](https://github.com/jaymody/picoGPT) project.
 
 /// Data structure for byte pairings of type `[T]`.
 ///
 /// ## Byte Pair
 type BytePair<Type> = (usize, Type);
-
-///
-/// ## Grapheme
-type Grapheme<Type> = Vec<Vec<Type>>;
 
 /// Regular expression pattern for finding token contractions.
 ///
@@ -116,7 +113,7 @@ static MERGES: LazyLock<HashMap<Vec<u8>, u32>> = LazyLock::new(|| {
         let parts: Vec<&str> = line.split_whitespace().collect();
         if parts.len() == 2 {
             let bytes = parts.iter().flat_map(|s| s.as_bytes().to_vec()).collect();
-            merges.insert(bytes, (50000-idx) as u32);
+            merges.insert(bytes, (50000 - idx) as u32);
         }
     }
     merges
@@ -131,13 +128,12 @@ static MERGES: LazyLock<HashMap<Vec<u8>, u32>> = LazyLock::new(|| {
 /// * GPT Unicode characters.
 pub fn grapheme(slice: &[u8]) -> Vec<Vec<u8>> {
     let char_to_unicode = |char: &str| -> Vec<Vec<u8>> {
-        char
-            .chars()
+        char.chars()
             .flat_map(|c| -> Vec<u8> { String::from(c).into_bytes() })
             .map(|bytes| -> Vec<u8> {
                 match UNICODE_TO_BYTES.get(&(bytes as u16)) {
                     Some(unicode) => unicode.to_vec(),
-                    None => panic!("[ERROR]: Encoding value for '{:?}' not found!", bytes),
+                    None => panic!("[ERROR]: Encoding value for '{bytes:?}' not found!"),
                 }
             })
             .collect()
@@ -184,17 +180,16 @@ struct BytePairEncoder {
 impl BytePairEncoder {
     pub fn new<T: Into<u32> + Copy + Ord + Debug>(
         grapheme: Vec<Vec<u8>>,
-        lookup: &BTreeMap<Vec<u8>, T>
+        lookup: &BTreeMap<Vec<u8>, T>,
     ) -> BytePairEncoder {
         let mut encoder: BTreeMap<Vec<u8>, u32> = std::collections::BTreeMap::new();
 
         for (key, value) in MERGES.iter() {
             encoder.insert(key.to_vec(), *value);
-        };
+        }
         for (key, value) in lookup.iter() {
             encoder.insert(key.to_vec(), (*value).into());
-        };
-
+        }
 
         let mut pairs: Vec<BytePair<u32>> = (0..grapheme.len()).map(|i| (i, u32::MAX)).collect();
         for i in 0..pairs.len() - 1 {
@@ -213,9 +208,12 @@ impl BytePairEncoder {
     fn get_rank(&self, start_idx: usize, length: usize) -> Option<u32> {
         if start_idx + length <= self.pairs.len() {
             self.encoder
-                .get(&self.grapheme
-                            [self.pairs[start_idx].0..self.pairs[start_idx + length - 1].0 + 1].concat())
-                .map(|r| *r)
+                .get(
+                    &self.grapheme
+                        [self.pairs[start_idx].0..self.pairs[start_idx + length - 1].0 + 1]
+                        .concat(),
+                )
+                .copied()
         } else {
             None
         }
@@ -230,7 +228,7 @@ impl Iterator for BytePairEncoder {
             return None;
         }
 
-        let mut rank: (u32, usize) = (u32::MAX.into(), 0);
+        let mut rank: (u32, usize) = (u32::MAX, 0);
         for (idx, &(_, r)) in self.pairs[..self.pairs.len() - 1].iter().enumerate() {
             if r < rank.0 {
                 rank = (r, idx);
@@ -262,17 +260,24 @@ impl Iterator for BytePairEncoder {
             } else {
                 self.grapheme.len()
             };
-            match self.encoder.get(&self.grapheme[start..end].concat()).map(|&v| v.into()) {
+            match self
+                .encoder
+                .get(&self.grapheme[start..end].concat())
+                .copied()
+            {
                 Some(v) => result.push(v),
                 None => {
                     // If a token is not found, it implies that the BPE process cannot proceed further with valid merges.
                     // By returning `None`, we stop the iteration. The `encode` function will use the last successfully
                     // generated token list from the previous `next()` call.
-                        #[cfg(debug_assertions)]
-                        println!(
-                            "[WARNING]: Encoding value for {:?} not found at {:?}:{:?} for index {:?}",
-                            String::from_utf8_lossy(&self.grapheme[start..end].concat()), start, end, i
-                        );
+                    #[cfg(debug_assertions)]
+                    println!(
+                        "[WARNING]: Encoding value for {:?} not found at {:?}:{:?} for index {:?}",
+                        String::from_utf8_lossy(&self.grapheme[start..end].concat()),
+                        start,
+                        end,
+                        i
+                    );
                     return None;
                 }
             }
@@ -303,9 +308,12 @@ pub(crate) fn encode<T: Copy + Ord + Debug + Into<u32>>(
             continue;
         }
 
-        let mut merge = graph.iter().flat_map(|g|{g.iter().map(|r|{*r as u32})}).collect();
-        let mut encoder = BytePairEncoder::new(graph, lookup);
-        while let Some(m) = encoder.next() {
+        let mut merge = graph
+            .iter()
+            .flat_map(|g| g.iter().map(|r| *r as u32))
+            .collect();
+        let encoder = BytePairEncoder::new(graph, lookup);
+        for m in encoder {
             if !m.is_empty() {
                 merge = m;
             }
@@ -324,25 +332,28 @@ pub(crate) fn encode<T: Copy + Ord + Debug + Into<u32>>(
 ///
 /// ### Returns
 /// * a byte slice.
-pub(crate) fn decode<T: Copy + Ord + Debug + Display>(tokens: &[T], lookup: &LazyLock<BTreeMap<T, Vec<u16>>>) -> Vec<u8> {
+pub(crate) fn decode<T: Copy + Ord + Debug + Display>(
+    tokens: &[T],
+    lookup: &LazyLock<BTreeMap<T, Vec<u16>>>,
+) -> Vec<u8> {
     tokens
         .iter()
         .flat_map(|token| {
             let unicode_chars = lookup
                 .get(token)
-                .unwrap_or_else(|| panic!("[ERROR]: Token ID {:?} not found.", token));
+                .unwrap_or_else(|| panic!("[ERROR]: Token ID {token:?} not found."));
 
             let gpt_unicode_bytes: Vec<u8> = unicode_chars.iter().map(|&c| c as u8).collect();
             let gpt_unicode_string = String::from_utf8_lossy(&gpt_unicode_bytes);
-            
+
             UnicodeSegmentation::graphemes(gpt_unicode_string.as_ref(), true)
                 .map(|grapheme_str| {
                     let grapheme_bytes = grapheme_str.as_bytes();
-                    *BYTES_TO_UNICODE
-                        .get(grapheme_bytes)
-                        .unwrap_or_else(|| panic!("[ERROR]: Decoding value for '{}' not found!", grapheme_str))
-                        as u8
-                }).collect::<Vec<u8>>()
+                    *BYTES_TO_UNICODE.get(grapheme_bytes).unwrap_or_else(|| {
+                        panic!("[ERROR]: Decoding value for '{grapheme_str}' not found!")
+                    }) as u8
+                })
+                .collect::<Vec<u8>>()
         })
         .collect()
 }

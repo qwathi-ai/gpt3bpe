@@ -117,7 +117,6 @@ mod grapheme {
     }
 }
 
-
 #[cfg(test)]
 mod tokens {
     #[test]
@@ -348,7 +347,6 @@ mod tokens {
     }
 }
 
-
 #[cfg(test)]
 mod encoder {
     #[test]
@@ -370,19 +368,25 @@ mod encoder {
         // let input = "👋 🌍".as_bytes();
         let input = b"\xF0\x9F\x91\x8B \xF0\x9F\x8C\x8D";
         let result = crate::bpe::encode(input, &crate::bpe::vocabulary::R50K_TOKENS);
-        assert_eq!( result, vec![195, 176, 197, 129, 196, 179, 196, 173, 196, 160, 195, 176, 197, 129, 196, 174, 196, 175]);
+        assert_eq!(
+            result,
+            vec![
+                195, 176, 197, 129, 196, 179, 196, 173, 196, 160, 195, 176, 197, 129, 196, 174,
+                196, 175
+            ]
+        );
     }
 
     #[test]
-    pub fn test_encode_mixed(){
+    pub fn test_encode_mixed() {
         // let input = "hello 👋 world 🌍.".as_bytes();
         let input = b"hello \xF0\x9F\x91\x8B world \xF0\x9F\x8C\x8D.";
         assert_eq!(
-            crate::bpe::encode(
-                input
-                , &crate::bpe::vocabulary::R50K_TOKENS
-            )
-            , vec![31373, 196, 160, 195, 176, 197, 129, 196, 179, 196, 173, 995, 196, 160, 195, 176, 197, 129, 196, 174, 196, 175, 46]
+            crate::bpe::encode(input, &crate::bpe::vocabulary::R50K_TOKENS),
+            vec![
+                31373, 196, 160, 195, 176, 197, 129, 196, 179, 196, 173, 995, 196, 160, 195, 176,
+                197, 129, 196, 174, 196, 175, 46
+            ]
         );
     }
 
@@ -405,22 +409,21 @@ mod encoder {
     }
 
     #[test]
-    pub fn test_encode_pneumonoultramicroscopicsilicovolcanoconiosis(){
+    pub fn test_encode_pneumonoultramicroscopicsilicovolcanoconiosis() {
         let input = b"Pneumonoultramicroscopicsilicovolcanoconiosis";
         assert_eq!(
-            crate::bpe::encode(
-                input
-                , &crate::bpe::vocabulary::R50K_TOKENS
-            )
-            // [Openai](https://platform.openai.com/tokenizer) tokenizer output. But our merge table is not large enough to capture all the merges.
+            crate::bpe::encode(input, &crate::bpe::vocabulary::R50K_TOKENS), // [Openai](https://platform.openai.com/tokenizer) tokenizer output. But our merge table is not large enough to capture all the merges.
             // , vec![47, 25668, 261, 25955, 859, 2500, 1416, 404, 873, 41896, 709, 349, 5171, 36221, 42960]
-            , vec![47, 710, 388, 261, 280, 75, 83, 859, 291, 305, 82, 22163, 873, 346, 291, 709, 349, 66, 272, 420, 261, 4267, 271]
+            vec![
+                47, 710, 388, 261, 280, 75, 83, 859, 291, 305, 82, 22163, 873, 346, 291, 709, 349,
+                66, 272, 420, 261, 4267, 271
+            ]
         );
     }
 }
 
 #[cfg(test)]
-mod decoder{
+mod decoder {
 
     // #[test]
     // pub fn test_decode_mixed(){
@@ -443,12 +446,10 @@ mod decoder{
         let input = b"let there be light.";
         assert_eq!(
             input,
-            String::from_utf8_lossy(
-                &crate::bpe::decode(
-                    &[1616, 612, 307, 1657, 13]
-                    , &crate::bpe::vocabulary::R50K_UNICODES
-                )
-            )
+            String::from_utf8_lossy(&crate::bpe::decode(
+                &[1616, 612, 307, 1657, 13],
+                &crate::bpe::vocabulary::R50K_UNICODES
+            ))
             .as_bytes()
         );
     }
@@ -458,32 +459,29 @@ mod decoder{
         let input = b"indivisible values.";
         assert_eq!(
             input,
-            String::from_utf8_lossy(
-                &crate::bpe::decode(
-                    &[521, 452, 12843, 3815, 13]
-                    , &crate::bpe::vocabulary::R50K_UNICODES
-                )
-            )
+            String::from_utf8_lossy(&crate::bpe::decode(
+                &[521, 452, 12843, 3815, 13],
+                &crate::bpe::vocabulary::R50K_UNICODES
+            ))
             .as_bytes()
         );
-
     }
 
     #[test]
-    pub fn test_decode_pneumonoultramicroscopicsilicovolcanoconiosis () {
+    pub fn test_decode_pneumonoultramicroscopicsilicovolcanoconiosis() {
         let input = b"Pneumonoultramicroscopicsilicovolcanoconiosis";
         assert_eq!(
             input,
-            String::from_utf8_lossy(
-                &crate::bpe::decode(
-                    &[47, 25668, 261, 25955, 859, 2500, 1416, 404, 873, 41896, 709, 349, 5171, 36221, 42960]
-                    , &crate::bpe::vocabulary::R50K_UNICODES
-                )
-            )
+            String::from_utf8_lossy(&crate::bpe::decode(
+                &[
+                    47, 25668, 261, 25955, 859, 2500, 1416, 404, 873, 41896, 709, 349, 5171, 36221,
+                    42960
+                ],
+                &crate::bpe::vocabulary::R50K_UNICODES
+            ))
             .as_bytes()
         );
     }
-
 }
 
 #[cfg(test)]
@@ -492,7 +490,11 @@ mod flamegraph {
     #[ignore]
     fn generate_flamegraphs() {
         {
-            let grapheme_guard = pprof::ProfilerGuardBuilder::default().frequency(10000).blocklist(&["libc", "libgcc", "pthread", "vdso"]).build().unwrap();
+            let grapheme_guard = pprof::ProfilerGuardBuilder::default()
+                .frequency(10000)
+                .blocklist(&["libc", "libgcc", "pthread", "vdso"])
+                .build()
+                .unwrap();
             super::grapheme::test_grapheme_ascii();
             super::grapheme::test_grapheme_empty();
             super::grapheme::test_grapheme_with_numbers();
@@ -515,7 +517,11 @@ mod flamegraph {
         }
 
         {
-            let tokens_guard = pprof::ProfilerGuardBuilder::default().frequency(1000).blocklist(&["libc", "libgcc", "pthread", "vdso"]).build().unwrap();
+            let tokens_guard = pprof::ProfilerGuardBuilder::default()
+                .frequency(1000)
+                .blocklist(&["libc", "libgcc", "pthread", "vdso"])
+                .build()
+                .unwrap();
             super::tokens::test_tokens_contraction();
             super::tokens::test_tokens_multiple_words();
             super::tokens::test_tokens_unicode();
@@ -532,7 +538,11 @@ mod flamegraph {
             }
         }
         {
-            let encoder_guard = pprof::ProfilerGuardBuilder::default().frequency(1000).blocklist(&["libc", "libgcc", "pthread", "vdso"]).build().unwrap();
+            let encoder_guard = pprof::ProfilerGuardBuilder::default()
+                .frequency(1000)
+                .blocklist(&["libc", "libgcc", "pthread", "vdso"])
+                .build()
+                .unwrap();
             super::encoder::test_encode_empty();
             super::encoder::test_encode_ascii();
             super::encoder::test_encode_unicode();
@@ -551,7 +561,11 @@ mod flamegraph {
             }
         }
         {
-            let decoder_guard = pprof::ProfilerGuardBuilder::default().frequency(10000).blocklist(&["libc", "libgcc", "pthread", "vdso"]).build().unwrap();
+            let decoder_guard = pprof::ProfilerGuardBuilder::default()
+                .frequency(10000)
+                .blocklist(&["libc", "libgcc", "pthread", "vdso"])
+                .build()
+                .unwrap();
             // super::decoder::test_decode_mixed();
             super::decoder::test_decode_let_there_be_light();
             super::decoder::test_decode_indivisible_values();

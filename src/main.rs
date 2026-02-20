@@ -19,10 +19,20 @@ struct GptBpeArgs {
     #[argh(subcommand)]
     command: Option<Command>,
 
-    #[argh(switch, short = 'd', long = "decode", description = "use decode operation.")]
+    #[argh(
+        switch,
+        short = 'd',
+        long = "decode",
+        description = "use decode operation."
+    )]
     decode: bool,
 
-    #[argh(switch, short = 'e', long = "encode", description = "use encode operation (default).")]
+    #[argh(
+        switch,
+        short = 'e',
+        long = "encode",
+        description = "use encode operation (default)."
+    )]
     encode: bool,
 
     #[argh(
@@ -45,18 +55,13 @@ enum Command {
 #[argh(subcommand, name = "grapheme")]
 struct GraphemeCommand {}
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Default)]
 enum Vocab {
     R50k,
+    #[default]
     P50k,
     Cl100k,
     O200k,
-}
-
-impl Default for Vocab {
-    fn default() -> Self {
-        Vocab::P50k
-    }
 }
 
 impl FromStr for Vocab {
@@ -68,7 +73,9 @@ impl FromStr for Vocab {
             "p50k" => Ok(Vocab::P50k),
             "cl100k" => Ok(Vocab::Cl100k),
             "o200k" => Ok(Vocab::O200k),
-            _ => Err(format!("unknown vocabulary: {}. Please use one of: r50k, p50k, cl100k, o200k", s)),
+            _ => Err(format!(
+                "unknown vocabulary: {s}. Please use one of: r50k, p50k, cl100k, o200k"
+            )),
         }
     }
 }
@@ -92,7 +99,7 @@ fn main() {
                     .map(|g| String::from_utf8_lossy(g))
                     .collect::<Vec<_>>()
                     .join(" ");
-                println!("{}", output);
+                println!("{output}");
             }
         }
         None => {
@@ -147,15 +154,19 @@ fn main() {
                     let tokens = match args.vocabulary {
                         Vocab::R50k => bpe::encode(line.as_bytes(), &bpe::vocabulary::R50K_TOKENS),
                         Vocab::P50k => bpe::encode(line.as_bytes(), &bpe::vocabulary::P50K_TOKENS),
-                        Vocab::Cl100k => bpe::encode(line.as_bytes(), &bpe::vocabulary::CL100K_TOKENS),
-                        Vocab::O200k => bpe::encode(line.as_bytes(), &bpe::vocabulary::O200K_TOKENS),
+                        Vocab::Cl100k => {
+                            bpe::encode(line.as_bytes(), &bpe::vocabulary::CL100K_TOKENS)
+                        }
+                        Vocab::O200k => {
+                            bpe::encode(line.as_bytes(), &bpe::vocabulary::O200K_TOKENS)
+                        }
                     };
                     let output = tokens
                         .iter()
                         .map(|t| t.to_string())
                         .collect::<Vec<_>>()
                         .join(" ");
-                    println!("{}", output);
+                    println!("{output}");
                 }
             }
         }

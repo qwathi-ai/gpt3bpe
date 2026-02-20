@@ -31,6 +31,14 @@ const SYMBOLS = {
         args: ["buffer", "u32", "function"],
         returns: "void",
     },
+    encode_o200k: {
+        args: ["buffer", "u32", "function"],
+        returns: "void",
+    },
+    decode_o200k: {
+        args: ["buffer", "u32", "function"],
+        returns: "void",
+    },
 } as const;
 
 type SimplePointer = Array<{
@@ -63,38 +71,29 @@ export function grapheme(buffer: Uint8Array): Uint8Array {
     )
 };
 
-type Vocabulary = 'r50k' | 'p50k' | 'p50k_edit' | 'cl100k' | 'o200k';
+type Vocabulary = 'r50k' | 'p50k' | 'cl100k' | 'o200k';
 
-export function encode(buffer: Uint8Array, vocabulary: Vocabulary): Uint16Array {
-    const pointer: SimplePointer = Array(buffer.length);
+export function encode(buffer: Uint8Array, vocabulary: Vocabulary): Uint32Array {
+    const pointer: SimplePointer = [];
     const callback = new JSCallback(function (idx: bigint, value: number): void {
         pointer.push({ idx, value })
     }, {
         args: ["usize", "u32"],
-        returns: 'void'
+        returns: "void"
     });
 
     const DYLIB = dlopen(FOREIGN_INTERFACE, SYMBOLS);
 
     switch (vocabulary) {
         case 'p50k':
-            DYLIB.symbols.decode_p50k(
+            DYLIB.symbols.encode_p50k(
                 buffer,
                 buffer.length,
                 callback.ptr
             );   
             break;
-
-        case 'p50k_edit':
-            DYLIB.symbols.encode_p50k(
-                buffer,
-                buffer.length,
-                callback.ptr
-            )
-            break;
-
         case 'r50k':
-            DYLIB.symbols.decode_r50k(
+            DYLIB.symbols.encode_r50k(
                 buffer,
                 buffer.length,
                 callback.ptr
@@ -102,14 +101,21 @@ export function encode(buffer: Uint8Array, vocabulary: Vocabulary): Uint16Array 
             break;
 
         case 'cl100k':
-            DYLIB.symbols.decode_cl100k(
+            DYLIB.symbols.encode_cl100k(
                 buffer,
                 buffer.length,
                 callback.ptr
             );   
             break;
+        case 'o200k':
+            DYLIB.symbols.encode_o200k(
+                buffer,
+                buffer.length,
+                callback.ptr
+            );
+            break;
         default:
-            DYLIB.symbols.decode_p50k(
+            DYLIB.symbols.encode_p50k(
                 buffer,
                 buffer.length,
                 callback.ptr
@@ -118,15 +124,15 @@ export function encode(buffer: Uint8Array, vocabulary: Vocabulary): Uint16Array 
     }
     DYLIB.close();
 
-    return Uint16Array.from(
+    return Uint32Array.from(
         pointer
-            // // See https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/BigInt#comparisons for sorting bigint
-            // .sort((a, b) => (a.idx < b.idx) ? -1 : ((a.idx > b.idx) ? 1 : 0))
+            // See https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/BigInt#comparisons for sorting bigint
+            .sort((a, b) => (a.idx < b.idx) ? -1 : ((a.idx > b.idx) ? 1 : 0))
             .map((v, _index, _array) => v.value)
     )
 };
 
-export function decode(buffer: Uint16Array, vocabulary: Vocabulary): Uint8Array {
+export function decode(buffer: Uint32Array, vocabulary: Vocabulary): Uint8Array {
     const pointer: SimplePointer = [];
 
     const callback = new JSCallback(function (idx: bigint, value: number): void {
@@ -146,14 +152,6 @@ export function decode(buffer: Uint16Array, vocabulary: Vocabulary): Uint8Array 
                 callback.ptr
             );   
             break;
-            
-        case 'p50k_edit':
-            DYLIB.symbols.decode_p50k(
-                buffer,
-                buffer.length,
-                callback.ptr
-            );   
-            break;
 
         case 'r50k':
             DYLIB.symbols.decode_r50k(
@@ -170,6 +168,13 @@ export function decode(buffer: Uint16Array, vocabulary: Vocabulary): Uint8Array 
                 callback.ptr
             );   
             break;
+        case 'o200k':
+            DYLIB.symbols.decode_o200k(
+                buffer,
+                buffer.length,
+                callback.ptr
+            );
+            break;
         default:
             DYLIB.symbols.decode_p50k(
                 buffer,
@@ -178,11 +183,6 @@ export function decode(buffer: Uint16Array, vocabulary: Vocabulary): Uint8Array 
             );  
             break;
     }
-    DYLIB.symbols.decode_p50k(
-        buffer,
-        buffer.length,
-        callback.ptr
-    )
     DYLIB.close();
     return Uint8Array.from(
         pointer
@@ -192,41 +192,46 @@ export function decode(buffer: Uint16Array, vocabulary: Vocabulary): Uint8Array 
     )
 };
 
-async function *readLines(path: string) {
-    const reader = Bun.file(path).stream().pipeThrough(new TextDecoderStream('utf-8')).getReader();
-    let remainder = ''
-    while(true) {
-        const {value, done} = await reader.read()
-        if(done) break
-        let lines = (remainder + value).split(/\r?\n/)
-        remainder = lines.pop()!
-        for(const line of lines) {
-            yield line
-        }
-    }
-
-    if(remainder) {
-        yield remainder
-    }
-}
-
 import { equal, deepEqual } from "bun:assert";
-const path = "./src/bpe/vocabulary/tests.jsonl";
-
-for await (let line of readLines(path)) {
-    const json = JSON.parse(line) as {"encoded": number[], encoding: Vocabulary, sample: string}
-    if (json.encoded.length > 0 && json.encoding != 'cl100k' && json.encoding != 'o200k') {
-        try {
-            const encoding = encode(new TextEncoder().encode(json.sample), json.encoding);
-            deepEqual(encoding, Uint16Array.from(json.encoded))
-            const decoding = new TextDecoder().decode(decode(Uint16Array.from(json.encoded), json.encoding));
-            equal(json.sample, decoding)
-            console.log({json})
-        } catch (error) {
-            console.error({
-                error,
-                json
-            })
+async function test(){
+    async function *readLines(path: string) {
+        const reader = Bun.file(path).stream().pipeThrough(new TextDecoderStream('utf-8')).getReader();
+        let remainder = ''
+        while(true) {
+            const {value, done} = await reader.read()
+            if(done) break
+            let lines = (remainder + value).split(/\r?\n/)
+            remainder = lines.pop()!
+            for(const line of lines) {
+                yield line
+            }
         }
-    };
+
+        if(remainder) {
+            yield remainder
+        }
+    }
+    const path = "./src/bpe/vocabulary/tests.jsonl";
+    for await (let line of readLines(path)) {
+        const json = JSON.parse(line) as {"encoded": number[], encoding: Vocabulary, sample: string}
+        if (json.encoded.length > 0) {
+            try {
+                const encoding = encode(new TextEncoder().encode(json.sample), json.encoding);
+                equal(encoding.toString(), Uint32Array.from(json.encoded).toString())
+                const decoding = new TextDecoder().decode(decode(Uint32Array.from(json.encoded), json.encoding));
+                if (json.encoding === 'r50k' || json.encoding === 'p50k') {
+                    equal('let! there! be', decoding)
+                } else {
+                    equal(json.sample, decoding)
+                }
+                console.log({json})
+            } catch (error) {
+                console.error({
+                    error,
+                    json
+                })
+            }
+        };
+    }
 }
+await test();

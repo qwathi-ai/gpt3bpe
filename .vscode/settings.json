@@ -1,11 +1,10 @@
 {
-	"deno.enable": false,
+	"deno.enable": true,
 	"bun.runtime": "~/.bun/bin/bun",
 	"bun.debugTerminal.enabled": true,
 	"rust-analyzer.linkedProjects": [
 		"./Cargo.toml"
 	],
-	"idf.pythonInstallPath": "/usr/bin/python3",
 	"geminicodeassist.languages": [
 		"*",
 		"rust",

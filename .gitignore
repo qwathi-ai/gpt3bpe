@@ -7,3 +7,4 @@ makefile
 tensor/
 parser/
 src/parser/earley.js/
+.github/

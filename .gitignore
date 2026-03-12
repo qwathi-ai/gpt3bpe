@@ -1,9 +1,28 @@
-**/*/.DS_Store
-.DS_Store
-node_modules/
+# Rust / Cargo
+# Ignore build artifacts and dependencies.
 target/
-makefile
+
+# Node.js / pnpm
+# Ignore dependency directories and lock files.
+node_modules/
+pnpm-lock.yaml
+
+# Project-specific directories
+# Ignore directories for tensor data and parsing logic.
+# Ignore deno sdk
 tensor/
 parser/
+gpt3bpe.deno.ts
+
+# Build artifacts
+# Ignore custom makefiles.
+makefile
+
+# macOS
+# Ignore macOS specific files.
+.DS_Store
+**/*/.DS_Store
+
+# GitHub
+# Ignore GitHub-specific configuration files (e.g., for Actions).
 .github/
-pnpm-lock.yaml

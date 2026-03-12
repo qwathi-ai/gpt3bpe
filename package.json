@@ -1,0 +1,6 @@
+{
+	"devDependencies": {
+		"@types/bun": "^1.2.20",
+		"@types/deno": "^2.3.0"
+	}
+}

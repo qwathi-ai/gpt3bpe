@@ -1,0 +1,19 @@
+{
+	"deno.enable": false,
+	"bun.runtime": "~/.bun/bin/bun",
+	"bun.debugTerminal.enabled": true,
+	"rust-analyzer.linkedProjects": [
+		"./Cargo.toml"
+	],
+	"geminicodeassist.languages": [
+		"*",
+		"rust",
+		"makefile",
+		"typescript",
+		"lua"
+	],
+	"geminicodeassist.updateChannel": "Default",
+	"geminicodeassist.verboseLogging": true,
+	"geminicodeassist.rules": "\n\n",
+	"geminicodeassist.project": "poetic-abacus-476710-j3"
+}

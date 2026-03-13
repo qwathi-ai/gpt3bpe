@@ -289,27 +289,25 @@ impl Iterator for BytePairEncoder {
 pub(crate) fn encode<T: Copy + Ord + Debug + Into<u32>>(
     slice: &[u8],
     lookup: &LazyLock<BTreeMap<Vec<u8>, T>>,
-) -> Vec<u32> {
+) -> Vec<Vec<u32>> {
     let mut result = vec![];
 
     for piece in tokens(slice) {
         let graph = grapheme(piece);
         if let Some(token) = lookup.get(&graph.concat()) {
-            result.push(<T as Into<u32>>::into(*token));
+            result.push(vec![<T as Into<u32>>::into(*token)]);
             continue;
         }
 
-        let mut merge = graph
+        let merge = graph
             .iter()
             .flat_map(|g| g.iter().map(|r| *r as u32))
             .collect();
         let encoder = BytePairEncoder::new(graph, lookup);
-        for m in encoder {
-            if !m.is_empty() {
-                merge = m;
-            }
+        match encoder.last() {
+            None => result.push(merge),
+            Some(merge) => result.push(merge)
         }
-        result.extend(merge)
     }
     result
 }

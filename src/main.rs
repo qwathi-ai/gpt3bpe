@@ -163,7 +163,7 @@ fn main() {
                     };
                     let output = tokens
                         .iter()
-                        .map(|t| t.to_string())
+                        .flat_map(|t| -> Vec<String> { t.iter().map(|u| u.to_string()).collect()})
                         .collect::<Vec<_>>()
                         .join(" ");
                     println!("{output}");

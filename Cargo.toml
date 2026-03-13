@@ -33,6 +33,10 @@ debug = true  # Keep debug info for readable stack traces
 [profile.release]
 strip = "debuginfo"
 
+[features]
+default = []
+embedding = ["dep:rusqlite", "dep:sqlite-vec", "dep:zerocopy"]
+
 [dependencies]
 # Encoding
 regex = "1.9.4"
@@ -42,6 +46,15 @@ serde_json = "1.0.114"
 
 # Main command line
 argh = "0.1.12"
+
+# # Embedding
+rusqlite = { version = "0.31.0", features = ["bundled"], optional = true }
+sqlite-vec = { version = "0.1.6", optional = true }
+zerocopy = { version = "0.7.32", optional = true }
+
+# rusqlite = { version = "0.31.0", features = ["bundled"] }
+# sqlite-vec = { version = "0.1.6" }
+# zerocopy = { version = "0.7.32" }
 
 [dev-dependencies]
 pprof = { version = "0.15", features = ["flamegraph"] }

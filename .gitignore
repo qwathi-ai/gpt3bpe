@@ -10,9 +10,15 @@ pnpm-lock.yaml
 # Project-specific directories
 # Ignore directories for tensor data and parsing logic.
 # Ignore deno sdk
+# Ingore models library
+# Ignore model embeddings.
 tensor/
 parser/
 gpt3bpe.deno.ts
+models.ts
+model.ts
+model.txt
+embeddings.db
 
 # Build artifacts
 # Ignore custom makefiles.

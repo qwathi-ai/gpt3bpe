@@ -9,6 +9,37 @@
 // //! # Functions
 // //!
 mod bpe;
+#[cfg(feature = "embedding")]
+mod embedding;
+
+/// Pads or truncates a vector to a fixed-size array of length 3.
+///
+/// If the input vector is shorter than 3, it is padded at the beginning with
+/// the default value for the type `T`. If it is longer than 3, only the last
+/// 3 elements are taken.
+///
+/// # Type Parameters
+///
+/// * `T`: The type of the elements, which must implement `Default` and `Copy`.
+///
+/// # Arguments
+///
+/// * `input`: The `Vec<T>` to pad or truncate.
+///
+/// # Returns
+///
+/// An array `[T; 3]`.
+fn padding(input: Vec<u32>) -> [u32; 3] {
+    if input.len() > 3 {
+        panic!("Token length is too large.");
+    }
+    let mut padding = [0,0,0];
+    for (idx, value) in input.iter().enumerate() {
+        padding[idx] = *value
+    }
+    padding.reverse();
+    padding
+}
 
 fn read<T>(pointer: *const T, length: usize) -> &'static [T] {
     assert!(!pointer.is_null(), "[ERROR]: pointer is null.");
@@ -44,7 +75,7 @@ pub extern "C" fn encode_r50k(
 ) {
     let slice = read(buffer, length);
 
-    let mut encoding = bpe::encode(slice, &crate::bpe::vocabulary::R50K_TOKENS);
+    let mut encoding = bpe::encode(slice, &crate::bpe::vocabulary::R50K_TOKENS).concat();
     for (idx, value) in encoding.drain(..).enumerate() {
         callback(idx, value.try_into().unwrap())
     }
@@ -72,7 +103,7 @@ pub extern "C" fn encode_p50k(
 ) {
     let slice = read(buffer, length);
 
-    let mut encoding = bpe::encode(slice, &crate::bpe::vocabulary::P50K_TOKENS);
+    let mut encoding = bpe::encode(slice, &crate::bpe::vocabulary::P50K_TOKENS).concat();
     for (idx, value) in encoding.drain(..).enumerate() {
         callback(idx, value.try_into().unwrap())
     }
@@ -86,7 +117,7 @@ pub extern "C" fn decode_p50k(
 ) {
     let slice = read(buffer, length);
 
-    let mut decoding = bpe::decode(slice, &crate::bpe::vocabulary::P50K_UNICODES); //.unwrap();
+    let mut decoding = bpe::decode(slice, &crate::bpe::vocabulary::P50K_UNICODES);
     for (idx, value) in decoding.drain(..).enumerate() {
         callback(idx, value)
     }
@@ -100,7 +131,7 @@ pub extern "C" fn encode_cl100k(
 ) {
     let slice = read(buffer, length);
 
-    let mut encoding = bpe::encode(slice, &crate::bpe::vocabulary::CL100K_TOKENS);
+    let mut encoding = bpe::encode(slice, &crate::bpe::vocabulary::CL100K_TOKENS).concat();
     for (idx, value) in encoding.drain(..).enumerate() {
         callback(idx, value)
     }
@@ -114,7 +145,7 @@ pub extern "C" fn decode_cl100k(
 ) {
     let slice = read(buffer, length);
 
-    let mut decoding = bpe::decode(slice, &crate::bpe::vocabulary::CL100K_UNICODES); //.unwrap();
+    let mut decoding = bpe::decode(slice, &crate::bpe::vocabulary::CL100K_UNICODES);
     for (idx, value) in decoding.drain(..).enumerate() {
         callback(idx, value)
     }
@@ -128,7 +159,7 @@ pub extern "C" fn encode_o200k(
 ) {
     let slice = read(buffer, length);
 
-    let mut encoding = bpe::encode(slice, &crate::bpe::vocabulary::O200K_TOKENS);
+    let mut encoding = bpe::encode(slice, &crate::bpe::vocabulary::O200K_TOKENS).concat();
     for (idx, value) in encoding.drain(..).enumerate() {
         callback(idx, value)
     }
@@ -142,8 +173,31 @@ pub extern "C" fn decode_o200k(
 ) {
     let slice = read(buffer, length);
 
-    let mut decoding = bpe::decode(slice, &crate::bpe::vocabulary::O200K_UNICODES); //.unwrap();
+    let mut decoding = bpe::decode(slice, &crate::bpe::vocabulary::O200K_UNICODES);
     for (idx, value) in decoding.drain(..).enumerate() {
         callback(idx, value)
+    }
+}
+
+
+#[cfg(feature = "embedding")]
+#[no_mangle]
+pub extern "C" fn insert_p50k(
+    buffer: *const u8,
+    buffer_length: usize,
+    vector: *const f32,
+    vector_length: usize
+) -> usize {
+    let slice = read(buffer, buffer_length);
+    let tokens = bpe::encode(slice, &crate::bpe::vocabulary::P50K_TOKENS).concat();
+    let embedding = read(vector, vector_length);
+    let label = String::from_utf8(slice.to_vec()).unwrap();
+
+    match embedding::insert(padding(tokens), "p50k", &label, embedding) {
+        Ok(response) => response,
+        Err(e) => {
+            #[cfg(debug_assertions)]
+            println!( "[WARNING]: Encoding value for {:?} not found.",String::from_utf8_lossy(&self.grapheme[start..end].concat()));
+        }
     }
 }

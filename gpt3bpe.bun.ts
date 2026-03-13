@@ -39,6 +39,10 @@ const SYMBOLS = {
         args: ["buffer", "u32", "function"],
         returns: "void",
     },
+    insert_p50k: {
+        args: ["buffer", "u32", "buffer", "u32"],
+        returns: "usize",
+    },
 } as const;
 
 export function grapheme(buffer: Uint8Array): Uint8Array {
@@ -196,6 +200,35 @@ export function decode(buffer: Uint16Array | Uint32Array, vocabulary: Vocabulary
             .map((v, _index, _array) => v.value)
     )
 };
+
+export function insert(buffer: Uint8Array, embedding: Float32Array, vocabulary: Vocabulary){
+    let simplePointer: bigint;
+    const safeBuffer = Uint8Array.from(buffer);
+    const safeEmbedding = Float32Array.from(embedding);
+    const DYLIB = dlopen(FOREIGN_INTERFACE, SYMBOLS);
+    switch (vocabulary) {
+        case 'p50k':{
+            simplePointer = DYLIB.symbols.insert_p50k(
+                safeBuffer,
+                safeBuffer.length,
+                safeEmbedding,
+                safeEmbedding.length
+            )
+            break;
+        }
+        default:{
+            simplePointer = DYLIB.symbols.insert_p50k(
+                safeBuffer,
+                safeBuffer.length,
+                safeEmbedding,
+                safeEmbedding.length
+            )
+            break;
+        }
+    }
+    DYLIB.close();
+    return simplePointer
+}
 
 import { equal, deepEqual } from "node:assert";
 export async function *readLines(path: string) {

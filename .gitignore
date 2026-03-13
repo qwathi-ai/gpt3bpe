@@ -19,6 +19,7 @@ models.ts
 model.ts
 model.txt
 embeddings.db
+sdk/
 
 # Build artifacts
 # Ignore custom makefiles.

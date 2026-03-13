@@ -39,7 +39,19 @@ const SYMBOLS = {
         args: ["buffer", "u32", "function"],
         returns: "void",
     },
-    insert_p50k: {
+    embed_p50k: {
+        args: ["buffer", "u32", "buffer", "u32"],
+        returns: "usize",
+    },
+    embed_r50k: {
+        args: ["buffer", "u32", "buffer", "u32"],
+        returns: "usize",
+    },
+    embed_cl100k: {
+        args: ["buffer", "u32", "buffer", "u32"],
+        returns: "usize",
+    },
+    embed_o200k: {
         args: ["buffer", "u32", "buffer", "u32"],
         returns: "usize",
     },
@@ -201,14 +213,41 @@ export function decode(buffer: Uint16Array | Uint32Array, vocabulary: Vocabulary
     )
 };
 
-export function insert(buffer: Uint8Array, embedding: Float32Array, vocabulary: Vocabulary){
+export function embed(buffer: Uint8Array, embedding: Float32Array, vocabulary: Vocabulary){
     let simplePointer: bigint;
     const safeBuffer = Uint8Array.from(buffer);
     const safeEmbedding = Float32Array.from(embedding);
     const DYLIB = dlopen(FOREIGN_INTERFACE, SYMBOLS);
     switch (vocabulary) {
         case 'p50k':{
-            simplePointer = DYLIB.symbols.insert_p50k(
+            simplePointer = DYLIB.symbols.embed_p50k(
+                safeBuffer,
+                safeBuffer.length,
+                safeEmbedding,
+                safeEmbedding.length
+            )
+            break;
+        }
+        case 'r50k':{
+            simplePointer = DYLIB.symbols.embed_r50k(
+                safeBuffer,
+                safeBuffer.length,
+                safeEmbedding,
+                safeEmbedding.length
+            )
+            break;
+        }
+        case 'cl100k':{
+            simplePointer = DYLIB.symbols.embed_cl100k(
+                safeBuffer,
+                safeBuffer.length,
+                safeEmbedding,
+                safeEmbedding.length
+            )
+            break;
+        }
+        case 'o200k':{
+            simplePointer = DYLIB.symbols.embed_o200k(
                 safeBuffer,
                 safeBuffer.length,
                 safeEmbedding,
@@ -217,7 +256,7 @@ export function insert(buffer: Uint8Array, embedding: Float32Array, vocabulary: 
             break;
         }
         default:{
-            simplePointer = DYLIB.symbols.insert_p50k(
+            simplePointer = DYLIB.symbols.embed_p50k(
                 safeBuffer,
                 safeBuffer.length,
                 safeEmbedding,
@@ -232,7 +271,7 @@ export function insert(buffer: Uint8Array, embedding: Float32Array, vocabulary: 
 
 import { equal, deepEqual } from "node:assert";
 export async function *readLines(path: string) {
-    const reader = Bun.file(path).stream().pipeThrough(new TextDecoderStream('utf-8')).getReader();
+    const reader = Bun.file(path).stream().pipeThrough(new TextDecoderStream('utf-8'), {}).getReader();
     let remainder = ''
     while(true) {
         const {value, done} = await reader.read()
@@ -248,6 +287,7 @@ export async function *readLines(path: string) {
         yield remainder
     }
 }
+
 const path = "./src/bpe/vocabulary/tests.jsonl";
 console.log("[INFO]: Running tests...");
 let count = 0;

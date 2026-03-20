@@ -1,15 +1,7 @@
-CREATE TABLE IF NOT EXISTS embeddings (
-    token BLOB NOT NULL,
-    vocabulary TEXT NOT NULL CHECK (vocabulary IN ('r50k', 'p50k', 'cl100k', 'o200k')),
-    label TEXT NOT NULL,
-    -- typeof TEXT NOT NULL CHECK (typeof IN ('number', 'string', 'boolean')),
-    embedding f32[300] NOT NULL,
-    qembedding int8[300] NOT NULL,
-    PRIMARY KEY(token, vocabulary, label)
+CREATE VIRTUAL TABLE IF NOT EXISTS embeddings using vec0 (
+    label TEXT,
+    vector FLOAT[300]
 );
-
-CREATE INDEX IF NOT EXISTS idx_embedding_vocabulary ON embeddings(vocabulary);
-
 -- CREATE TABLE terminals (
 --     token BLOB FOREIGN KEY REFERENCES embeddings.glove(token),
 --     partos BLOB FOREIGN KEY REFERENCES partos(_id) ON DELETE CASCADE,

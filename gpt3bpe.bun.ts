@@ -41,19 +41,19 @@ const SYMBOLS = {
     },
     embed_p50k: {
         args: ["buffer", "u32", "buffer", "u32"],
-        returns: "usize",
+        returns: "bool",
     },
     embed_r50k: {
         args: ["buffer", "u32", "buffer", "u32"],
-        returns: "usize",
+        returns: "bool",
     },
     embed_cl100k: {
         args: ["buffer", "u32", "buffer", "u32"],
-        returns: "usize",
+        returns: "bool",
     },
     embed_o200k: {
         args: ["buffer", "u32", "buffer", "u32"],
-        returns: "usize",
+        returns: "bool",
     },
 } as const;
 
@@ -213,8 +213,8 @@ export function decode(buffer: Uint16Array | Uint32Array, vocabulary: Vocabulary
     )
 };
 
-export function embed(buffer: Uint8Array, embedding: Float32Array, vocabulary: Vocabulary){
-    let simplePointer: bigint;
+export function embed(buffer: Uint8Array, embedding: Float32Array, vocabulary: Vocabulary): boolean{
+    let simplePointer: boolean;
     const safeBuffer = Uint8Array.from(buffer);
     const safeEmbedding = Float32Array.from(embedding);
     const DYLIB = dlopen(FOREIGN_INTERFACE, SYMBOLS);

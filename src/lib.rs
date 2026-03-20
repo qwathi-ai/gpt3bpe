@@ -142,6 +142,20 @@ pub extern "C" fn decode_o200k(
 
 #[cfg(feature = "embedding")]
 mod embedding;
+
+#[cfg(feature = "embedding")]
+fn padding(input: Vec<u32>) -> Result<[u32; 3], &'static str> {
+    let mut result = [0u32; 3];
+    let len = input.len();
+
+    if len > 3 {
+        return Err("Token value too large. Expect 3 or less.")
+    }
+    // Pad with zeros at the beginning.
+    result[3 - len..].copy_from_slice(&input);
+    Ok(result)
+}
+
 /// Pads or truncates a vector to a fixed-size array of length 3.
 ///
 /// If the input vector is shorter than 3, it is padded at the beginning with
@@ -166,17 +180,22 @@ pub extern "C" fn embed_p50k(
     buffer_length: usize,
     vector: *const f32,
     vector_length: usize
-) -> usize {
+) -> bool {
     let slice = read(buffer, buffer_length);
-    let tokens = bpe::encode(slice, &crate::bpe::vocabulary::P50K_TOKENS).concat();
-    let embedding = read(vector, vector_length);
     let label = String::from_utf8(slice.to_vec()).unwrap();
-    match embedding::embed(tokens, "p50k", &label, embedding) {
-        Ok(response) => response,
+    let tokens = bpe::encode(slice, &crate::bpe::vocabulary::P50K_TOKENS).concat();
+    if let Err(_) = padding(tokens) {
+        #[cfg(debug_assertions)]
+        println!( "[WARNING]: P50K Could not embed {:?} token too long.",label);
+        return false           
+    }
+    let embedding = read(vector, vector_length);
+    match embedding::embed(&label, embedding) {
+        Ok(_) => true,
         Err (_) => {
             #[cfg(debug_assertions)]
             println!( "[WARNING]: P50K Could not embed {:?}.",label);
-            0        
+            false       
         }
 
     }
@@ -189,19 +208,24 @@ pub extern "C" fn embed_r50k(
     buffer_length: usize,
     vector: *const f32,
     vector_length: usize
-) -> usize {
+) -> bool {
     let slice = read(buffer, buffer_length);
-    let tokens = bpe::encode(slice, &crate::bpe::vocabulary::R50K_TOKENS).concat();
-    let embedding = read(vector, vector_length);
     let label = String::from_utf8(slice.to_vec()).unwrap();
-
-    match embedding::embed(tokens, "r50k", &label, embedding) {
-        Ok(response) => response,
-        Err(_) => {
+    let tokens = bpe::encode(slice, &crate::bpe::vocabulary::R50K_TOKENS).concat();
+    if let Err(_) = padding(tokens) {
+        #[cfg(debug_assertions)]
+        println!( "[WARNING]: R50K Could not embed {:?}.",label);
+        return false           
+    }
+    let embedding = read(vector, vector_length);
+    match embedding::embed(&label, embedding) {
+        Ok(_) => true,
+        Err (_) => {
             #[cfg(debug_assertions)]
             println!( "[WARNING]: R50K Could not embed {:?}.",label);
-            0
+            false       
         }
+
     }
 }
 
@@ -212,19 +236,24 @@ pub extern "C" fn embed_cl100k(
     buffer_length: usize,
     vector: *const f32,
     vector_length: usize
-) -> usize {
+) -> bool {
     let slice = read(buffer, buffer_length);
-    let tokens = bpe::encode(slice, &crate::bpe::vocabulary::CL100K_TOKENS).concat();
-    let embedding = read(vector, vector_length);
     let label = String::from_utf8(slice.to_vec()).unwrap();
-
-    match embedding::embed(tokens, "cl100k", &label, embedding) {
-        Ok(response) => response,
-        Err(_) => {
+    let tokens = bpe::encode(slice, &crate::bpe::vocabulary::CL100K_TOKENS).concat();
+    if let Err(_) = padding(tokens) {
+        #[cfg(debug_assertions)]
+        println!( "[WARNING]: CL100K Could not embed {:?}.",label);
+        return false           
+    }
+    let embedding = read(vector, vector_length);
+    match embedding::embed(&label, embedding) {
+        Ok(_) => true,
+        Err (_) => {
             #[cfg(debug_assertions)]
             println!( "[WARNING]: CL100K Could not embed {:?}.",label);
-            0
+            false       
         }
+
     }
 }
 
@@ -235,18 +264,23 @@ pub extern "C" fn embed_o200k(
     buffer_length: usize,
     vector: *const f32,
     vector_length: usize
-) -> usize {
+) -> bool {
     let slice = read(buffer, buffer_length);
-    let tokens = bpe::encode(slice, &crate::bpe::vocabulary::O200K_TOKENS).concat();
-    let embedding = read(vector, vector_length);
     let label = String::from_utf8(slice.to_vec()).unwrap();
-
-    match embedding::embed(tokens, "o200k", &label, embedding) {
-        Ok(response) => response,
-        Err(_) => {
+    let tokens = bpe::encode(slice, &crate::bpe::vocabulary::O200K_TOKENS).concat();
+    if let Err(_) = padding(tokens) {
+        #[cfg(debug_assertions)]
+        println!( "[WARNING]: O200K Could not embed {:?}.",label);
+        return false           
+    }
+    let embedding = read(vector, vector_length);
+    match embedding::embed(&label, embedding) {
+        Ok(_) => true,
+        Err (_) => {
             #[cfg(debug_assertions)]
             println!( "[WARNING]: O200K Could not embed {:?}.",label);
-            0
+            false       
         }
+
     }
 }

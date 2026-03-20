@@ -1,12 +1,13 @@
 {
 	"deno.enable": false,
 	"bun.runtime": "~/.bun/bin/bun",
-	"bun.debugTerminal.enabled": true,
+	"bun.debugTerminal.enabled": false,
 	"rust-analyzer.linkedProjects": [
 		"./Cargo.toml"
 	],
 	"geminicodeassist.languages": [
 		"*",
+		"markdown",
 		"rust",
 		"makefile",
 		"typescript",

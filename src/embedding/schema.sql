@@ -1,5 +1,6 @@
 CREATE VIRTUAL TABLE IF NOT EXISTS embeddings using vec0 (
     label TEXT,
+    -- pos TEXT[],
     vector FLOAT[300]
 );
 -- CREATE TABLE terminals (

@@ -65,3 +65,23 @@ pub(crate) static O200K_TOKENS: LazyLock<BTreeMap<Vec<u8>, u32>> =
     LazyLock::new(|| load_vocabulary("src/bpe/vocabulary/o200k.jsonl"));
 pub(crate) static O200K_UNICODES: LazyLock<BTreeMap<u32, Vec<u16>>> =
     LazyLock::new(|| generate_unicodes("src/bpe/vocabulary/o200k.jsonl"));
+
+#[derive(Debug)]
+pub (crate) enum Vocabularies {
+    P50K,
+    R50K,
+    CL100K,
+    O200K,
+}
+
+impl Vocabularies {
+    pub fn iter() -> std::slice::Iter<'static, Vocabularies> {
+        static VOCABULARIES: [Vocabularies; 4] = [
+            Vocabularies::P50K,
+            Vocabularies::R50K,
+            Vocabularies::CL100K,
+            Vocabularies::O200K,
+        ];
+        VOCABULARIES.iter()
+    }
+}

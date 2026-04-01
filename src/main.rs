@@ -1,7 +1,7 @@
 mod bpe;
 use argh::FromArgs;
-use std::io::{self, BufRead, Write};
 use std::str::FromStr;
+use std::io::{self, BufRead, Write};
 
 #[derive(FromArgs, Debug)]
 /// A command-line utility for the GPT Byte-Pair-Encoder.

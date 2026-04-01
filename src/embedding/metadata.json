@@ -1,0 +1,39 @@
+{
+    "algorithm": {
+        "command": null,
+        "id": 1,
+        "name": "Global Vectors",
+        "tool": "GloVe",
+        "url": "https://nlp.stanford.edu/software/GloVe-1.2.zip",
+        "version": "1.2"
+    },
+    "corpus": [
+        {
+            "NER": false,
+            "case preserved": true,
+            "description": "Gigaword 5th Edition",
+            "id": 3,
+            "language": "eng",
+            "lemmatized": true,
+            "public": false,
+            "stop words removal": "NLTK",
+            "tagger": "Stanford Core NLP v. 3.6.0",
+            "tagset": null,
+            "tokens": 4815382730,
+            "tool": null,
+            "url": "https://catalog.ldc.upenn.edu/LDC2011T07"
+        }
+    ],
+    "creators": [
+        {
+            "email": "andreku@ifi.uio.no",
+            "name": "Andrey Kutuzov"
+        }
+    ],
+    "dimensions": 300,
+    "handle": "http://vectors.nlpl.eu/repository/20/13.zip",
+    "id": 13,
+    "iterations": 100,
+    "vocabulary size": 262269,
+    "window": 5
+}

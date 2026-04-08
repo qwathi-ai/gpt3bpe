@@ -20,7 +20,6 @@ use zerocopy::AsBytes;
 /// # Returns
 ///
 /// An array `[T; 3]`.
-// #[cfg(feature = "embedding")]
 fn padding(input: Vec<u32>) -> Result<[u32; 3], &'static str> {
     let mut result = [0u32; 3];
     if input.len() > 3 {
@@ -60,48 +59,52 @@ pub(crate) fn embed(
         };
         let label = String::from_utf8(slice.to_vec()).unwrap();
         if let Err(_) = padding(tokens) {
+            #[cfg(debug_assertions)]
             println!("[WARNING]: Could not embed {:?}, token too long for vocabulary {:?}.", label, vocab);
             continue;
         };
         let mut stmt = conn.prepare_cached(
-            "INSERT INTO embeddings (label, vector) VALUES (?, ?)",
+            "INSERT INTO word_embeddings (label, vector) VALUES (?, ?)",
         ).expect("Failed to prepare statement");
+
         response = stmt.execute(rusqlite::params![
             label, // `label` is defined above
             vector.as_bytes() // `vector` is passed into the function
         ]).expect("[ERROR]: Failed to insert embedding");
+        println!("[INFO]: {:?} embedded using vocabulary {:?}. Response: {:?}", label, vocab, response);
+
         break;
     }
     Ok(response)
 }
 
-// #[derive(Debug)]
-// struct Top {
-//     pub label: String,
-//     distance: f32,
-// }
+#[derive(Debug)]
+struct Top {
+    pub label: String,
+    distance: f32,
+}
 
-// pub(crate) fn top(
-//     vector: &[f32],
-//     k: Option<u8>,
-// ) -> Result<Vec<Top>, rusqlite::Error>  {
-//     let location = env::var("EMBEDDING_LOCATION").ok();
-//     let conn = connection(location.as_deref());
-//     // The 'k' parameter in the MATCH query is a sqlite-vec specific feature
-//     // for specifying the number of nearest neighbors to return.
-//     let mut stmt = conn.prepare_cached("SELECT label, distance FROM embeddings WHERE vector MATCH ? ORDER BY distance LIMIT ?")?;
-//     let top_iter = stmt.query_map(
-//         rusqlite::params![
-//             vector.as_bytes(),
-//             k.unwrap_or(10) as u8
-//         ],
-//         |row| {
-//             Ok(Top {
-//                 label: row.get(0)?,
-//                 distance: row.get(1)?,
-//             })
-//         },
-//     )?;
+pub(crate) fn top(
+    vector: &[f32],
+    k: Option<u8>,
+) -> Result<Vec<Top>, rusqlite::Error>  {
+    let location = env::var("EMBEDDING_LOCATION").ok();
+    let conn = connection(location.as_deref());
+    // The 'k' parameter in the MATCH query is a sqlite-vec specific feature
+    // for specifying the number of nearest neighbors to return.
+    let mut stmt = conn.prepare_cached("SELECT label, distance FROM embeddings WHERE vector MATCH ? ORDER BY distance LIMIT ?")?;
+    let top_iter = stmt.query_map(
+        rusqlite::params![
+            vector.as_bytes(),
+            k.unwrap_or(10) as u8
+        ],
+        |row| {
+            Ok(Top {
+                label: row.get(0)?,
+                distance: row.get(1)?,
+            })
+        },
+    )?;
 
-//     top_iter.collect()
-// }
+    top_iter.collect()
+}

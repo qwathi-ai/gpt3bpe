@@ -1,20 +1,27 @@
+CREATE TABLE IF NOT EXISTS words (
+    rowid INTEGER PRIMARY KEY AUTOINCREMENT,
+    label TEXT NOT NULL UNIQUE
+    -- terminals TEXT[]
+);
+
 CREATE VIRTUAL TABLE IF NOT EXISTS embeddings using vec0 (
-    label TEXT,
-    -- pos TEXT[],
+    rowid INTEGER PRIMARY KEY,
     vector FLOAT[300]
 );
--- CREATE TABLE terminals (
---     token BLOB FOREIGN KEY REFERENCES embeddings.glove(token),
---     partos BLOB FOREIGN KEY REFERENCES partos(_id) ON DELETE CASCADE,
---     PRIMARY KEY (token, partos)
--- );
 
--- -- Grammar edges
--- CREATE TABLE grammar (
---     _from BLOB,
---     _to BLOB,
---     properties JSON, -- { from_label, to_label, // context }
---     PRIMARY KEY (_from, _to),
---     FOREIGN KEY (_from) REFERENCES partos(_id),
---     FOREIGN KEY (_to) REFERENCES partos(_id)
--- ) WITHOUT ROWID;
+CREATE VIEW IF NOT EXISTS word_embeddings AS
+SELECT 
+    w.rowid, 
+    w.label, 
+    e.vector 
+FROM words w
+JOIN embeddings e ON w.rowid = e.rowid;
+
+CREATE TRIGGER IF NOT EXISTS trg_insert_word_embeddings
+INSTEAD OF INSERT ON word_embeddings
+BEGIN
+    INSERT OR ROLLBACK INTO words (label) VALUES (new.label);
+    
+    INSERT OR ROLLBACK INTO embeddings (rowid, vector) 
+    VALUES (last_insert_rowid(), new.vector);
+END;

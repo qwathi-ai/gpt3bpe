@@ -57,7 +57,7 @@ pub(crate) fn embed(
             crate::bpe::vocabulary::Vocabularies::CL100K => crate::bpe::encode(slice, &crate::bpe::vocabulary::CL100K_TOKENS).concat(),
             crate::bpe::vocabulary::Vocabularies::O200K => crate::bpe::encode(slice, &crate::bpe::vocabulary::O200K_TOKENS).concat(),
         };
-        let label = String::from_utf8(slice.to_vec()).unwrap();
+        let label = String::from_utf8(slice.to_vec()).expect("[ERROR]: Not a valid utf-8 string.");
         if let Err(_) = padding(tokens) {
             #[cfg(debug_assertions)]
             println!("[WARNING]: Could not embed {:?}, token too long for vocabulary {:?}.", label, vocab);
@@ -65,7 +65,7 @@ pub(crate) fn embed(
         };
         let mut stmt = conn.prepare_cached(
             "INSERT INTO word_embeddings (label, vector) VALUES (?, ?)",
-        ).expect("Failed to prepare statement");
+        ).expect("[ERROR]: Failed to prepare statement");
 
         response = stmt.execute(rusqlite::params![
             label, // `label` is defined above

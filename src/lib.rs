@@ -141,6 +141,7 @@ pub extern "C" fn decode_o200k(
 
 #[cfg(feature = "embedding")]
 mod embedding;
+
 #[cfg(feature = "embedding")]
 #[no_mangle]
 pub extern "C" fn embed(

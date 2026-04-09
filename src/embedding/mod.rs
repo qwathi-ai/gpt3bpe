@@ -51,11 +51,11 @@ pub(crate) fn embed(
     let conn = connection(location.as_deref());
     let mut response: usize = 0;
     for vocab in crate::bpe::vocabulary::Vocabularies::iter() {
-        let tokens = match vocab {
-            crate::bpe::vocabulary::Vocabularies::R50K => crate::bpe::encode(slice, &crate::bpe::vocabulary::R50K_TOKENS).concat(),
-            crate::bpe::vocabulary::Vocabularies::P50K => crate::bpe::encode(slice, &crate::bpe::vocabulary::P50K_TOKENS).concat(),
-            crate::bpe::vocabulary::Vocabularies::CL100K => crate::bpe::encode(slice, &crate::bpe::vocabulary::CL100K_TOKENS).concat(),
-            crate::bpe::vocabulary::Vocabularies::O200K => crate::bpe::encode(slice, &crate::bpe::vocabulary::O200K_TOKENS).concat(),
+        let (v, tokens) = match vocab {
+            crate::bpe::vocabulary::Vocabularies::R50K => ("R50K", crate::bpe::encode(slice, &crate::bpe::vocabulary::R50K_TOKENS).concat()),
+            crate::bpe::vocabulary::Vocabularies::P50K => ("P50K", crate::bpe::encode(slice, &crate::bpe::vocabulary::P50K_TOKENS).concat()),
+            crate::bpe::vocabulary::Vocabularies::CL100K => ("CL100K",crate::bpe::encode(slice, &crate::bpe::vocabulary::CL100K_TOKENS).concat()),
+            crate::bpe::vocabulary::Vocabularies::O200K => ("O200K", crate::bpe::encode(slice, &crate::bpe::vocabulary::O200K_TOKENS).concat()),
         };
         let label = String::from_utf8(slice.to_vec()).expect("[ERROR]: Not a valid utf-8 string.");
         if let Err(_) = padding(tokens) {
@@ -64,12 +64,13 @@ pub(crate) fn embed(
             continue;
         };
         let mut stmt = conn.prepare_cached(
-            "INSERT INTO word_embeddings (label, vector) VALUES (?, ?)",
+            "INSERT INTO word_embeddings (label, vocab, vector) VALUES (?, ?, ?)",
         ).expect("[ERROR]: Failed to prepare statement");
 
         response = stmt.execute(rusqlite::params![
-            label, // `label` is defined above
-            vector.as_bytes() // `vector` is passed into the function
+            label,
+            v,
+            vector.as_bytes()
         ]).expect("[ERROR]: Failed to insert embedding");
         println!("[INFO]: {:?} embedded using vocabulary {:?}. Response: {:?}", label, vocab, response);
 

@@ -1,6 +1,5 @@
 CREATE TABLE IF NOT EXISTS words (
     rid INTEGER PRIMARY KEY AUTOINCREMENT,
-    label TEXT NOT NULL UNIQUE,
     vocab TEXT NOT NULL CHECK (vocab IN ('P50K','R50K','CL100K','O200K'))
     -- terminals TEXT[]
 );
@@ -11,31 +10,33 @@ CREATE VIRTUAL TABLE IF NOT EXISTS embeddings using vec0 (
 );
 
 CREATE VIRTUAL TABLE IF NOT EXISTS search USING fts5 (
+    rid, 
     label,
-    content='', 
-    content_rowid='rid',
     tokenize='trigram'
 );
 
 CREATE VIEW IF NOT EXISTS word_embeddings AS
 SELECT 
     w.rid, 
-    w.label,
+    s.label,
     w.vocab,
     e.vector 
 FROM words w
-JOIN embeddings e ON w.rid = e.rid;
+INNER JOIN search s 
+    ON w.rid = s.rid
+JOIN embeddings e 
+    ON w.rid = e.rid;
 
 CREATE TRIGGER IF NOT EXISTS trg_insert_word_embeddings
 INSTEAD OF INSERT ON word_embeddings
 BEGIN
-    INSERT OR ROLLBACK INTO words (label, vocab) 
-    VALUES (new.label, new.vocab);
+    INSERT OR ROLLBACK INTO words (vocab) 
+    VALUES (new.vocab);
     
     INSERT OR ROLLBACK INTO embeddings (rid, vector) 
     VALUES (last_insert_rowid(), new.vector);
 
-    INSERT OR ROLLBACK INTO search (rowid, label) 
+    INSERT OR ROLLBACK INTO search (rid, label) 
     VALUES (last_insert_rowid(), new.label);
 END;
 

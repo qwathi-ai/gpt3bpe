@@ -3,6 +3,8 @@ use rusqlite::{ffi::sqlite3_auto_extension, Connection};
 use sqlite_vec::{sqlite3_vec_init};
 use zerocopy::AsBytes;
 
+const PADDING : usize = 3;
+
 /// Pads or truncates a vector to a fixed-size array of length 3.
 ///
 /// If the input vector is shorter than 3, it is padded at the beginning with
@@ -20,10 +22,10 @@ use zerocopy::AsBytes;
 /// # Returns
 ///
 /// An array `[T; 3]`.
-fn padding(input: Vec<u32>) -> Result<[u32; 3], &'static str> {
-    let mut result = [0u32; 3];
-    if input.len() > 3 {
-        return Err("Token value too large. Expect 3 or less.")
+fn padding<const P: usize>(input: Vec<u32>) -> Result<[u32; P], &'static str> {
+    let mut result = [0u32; P];
+    if input.len() > P {
+        return Err("Token value too large.")
     }
     // Pad with zeros at the beginning.
     result[3 - input.len()..].copy_from_slice(&input);
@@ -43,13 +45,12 @@ pub (crate) fn connection(location: Option<&str>) -> Connection {
     connection
 }
 
-pub(crate) fn embed(
+pub(crate) fn embed<const D: usize>(
     slice: &[u8],
-    vector: &[f32],
-) -> Result<usize, rusqlite::Error>  {
+    vector: &[f32; D],
+) -> Result<(), rusqlite::Error>  {
     let location = env::var("EMBEDDING_LOCATION").ok();
     let conn = connection(location.as_deref());
-    let mut response: usize = 0;
     for vocab in crate::bpe::vocabulary::Vocabularies::iter() {
         let (v, tokens) = match vocab {
             crate::bpe::vocabulary::Vocabularies::R50K => ("R50K", crate::bpe::encode(slice, &crate::bpe::vocabulary::R50K_TOKENS).concat()),
@@ -58,7 +59,7 @@ pub(crate) fn embed(
             crate::bpe::vocabulary::Vocabularies::O200K => ("O200K", crate::bpe::encode(slice, &crate::bpe::vocabulary::O200K_TOKENS).concat()),
         };
         let label = String::from_utf8(slice.to_vec()).expect("[ERROR]: Not a valid utf-8 string.");
-        if let Err(_) = padding(tokens) {
+        if let Err(_) = padding::<PADDING>(tokens) {
             #[cfg(debug_assertions)]
             println!("[WARNING]: Could not embed {:?}, token too long for vocabulary {:?}.", label, vocab);
             continue;
@@ -67,33 +68,32 @@ pub(crate) fn embed(
             "INSERT INTO word_embeddings (label, vocab, vector) VALUES (?, ?, ?)",
         ).expect("[ERROR]: Failed to prepare statement");
 
-        response = stmt.execute(rusqlite::params![
+        stmt.execute(rusqlite::params![
             label,
             v,
             vector.as_bytes()
         ]).expect("[ERROR]: Failed to insert embedding");
-        println!("[INFO]: {:?} embedded using vocabulary {:?}.", label, vocab);
-
         break;
     }
-    Ok(response)
+    Ok(())
 }
 
-pub(crate) struct Top {
-    rid: u16,
-    label: &str,
-    vocab: &str,
-    vector: [f32],
-    distance: f32
+#[derive(Debug)]
+pub (crate) struct Top<const D: usize>{
+    pub(crate) rid: u16,
+    pub label: String,
+    pub(crate) vocab: String,
+    pub distance: f32,
+    pub vector: [f32;D]
 }
 
-pub(crate) fn search(
+pub(crate) fn search<const D: usize>(
     slice: &[u8],
     k: u8,
-) -> Result<Vec<Top>, rusqlite::Error>  {
+) -> Result<Vec<Top<D>>, rusqlite::Error>  {
     let location = env::var("EMBEDDING_LOCATION").ok();
     let conn = connection(location.as_deref());
-    let mut stmt = conn.prepare_cached("SELECT s.rid, s.label, w.vocab, e.vector, s.rank as distance FROM ( SELECT rid, label, rank FROM search WHERE label MATCH ? ORDER BY rank ASC LIMIT ?) AS s INNER JOIN words w ON s.rid = w.rid INNER JOIN embeddings e ON s.rid = e.rid ORDER BY s.rank ASC")?;
+    let mut stmt = conn.prepare_cached("SELECT s.rid, s.label, w.vocab, s.rank as distance, e.vector FROM ( SELECT rid, label, rank FROM search WHERE label MATCH ? ORDER BY rank ASC LIMIT ?) AS s INNER JOIN words w ON s.rid = w.rid INNER JOIN embeddings e ON s.rid = e.rid ORDER BY s.rank ASC")?;
     let label = String::from_utf8(slice.to_vec()).expect("[ERROR]: Not a valid utf-8 string.");
     let result = stmt.query_map(
         rusqlite::params![
@@ -105,8 +105,13 @@ pub(crate) fn search(
                 rid: row.get(0)?,
                 label: row.get(1)?,
                 vocab: row.get(2)?,
-                vector: row.get(3)?,
-                distance: row.get(4)?
+                distance: row.get(3)?,
+                vector: {
+                    let bytes: Vec<u8> = row.get(4)?;
+                    let mut arr = [0.0; D];
+                    bytes.chunks_exact(4).map(|a| f32::from_le_bytes(a.try_into().unwrap())).enumerate().for_each(|(i, f)| arr[i] = f);
+                    arr
+                }
             })
         },
     )?;
@@ -114,13 +119,13 @@ pub(crate) fn search(
     result.collect()
 }
 
-pub(crate) fn top(
-    vector: &[f32],
+pub(crate) fn top<const D: usize>(
+    vector: &[f32; D],
     k: u8,
-) -> Result<Vec<Top>, rusqlite::Error>  {
+) -> Result<Vec<Top<D>>, rusqlite::Error>  {
     let location = env::var("EMBEDDING_LOCATION").ok();
     let conn = connection(location.as_deref());
-    let mut stmt = conn.prepare_cached("SELECT e.rid, s.label, w.vocab, e.vector, e.distance FROM ( SELECT rid, vector, distance FROM embeddings WHERE vector MATCH ? ORDER BY distance ASC LIMIT ?) AS e INNER JOIN words w ON e.rid = w.rid INNER JOIN search s ON e.rid = s.rid ORDER BY e.distance ASC")?;
+    let mut stmt = conn.prepare_cached("SELECT e.rid, s.label, w.vocab, e.distance, e.vector FROM ( SELECT rid, vector, distance FROM embeddings WHERE vector MATCH ? ORDER BY distance ASC LIMIT ?) AS e INNER JOIN words w ON e.rid = w.rid INNER JOIN search s ON e.rid = s.rid ORDER BY e.distance ASC")?;
     let result = stmt.query_map(
         rusqlite::params![
             vector.as_bytes(),
@@ -131,8 +136,13 @@ pub(crate) fn top(
                 rid: row.get(0)?,
                 label: row.get(1)?,
                 vocab: row.get(2)?,
-                vector: row.get(3)?,
-                distance: row.get(4)?
+                distance: row.get(3)?,
+                vector: {
+                    let bytes: Vec<u8> = row.get(4)?;
+                    let mut arr = [0.0; D];
+                    bytes.chunks_exact(4).map(|a| f32::from_le_bytes(a.try_into().unwrap())).enumerate().for_each(|(i, f)| arr[i] = f);
+                    arr
+                }
             })
         },
     )?;

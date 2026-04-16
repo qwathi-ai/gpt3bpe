@@ -139,10 +139,12 @@ pub extern "C" fn decode_o200k(
     };
 }
 
-// #[cfg(feature = "embedding")]
+#[cfg(feature = "embedding")]
 mod embedding;
+#[cfg(feature = "embedding")]
+const DIMENSIONS : usize = 300;
 
-// #[cfg(feature = "embedding")]
+#[cfg(feature = "embedding")]
 #[no_mangle]
 pub extern "C" fn embed(
     buffer: *const u8,
@@ -151,7 +153,7 @@ pub extern "C" fn embed(
     vector_length: usize
 ) -> bool {
     let slice = read::<u8>(buffer, buffer_length);
-    let embedding = read::<f32>(vector, vector_length);
+    let embedding: &[f32; DIMENSIONS] = read::<f32>(vector, vector_length).try_into().unwrap();
     match embedding::embed(slice, embedding) {
         Ok(_) => true,
         Err (_) => {
@@ -162,16 +164,49 @@ pub extern "C" fn embed(
     }
 }
 
-// #[cfg(feature = "embedding")]
+#[cfg(feature = "embedding")]
+use std::os::raw::c_char;
+#[cfg(feature = "embedding")]
+use std::ffi::CString;
+
+/// A C-compatible version of the `embedding::Top` struct for FFI.
+///
+/// Strings are represented as raw pointers to null-terminated C strings.
+/// The caller of the FFI function is responsible for freeing the memory
+/// for these strings.
+#[cfg(feature = "embedding")]
+#[repr(C)]
+struct TopFFI<const D: usize> {
+    pub rid: u16,
+    pub label: *const c_char,
+    pub vocab: *const c_char,
+    pub vector: [f32; D],
+    pub distance: f32,
+}
+
+#[cfg(feature = "embedding")]
+impl Into<TopFFI<{ DIMENSIONS }>> for embedding::Top<{ DIMENSIONS }> {
+    fn into(self) -> TopFFI<{ DIMENSIONS }> {
+        TopFFI {
+            rid: self.rid,
+            label: CString::new(self.label).unwrap().into_raw(),
+            vocab: CString::new(self.vocab).unwrap().into_raw(),
+            vector: self.vector as [f32; DIMENSIONS],
+            distance: self.distance,
+        }
+    }
+}
+
+#[cfg(feature = "embedding")]
 #[no_mangle]
-pub extern "C" fn search(
+pub extern "C" fn search (
     buffer: *const u8,
     buffer_length: usize,
     k: u8,
-    callback: extern "C" fn(usize, embedding::Top)
+    callback: extern "C" fn(usize, *mut TopFFI<DIMENSIONS>)
 ) {
     let slice = read::<u8>(buffer, buffer_length);
-    let mut top = match embedding::search(slice, k) {
+    let mut top = match embedding::search::<DIMENSIONS>(slice, k) {
         Ok(t) => t,
         Err (e) => {
             #[cfg(debug_assertions)]
@@ -179,7 +214,9 @@ pub extern "C" fn search(
             vec![]       
         }
     };
-    for (idx, t) in top.drain(..).enumerate(){
-
-    }
+    for (idx, t) in top.drain(..).enumerate() {
+        println!("{:?}", t);
+        ;
+        callback(idx, Box::into_raw(Box::new(t.into())));
+    };
 }

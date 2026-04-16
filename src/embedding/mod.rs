@@ -79,27 +79,63 @@ pub(crate) fn embed(
     Ok(response)
 }
 
-// pub(crate) fn pick(
-//     slice: &[u8],f32],
-//     k: Option<u8>,
-// ) -> Result<Vec<Top>, rusqlite::Error>  {
-//     let location = env::var("EMBEDDING_LOCATION").ok();
-//     let conn = connection(location.as_deref());
-//     // The 'k' parameter in the MATCH query is a sqlite-vec specific feature
-//     // for specifying the number of nearest neighbors to return.
-//     let mut stmt = conn.prepare_cached("SELECT label, distance FROM embeddings WHERE vector MATCH ? ORDER BY distance LIMIT ?")?;
-//     let top_iter = stmt.query_map(
-//         rusqlite::params![
-//             vector.as_bytes(),
-//             k.unwrap_or(10) as u8
-//         ],
-//         |row| {
-//             Ok(Top {
-//                 label: row.get(0)?,
-//                 distance: row.get(1)?,
-//             })
-//         },
-//     )?;
+pub(crate) struct Top {
+    rid: u16,
+    label: &str,
+    vocab: &str,
+    vector: [f32],
+    distance: f32
+}
 
-//     top_iter.collect()
-// }
+pub(crate) fn search(
+    slice: &[u8],
+    k: u8,
+) -> Result<Vec<Top>, rusqlite::Error>  {
+    let location = env::var("EMBEDDING_LOCATION").ok();
+    let conn = connection(location.as_deref());
+    let mut stmt = conn.prepare_cached("SELECT s.rid, s.label, w.vocab, e.vector, s.rank as distance FROM ( SELECT rid, label, rank FROM search WHERE label MATCH ? ORDER BY rank ASC LIMIT ?) AS s INNER JOIN words w ON s.rid = w.rid INNER JOIN embeddings e ON s.rid = e.rid ORDER BY s.rank ASC")?;
+    let label = String::from_utf8(slice.to_vec()).expect("[ERROR]: Not a valid utf-8 string.");
+    let result = stmt.query_map(
+        rusqlite::params![
+            label,
+            k
+        ],
+        |row| {
+            Ok(Top {
+                rid: row.get(0)?,
+                label: row.get(1)?,
+                vocab: row.get(2)?,
+                vector: row.get(3)?,
+                distance: row.get(4)?
+            })
+        },
+    )?;
+
+    result.collect()
+}
+
+pub(crate) fn top(
+    vector: &[f32],
+    k: u8,
+) -> Result<Vec<Top>, rusqlite::Error>  {
+    let location = env::var("EMBEDDING_LOCATION").ok();
+    let conn = connection(location.as_deref());
+    let mut stmt = conn.prepare_cached("SELECT e.rid, s.label, w.vocab, e.vector, e.distance FROM ( SELECT rid, vector, distance FROM embeddings WHERE vector MATCH ? ORDER BY distance ASC LIMIT ?) AS e INNER JOIN words w ON e.rid = w.rid INNER JOIN search s ON e.rid = s.rid ORDER BY e.distance ASC")?;
+    let result = stmt.query_map(
+        rusqlite::params![
+            vector.as_bytes(),
+            k
+        ],
+        |row| {
+            Ok(Top {
+                rid: row.get(0)?,
+                label: row.get(1)?,
+                vocab: row.get(2)?,
+                vector: row.get(3)?,
+                distance: row.get(4)?
+            })
+        },
+    )?;
+
+    result.collect()
+}

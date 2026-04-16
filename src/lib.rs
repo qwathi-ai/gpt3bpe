@@ -12,7 +12,7 @@ mod bpe;
 fn read<T>(pointer: *const T, length: usize) -> &'static [T] {
     assert!(!pointer.is_null(), "[ERROR]: pointer is null.");
     assert!(pointer.is_aligned(), "[ERROR]: pointer not properly aligned for type T.");
-    assert!(length < (usize::MAX / std::mem::size_of::<T>()) / 8, "[ERROR]: buffer overflow.");
+    assert!(length < (usize::MAX / std::mem::size_of::<T>()) / 16, "[ERROR]: buffer overflow.");
     let slice = unsafe { std::slice::from_raw_parts(pointer, length) };
     assert_eq!(slice.len(),length,"[ERROR]: pointer not properly aligned.");
     slice
@@ -136,13 +136,13 @@ pub extern "C" fn decode_o200k(
     let mut decoding = bpe::decode(slice, &crate::bpe::vocabulary::O200K_UNICODES);
     for (idx, value) in decoding.drain(..).enumerate() {
         callback(idx, value)
-    }
+    };
 }
 
-#[cfg(feature = "embedding")]
+// #[cfg(feature = "embedding")]
 mod embedding;
 
-#[cfg(feature = "embedding")]
+// #[cfg(feature = "embedding")]
 #[no_mangle]
 pub extern "C" fn embed(
     buffer: *const u8,
@@ -151,19 +151,35 @@ pub extern "C" fn embed(
     vector_length: usize
 ) -> bool {
     let slice = read::<u8>(buffer, buffer_length);
-    let label = String::from_utf8(slice.to_vec()).unwrap();
     let embedding = read::<f32>(vector, vector_length);
     match embedding::embed(slice, embedding) {
-        Ok(_) => {
-            #[cfg(debug_assertions)]
-            println!( "[INFO]: {:?} embedded using P50K.", label);
-            true  
-        },
+        Ok(_) => true,
         Err (_) => {
             #[cfg(debug_assertions)]
-            println!( "[WARNING]: P50K Could not embed {:?}.", label);
+            println!( "[WARNING]: Could not embed {:?}.", String::from_utf8(slice.to_vec()).unwrap_or_default());
             false       
         }
+    }
+}
+
+// #[cfg(feature = "embedding")]
+#[no_mangle]
+pub extern "C" fn search(
+    buffer: *const u8,
+    buffer_length: usize,
+    k: u8,
+    callback: extern "C" fn(usize, embedding::Top)
+) {
+    let slice = read::<u8>(buffer, buffer_length);
+    let mut top = match embedding::search(slice, k) {
+        Ok(t) => t,
+        Err (e) => {
+            #[cfg(debug_assertions)]
+            println!( "[ERROR]: Search not found {:?}.\n{:?}", String::from_utf8(slice.to_vec()).unwrap_or_default(), e);
+            vec![]       
+        }
+    };
+    for (idx, t) in top.drain(..).enumerate(){
 
     }
 }

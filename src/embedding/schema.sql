@@ -40,8 +40,10 @@ BEGIN
     VALUES (last_insert_rowid(), new.label);
 END;
 
--- CREATE TRIGGER IF NOT EXISTS trg_delete_word_embeddings 
--- AFTER DELETE ON words 
--- BEGIN
---   INSERT INTO words_fts(words_fts, rowid, label) VALUES('delete', old.id, old.label);
--- END;
+CREATE TRIGGER IF NOT EXISTS trg_delete_word_embeddings 
+INSTEAD OF DELETE ON word_embeddings 
+BEGIN
+  DELETE FROM words WHERE rid = old.rid;
+  DELETE FROM embeddings WHERE rid = old.rid;
+  DELETE FROM search WHERE rid = old.rid;
+END;

@@ -1,7 +1,7 @@
-use std::collections::BTreeMap;
-use std::sync::LazyLock;
 use serde::de::DeserializeOwned;
+use std::collections::BTreeMap;
 use std::fmt::Debug;
+use std::sync::LazyLock;
 
 fn load_vocabulary<T>(file_path: &str) -> BTreeMap<Vec<u8>, T>
 where
@@ -19,10 +19,12 @@ where
             serde_json::from_str::<BTreeMap<String, T>>(&line)
                 .unwrap_or_else(|_| panic!("[ERROR]: Could not load {} tokens", file_path))
         })
-        .flat_map(|data| data.into_iter().map(|(key, token)| (key.into_bytes(), token)))
+        .flat_map(|data| {
+            data.into_iter()
+                .map(|(key, token)| (key.into_bytes(), token))
+        })
         .collect()
 }
-
 
 fn generate_unicodes<T>(file_path: &str) -> BTreeMap<T, Vec<u16>>
 where
@@ -67,7 +69,7 @@ pub(crate) static O200K_UNICODES: LazyLock<BTreeMap<u32, Vec<u16>>> =
     LazyLock::new(|| generate_unicodes("src/bpe/vocabulary/o200k.jsonl"));
 
 #[derive(Debug)]
-pub (crate) enum Vocabularies {
+pub(crate) enum Vocabularies {
     P50K,
     R50K,
     CL100K,

@@ -14,21 +14,21 @@ name = "gpt3bpe"                # The name of the target.
 path = "src/lib.rs"             # The source file of the target.
 test = true                     # Is tested by default.
 doctest = true                  # Documentation examples are tested by default.
-# bench = true            # Is benchmarked by default.
-# doc = true              # Is documented by default.
-# plugin = false          # Used as a compiler plugin (deprecated).
-# proc-macro = false      # Set to `true` for a proc-macro library.
-# harness = true          # Use libtest harness.
+# bench = true                  # Is benchmarked by default.
+# doc = true                    # Is documented by default.
+# plugin = false                # Used as a compiler plugin (deprecated).
+# proc-macro = false            # Set to `true` for a proc-macro library.
+harness = true                  # Use libtest harness.
 crate-type = ["lib", "cdylib"]  # The crate types to generate.
 # required-features = []        # Features required to build this target (N/A for lib).
 
 [profile.dev]
-opt-level = 1               # Use slightly better optimizations.
+opt-level = 1                   # Use slightly better optimizations.
 overflow-checks = true
 
 [profile.test]
-opt-level = 3 # Optional: better profiling at the cost of slower builds
-debug = true  # Keep debug info for readable stack traces
+opt-level = 3                   # Optional: better profiling at the cost of slower builds
+debug = true                    # Keep debug info for readable stack traces
 
 [profile.release]
 strip = "debuginfo"
@@ -52,9 +52,9 @@ rusqlite = { version = "0.31.0", features = ["bundled"], optional = true }
 sqlite-vec = { version = "0.1.6", optional = true }
 zerocopy = { version = "0.7.32", optional = true }
 
-# rusqlite = { version = "0.31.0", features = ["bundled"] }
-# sqlite-vec = { version = "0.1.6" }
-# zerocopy = { version = "0.7.32" }
 
 [dev-dependencies]
 pprof = { version = "0.15", features = ["flamegraph"] }
+# rusqlite = { version = "0.31.0", features = ["bundled"] }
+# sqlite-vec = { version = "0.1.6" }
+# zerocopy = { version = "0.7.32" }

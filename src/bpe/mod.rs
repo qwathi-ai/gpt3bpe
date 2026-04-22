@@ -151,7 +151,7 @@ pub fn grapheme(slice: &[u8]) -> Vec<Vec<u8>> {
 ///
 /// ### Returns
 /// * token contractions.
-pub (crate) fn tokens(slice: &[u8]) -> Vec<&[u8]> {
+pub(crate) fn tokens(slice: &[u8]) -> Vec<&[u8]> {
     Regex::new(TOKENS_RE)
         .unwrap()
         .find_iter(slice)
@@ -268,7 +268,10 @@ impl Iterator for BytePairEncoder {
                     // By returning `None`, we stop the iteration. The `encode` function will use the last successfully
                     // generated token list from the previous `next()` call.
                     #[cfg(debug_assertions)]
-                    println!( "[WARNING]: Encoding value for {:?} not found.",String::from_utf8_lossy(&self.grapheme[start..end].concat()));
+                    println!(
+                        "[WARNING]: Encoding value for {:?} not found.",
+                        String::from_utf8_lossy(&self.grapheme[start..end].concat())
+                    );
                     return None;
                 }
             }
@@ -306,7 +309,7 @@ pub(crate) fn encode<T: Copy + Ord + Debug + Into<u32>>(
         let encoder = BytePairEncoder::new(graph, lookup);
         match encoder.last() {
             None => result.push(merge),
-            Some(merge) => result.push(merge)
+            Some(merge) => result.push(merge),
         }
     }
     result

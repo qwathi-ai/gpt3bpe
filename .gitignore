@@ -6,6 +6,7 @@ target/
 # Ignore dependency directories and lock files.
 node_modules/
 pnpm-lock.yaml
+tsconfig.json
 
 # Project-specific directories
 # Ignore directories for tensor data and parsing logic.

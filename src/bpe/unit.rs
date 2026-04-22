@@ -412,7 +412,7 @@ mod encoder {
     pub fn test_encode_pneumonoultramicroscopicsilicovolcanoconiosis() {
         let input = b"Pneumonoultramicroscopicsilicovolcanoconiosis";
         assert_eq!(
-            crate::bpe::encode(input, &crate::bpe::vocabulary::P50K_TOKENS).concat(), 
+            crate::bpe::encode(input, &crate::bpe::vocabulary::P50K_TOKENS).concat(),
             // [Openai](https://platform.openai.com/tokenizer) tokenizer output. But our merge table is not large enough to capture all the merges.
             // , vec![47, 25668, 261, 25955, 859, 2500, 1416, 404, 873, 41896, 709, 349, 5171, 36221, 42960]
             vec![

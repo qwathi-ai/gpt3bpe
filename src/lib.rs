@@ -11,10 +11,20 @@ mod bpe;
 
 fn read<T>(pointer: *const T, length: usize) -> &'static [T] {
     assert!(!pointer.is_null(), "[ERROR]: pointer is null.");
-    assert!(pointer.is_aligned(), "[ERROR]: pointer not properly aligned for type T.");
-    assert!(length < (usize::MAX / std::mem::size_of::<T>()) / 16, "[ERROR]: buffer overflow.");
+    assert!(
+        pointer.is_aligned(),
+        "[ERROR]: pointer not properly aligned for type T."
+    );
+    assert!(
+        length < (usize::MAX / std::mem::size_of::<T>()) / 16,
+        "[ERROR]: buffer overflow."
+    );
     let slice = unsafe { std::slice::from_raw_parts(pointer, length) };
-    assert_eq!(slice.len(),length,"[ERROR]: pointer not properly aligned.");
+    assert_eq!(
+        slice.len(),
+        length,
+        "[ERROR]: pointer not properly aligned."
+    );
     slice
 }
 
@@ -136,13 +146,25 @@ pub extern "C" fn decode_o200k(
     let mut decoding = bpe::decode(slice, &crate::bpe::vocabulary::O200K_UNICODES);
     for (idx, value) in decoding.drain(..).enumerate() {
         callback(idx, value)
-    };
+    }
 }
 
 #[cfg(feature = "embedding")]
 mod embedding;
 #[cfg(feature = "embedding")]
-const DIMENSIONS : usize = 300;
+use rusqlite::Connection;
+#[cfg(feature = "embedding")]
+use std::env;
+#[cfg(feature = "embedding")]
+use std::{
+    ffi::c_void,
+    sync::{Arc, LazyLock, Mutex},
+};
+#[cfg(feature = "embedding")]
+static CONNECTION: LazyLock<Arc<Mutex<Connection>>> = LazyLock::new(|| {
+    let location = env::var("EMBEDDING_LOCATION").ok();
+    Arc::new(Mutex::new(embedding::connection(location.as_deref())))
+});
 
 #[cfg(feature = "embedding")]
 #[no_mangle]
@@ -150,73 +172,94 @@ pub extern "C" fn embed(
     buffer: *const u8,
     buffer_length: usize,
     vector: *const f32,
-    vector_length: usize
+    vector_length: usize,
 ) -> bool {
     let slice = read::<u8>(buffer, buffer_length);
-    let embedding: &[f32; DIMENSIONS] = read::<f32>(vector, vector_length).try_into().unwrap();
-    match embedding::embed(slice, embedding) {
-        Ok(_) => true,
-        Err (_) => {
+    let embedding: &[f32; embedding::DIMENSIONS] =
+        read::<f32>(vector, vector_length).try_into().unwrap();
+    match embedding::embed(&CONNECTION.lock().unwrap(), slice, embedding) {
+        Ok(_) => true, // TODO: Fix this.
+        Err(_) => {
             #[cfg(debug_assertions)]
-            println!( "[WARNING]: Could not embed {:?}.", String::from_utf8(slice.to_vec()).unwrap_or_default());
-            false       
-        }
-    }
-}
-
-#[cfg(feature = "embedding")]
-use std::os::raw::c_char;
-#[cfg(feature = "embedding")]
-use std::ffi::CString;
-
-/// A C-compatible version of the `embedding::Top` struct for FFI.
-///
-/// Strings are represented as raw pointers to null-terminated C strings.
-/// The caller of the FFI function is responsible for freeing the memory
-/// for these strings.
-#[cfg(feature = "embedding")]
-#[repr(C)]
-struct TopFFI<const D: usize> {
-    pub rid: u16,
-    pub label: *const c_char,
-    pub vocab: *const c_char,
-    pub vector: [f32; D],
-    pub distance: f32,
-}
-
-#[cfg(feature = "embedding")]
-impl Into<TopFFI<{ DIMENSIONS }>> for embedding::Top<{ DIMENSIONS }> {
-    fn into(self) -> TopFFI<{ DIMENSIONS }> {
-        TopFFI {
-            rid: self.rid,
-            label: CString::new(self.label).unwrap().into_raw(),
-            vocab: CString::new(self.vocab).unwrap().into_raw(),
-            vector: self.vector as [f32; DIMENSIONS],
-            distance: self.distance,
+            println!(
+                "[WARNING]: Could not embed {:?}.",
+                String::from_utf8(slice.to_vec()).unwrap_or_default()
+            );
+            false
         }
     }
 }
 
 #[cfg(feature = "embedding")]
 #[no_mangle]
-pub extern "C" fn search (
+pub extern "C" fn search(
     buffer: *const u8,
     buffer_length: usize,
     k: u8,
-    callback: extern "C" fn(usize, *mut TopFFI<DIMENSIONS>)
-) {
+    callback: extern "C" fn(usize, usize, *mut f32),
+) -> *mut c_void {
     let slice = read::<u8>(buffer, buffer_length);
-    let mut top = match embedding::search::<DIMENSIONS>(slice, k) {
-        Ok(t) => t,
-        Err (e) => {
-            #[cfg(debug_assertions)]
-            println!( "[ERROR]: Search not found {:?}.\n{:?}", String::from_utf8(slice.to_vec()).unwrap_or_default(), e);
-            vec![]       
+    let mut top =
+        match embedding::search::<{ embedding::DIMENSIONS }>(&CONNECTION.lock().unwrap(), slice, k)
+        {
+            Ok(t) => t,
+            Err(e) => {
+                #[cfg(debug_assertions)]
+                println!(
+                    "[ERROR]: Search not found {:?}.\n{:?}",
+                    String::from_utf8(slice.to_vec()).unwrap_or_default(),
+                    e
+                );
+                vec![]
+            }
+        };
+    for (idx, value) in top.iter_mut().enumerate() {
+        let results = &mut value.vector;
+        let len = results.len();
+        let ptr = results.as_mut_ptr();
+        callback(idx, len, ptr);
+    }
+    let boxed_results = Box::new(top);
+    Box::into_raw(boxed_results) as *mut c_void
+}
+
+#[cfg(feature = "embedding")]
+#[no_mangle]
+pub extern "C" fn top(
+    vector: *const f32,
+    vector_length: usize,
+    k: u8,
+    callback: extern "C" fn(usize, usize, *mut u8),
+) -> *mut c_void {
+    let slice: &[f32; embedding::DIMENSIONS] =
+        read::<f32>(vector, vector_length).try_into().unwrap();
+    let mut top =
+        match embedding::top::<{ embedding::DIMENSIONS }>(&CONNECTION.lock().unwrap(), slice, k) {
+            Ok(t) => t,
+            Err(e) => {
+                #[cfg(debug_assertions)]
+                println!("[ERROR]: Top not found.\n{:?}", e);
+                vec![]
+            }
+        };
+    for (idx, value) in top.iter_mut().enumerate() {
+        let results = unsafe { value.label.as_bytes_mut() };
+        let len = results.len();
+        let ptr = results.as_mut_ptr();
+        callback(idx, len, ptr);
+    }
+    let boxed_results = Box::new(top);
+    Box::into_raw(boxed_results) as *mut c_void
+}
+
+#[cfg(feature = "embedding")]
+#[no_mangle]
+pub extern "C" fn free(ptr: *mut c_void) {
+    if !ptr.is_null() {
+        unsafe {
+            drop(Box::from_raw(
+                ptr as *mut Vec<embedding::Top<{ embedding::DIMENSIONS }>>,
+            ));
         }
-    };
-    for (idx, t) in top.drain(..).enumerate() {
-        println!("{:?}", t);
-        ;
-        callback(idx, Box::into_raw(Box::new(t.into())));
-    };
+    }
 }

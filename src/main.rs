@@ -1,4 +1,6 @@
 mod bpe;
+#[cfg(feature = "embeddings")]
+mod embeddings;
 use argh::FromArgs;
 use std::io::{self, BufRead, Write};
 use std::str::FromStr;

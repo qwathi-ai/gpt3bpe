@@ -149,36 +149,22 @@ pub extern "C" fn decode_o200k(
     }
 }
 
-#[cfg(feature = "embedding")]
-mod embedding;
-#[cfg(feature = "embedding")]
-use rusqlite::Connection;
-#[cfg(feature = "embedding")]
-use std::env;
-#[cfg(feature = "embedding")]
-use std::{
-    ffi::c_void,
-    sync::{Arc, LazyLock, Mutex},
-};
-#[cfg(feature = "embedding")]
-static CONNECTION: LazyLock<Arc<Mutex<Connection>>> = LazyLock::new(|| {
-    let location = env::var("EMBEDDING_LOCATION").ok();
-    Arc::new(Mutex::new(embedding::connection(location.as_deref())))
-});
+#[cfg(feature = "embeddings")]
+mod embeddings;
 
-#[cfg(feature = "embedding")]
+#[cfg(feature = "embeddings")]
 #[no_mangle]
-pub extern "C" fn embed(
+pub extern "C" fn insert(
     buffer: *const u8,
     buffer_length: usize,
     vector: *const f32,
     vector_length: usize,
 ) -> bool {
     let slice = read::<u8>(buffer, buffer_length);
-    let embedding: &[f32; embedding::DIMENSIONS] =
+    let embeddings: &[f32; embeddings::DIMENSIONS] =
         read::<f32>(vector, vector_length).try_into().unwrap();
-    match embedding::embed(&CONNECTION.lock().unwrap(), slice, embedding) {
-        Ok(_) => true, // TODO: Fix this.
+    match embeddings::insert(&embeddings::CONNECTION.lock().unwrap(), slice, embeddings) {
+        Ok(_) => true,
         Err(_) => {
             #[cfg(debug_assertions)]
             println!(
@@ -190,7 +176,7 @@ pub extern "C" fn embed(
     }
 }
 
-#[cfg(feature = "embedding")]
+#[cfg(feature = "embeddings")]
 #[no_mangle]
 pub extern "C" fn search(
     buffer: *const u8,
@@ -200,7 +186,7 @@ pub extern "C" fn search(
 ) -> *mut c_void {
     let slice = read::<u8>(buffer, buffer_length);
     let mut top =
-        match embedding::search::<{ embedding::DIMENSIONS }>(&CONNECTION.lock().unwrap(), slice, k)
+        match embeddings::search::<{ embeddings::DIMENSIONS }>(&CONNECTION.lock().unwrap(), slice, k)
         {
             Ok(t) => t,
             Err(e) => {
@@ -223,43 +209,43 @@ pub extern "C" fn search(
     Box::into_raw(boxed_results) as *mut c_void
 }
 
-#[cfg(feature = "embedding")]
-#[no_mangle]
-pub extern "C" fn top(
-    vector: *const f32,
-    vector_length: usize,
-    k: u8,
-    callback: extern "C" fn(usize, usize, *mut u8),
-) -> *mut c_void {
-    let slice: &[f32; embedding::DIMENSIONS] =
-        read::<f32>(vector, vector_length).try_into().unwrap();
-    let mut top =
-        match embedding::top::<{ embedding::DIMENSIONS }>(&CONNECTION.lock().unwrap(), slice, k) {
-            Ok(t) => t,
-            Err(e) => {
-                #[cfg(debug_assertions)]
-                println!("[ERROR]: Top not found.\n{:?}", e);
-                vec![]
-            }
-        };
-    for (idx, value) in top.iter_mut().enumerate() {
-        let results = unsafe { value.label.as_bytes_mut() };
-        let len = results.len();
-        let ptr = results.as_mut_ptr();
-        callback(idx, len, ptr);
-    }
-    let boxed_results = Box::new(top);
-    Box::into_raw(boxed_results) as *mut c_void
-}
+// #[cfg(feature = "embeddings")]
+// #[no_mangle]
+// pub extern "C" fn top(
+//     vector: *const f32,
+//     vector_length: usize,
+//     k: u8,
+//     callback: extern "C" fn(usize, usize, *mut u8),
+// ) -> *mut c_void {
+//     let slice: &[f32; embeddings::DIMENSIONS] =
+//         read::<f32>(vector, vector_length).try_into().unwrap();
+//     let mut top =
+//         match embeddings::top::<{ embeddings::DIMENSIONS }>(&CONNECTION.lock().unwrap(), slice, k) {
+//             Ok(t) => t,
+//             Err(e) => {
+//                 #[cfg(debug_assertions)]
+//                 println!("[ERROR]: Top not found.\n{:?}", e);
+//                 vec![]
+//             }
+//         };
+//     for (idx, value) in top.iter_mut().enumerate() {
+//         let results = unsafe { value.label.as_bytes_mut() };
+//         let len = results.len();
+//         let ptr = results.as_mut_ptr();
+//         callback(idx, len, ptr);
+//     }
+//     let boxed_results = Box::new(top);
+//     Box::into_raw(boxed_results) as *mut c_void
+// }
 
-#[cfg(feature = "embedding")]
-#[no_mangle]
-pub extern "C" fn free(ptr: *mut c_void) {
-    if !ptr.is_null() {
-        unsafe {
-            drop(Box::from_raw(
-                ptr as *mut Vec<embedding::Top<{ embedding::DIMENSIONS }>>,
-            ));
-        }
-    }
-}
+// #[cfg(feature = "embeddings")]
+// #[no_mangle]
+// pub extern "C" fn free(ptr: *mut c_void) {
+//     if !ptr.is_null() {
+//         unsafe {
+//             drop(Box::from_raw(
+//                 ptr as *mut Vec<embeddings::Top<{ embeddings::DIMENSIONS }>>,
+//             ));
+//         }
+//     }
+// }

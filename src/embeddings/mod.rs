@@ -1,6 +1,10 @@
 mod unit;
 use rusqlite::{ffi::sqlite3_auto_extension, Connection};
 use sqlite_vec::sqlite3_vec_init;
+use std::{
+    env,
+    sync::{Arc, LazyLock, Mutex},
+};
 use zerocopy::AsBytes;
 const PADDING: usize = 3;
 pub(crate) const DIMENSIONS: usize = 300;
@@ -22,29 +26,26 @@ pub(crate) const DIMENSIONS: usize = 300;
 /// # Returns
 ///
 /// An array `[T; 3]`.
-fn padding<const P: usize>(input: Vec<u32>) -> Result<[u32; P], &'static str> {
+pub (crate) fn padding<const P: usize>(input: Vec<u32>) -> Result<[u32; P], &'static str> {
     let mut result = [0u32; P];
-    if input.len() > P {
-        return Err("Token value too large.");
+    if input.len() > P || input.is_empty() {
+        return Err("Invalid token.");
     }
     // Pad with zeros at the beginning.
-    result[3 - input.len()..].copy_from_slice(&input);
+    result[P - input.len()..].copy_from_slice(&input);
     Ok(result)
 }
 
-use std::sync::Once;
-static SQLITE_VEC_INIT: Once = Once::new();
-
-pub(crate) fn connection(location: Option<&str>) -> Connection {
+pub (crate) fn connection(location: Option<&str>) -> Connection {
+    unsafe {
+        sqlite3_auto_extension(Some(std::mem::transmute(sqlite3_vec_init as *const ())));
+    }
     let connection = match location {
         Some(location) => Connection::open(location).unwrap_or_else(|_| {
             panic!("[ERROR]: Failed to open database in location {}", location)
         }),
-        None => Connection::open("./embeddings.db").expect("[ERROR]: Failed to open database"),
+        None => Connection::open_in_memory().expect("[ERROR]: Failed to open database in memory"),
     };
-    SQLITE_VEC_INIT.call_once(|| unsafe {
-        sqlite3_auto_extension(Some(std::mem::transmute(sqlite3_vec_init as *const ())));
-    });
     let schema = include_str!("./schema.sql");
     connection
         .execute_batch(&schema)
@@ -52,11 +53,32 @@ pub(crate) fn connection(location: Option<&str>) -> Connection {
     connection
 }
 
-pub(crate) fn embed<const D: usize>(
+pub (crate) static CONNECTION: LazyLock<Arc<Mutex<Connection>>> = LazyLock::new(|| {
+    let location = match env::var("EMBEDDING_LOCATION") {
+        Ok(l) => l,
+        Err(_) => {
+            #[cfg(debug_assertions)]
+            println!(  "[WARNING]: `EMBEDDING_LOCATION` environment variable not set. Defaulting to `./embeddings.db`" );
+            "./embeddings.db".to_string()
+        }
+    };
+    Arc::new(Mutex::new(connection(
+        Some(location).as_ref().map(|x| x.as_str()),
+    )))
+});
+
+
+pub(crate) fn insert<const D: usize>(
     conn: &Connection,
     slice: &[u8],
     vector: &[f32; D],
 ) -> Result<(), rusqlite::Error> {
+    if vector.len() != D || slice.is_empty() {
+        panic!(
+            "[ERROR]: Expecting non-empty slice and vector of length {:?}",
+            D
+        );
+    };
     for vocab in crate::bpe::vocabulary::Vocabularies::iter() {
         let (v, tokens) = match vocab {
             crate::bpe::vocabulary::Vocabularies::R50K => (
@@ -80,7 +102,7 @@ pub(crate) fn embed<const D: usize>(
         if let Err(_) = padding::<PADDING>(tokens) {
             #[cfg(debug_assertions)]
             println!(
-                "[WARNING]: Could not embed {:?}, token too long for vocabulary {:?}.",
+                "[WARNING]: Could not embed {:?} for vocabulary {:?}.",
                 label, vocab
             );
             continue;
@@ -97,11 +119,11 @@ pub(crate) fn embed<const D: usize>(
 }
 
 #[derive(Debug)]
-pub(crate) struct Top<const D: usize> {
+struct Top<const D: usize> {
     rid: u16,
     pub label: String,
     vocab: String,
-    distance: f32,
+    pub distance: f32,
     pub vector: [f32; D],
 }
 
@@ -110,6 +132,11 @@ pub(crate) fn search<const D: usize>(
     slice: &[u8],
     k: u8,
 ) -> Result<Vec<Top<D>>, rusqlite::Error> {
+    if k <= 0 || slice.is_empty() {
+        panic!(
+            "[ERROR]: Expecting non-empty slice and non-zero k value"
+        );
+    };
     let mut stmt = conn.prepare_cached("SELECT s.rid, s.label, w.vocab, s.rank as distance, e.vector FROM ( SELECT rid, label, rank FROM search WHERE label MATCH ? ORDER BY rank ASC LIMIT ?) AS s INNER JOIN words w ON s.rid = w.rid INNER JOIN embeddings e ON s.rid = e.rid ORDER BY s.rank ASC")?;
     let label = String::from_utf8(slice.to_vec()).expect("[ERROR]: Not a valid utf-8 string.");
     let result = stmt.query_map(rusqlite::params![label, k], |row| {
@@ -139,6 +166,12 @@ pub(crate) fn top<const D: usize>(
     vector: &[f32; D],
     k: u8,
 ) -> Result<Vec<Top<D>>, rusqlite::Error> {
+    if vector.len() != D || k <= 0 {
+        panic!(
+            "[ERROR]: Expecting a vector of length {:?} and non-zero k value",
+            D
+        );
+    };
     let mut stmt = conn.prepare_cached("SELECT e.rid, s.label, w.vocab, e.distance, e.vector FROM ( SELECT rid, vector, distance FROM embeddings WHERE vector MATCH ? ORDER BY distance ASC LIMIT ?) AS e INNER JOIN words w ON e.rid = w.rid INNER JOIN search s ON e.rid = s.rid ORDER BY e.distance ASC")?;
     let result = stmt.query_map(rusqlite::params![vector.as_bytes(), k], |row| {
         Ok(Top {

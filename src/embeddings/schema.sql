@@ -1,6 +1,7 @@
 CREATE TABLE IF NOT EXISTS words (
     rid INTEGER PRIMARY KEY AUTOINCREMENT,
-    vocab TEXT NOT NULL CHECK (vocab IN ('P50K','R50K','CL100K','O200K'))
+    vocab TEXT NOT NULL CHECK (vocab IN ('P50K','R50K','CL100K','O200K')),
+    label TEXT NOT NULL UNIQUE
     -- terminals TEXT[]
 );
 
@@ -30,8 +31,8 @@ JOIN embeddings e
 CREATE TRIGGER IF NOT EXISTS trg_insert_word_embeddings
 INSTEAD OF INSERT ON word_embeddings
 BEGIN
-    INSERT OR ROLLBACK INTO words (vocab) 
-    VALUES (new.vocab);
+    INSERT OR ROLLBACK INTO words (vocab, label) 
+    VALUES (new.vocab, new.label);
     
     INSERT OR ROLLBACK INTO embeddings (rid, vector) 
     VALUES (last_insert_rowid(), new.vector);

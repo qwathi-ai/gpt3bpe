@@ -25,7 +25,7 @@ To build the CLI tool, you'll need the Rust toolchain installed.
 
 2.  Build the project:
     ```sh
-    cargo build --release
+    cargo build --release --features embedding
     ```
 
 3.  The executable will be located at `target/release/gpt3bpe`. You can copy it to a directory in your `PATH`, for example:
@@ -124,7 +124,7 @@ crate-type = ["cdylib"]
 
 Then build it:
 ```sh
-cargo build --release
+cargo build --release --features embedding
 ```
 This will produce a shared library (e.g., `libgpt3bpe.so` on Linux, `libgpt3bpe.dylib` on macOS, `gpt3bpe.dll` on Windows) in the `target/release` directory.
 

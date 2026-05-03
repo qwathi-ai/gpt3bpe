@@ -1,4 +1,6 @@
 mod bpe;
+#[cfg(feature = "embeddings")]
+mod embeddings;
 use argh::FromArgs;
 use std::io::{self, BufRead, Write};
 use std::str::FromStr;
@@ -163,7 +165,7 @@ fn main() {
                     };
                     let output = tokens
                         .iter()
-                        .map(|t| t.to_string())
+                        .flat_map(|t| -> Vec<String> { t.iter().map(|u| u.to_string()).collect() })
                         .collect::<Vec<_>>()
                         .join(" ");
                     println!("{output}");

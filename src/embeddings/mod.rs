@@ -53,20 +53,6 @@ pub (crate) fn connection(location: Option<&str>) -> Connection {
     connection
 }
 
-pub (crate) static CONNECTION: LazyLock<Arc<Mutex<Connection>>> = LazyLock::new(|| {
-    let location = match env::var("EMBEDDING_LOCATION") {
-        Ok(l) => l,
-        Err(_) => {
-            #[cfg(debug_assertions)]
-            println!(  "[WARNING]: `EMBEDDING_LOCATION` environment variable not set. Defaulting to `./embeddings.db`" );
-            "./embeddings.db".to_string()
-        }
-    };
-    Arc::new(Mutex::new(connection(
-        Some(location).as_ref().map(|x| x.as_str()),
-    )))
-});
-
 
 pub(crate) fn insert<const D: usize>(
     conn: &Connection,
@@ -119,7 +105,7 @@ pub(crate) fn insert<const D: usize>(
 }
 
 #[derive(Debug)]
-struct Top<const D: usize> {
+pub (crate)struct Row<const D: usize> {
     rid: u16,
     pub label: String,
     vocab: String,
@@ -131,7 +117,7 @@ pub(crate) fn search<const D: usize>(
     conn: &Connection,
     slice: &[u8],
     k: u8,
-) -> Result<Vec<Top<D>>, rusqlite::Error> {
+) -> Result<Vec<Row<D>>, rusqlite::Error> {
     if k <= 0 || slice.is_empty() {
         panic!(
             "[ERROR]: Expecting non-empty slice and non-zero k value"
@@ -140,7 +126,7 @@ pub(crate) fn search<const D: usize>(
     let mut stmt = conn.prepare_cached("SELECT s.rid, s.label, w.vocab, s.rank as distance, e.vector FROM ( SELECT rid, label, rank FROM search WHERE label MATCH ? ORDER BY rank ASC LIMIT ?) AS s INNER JOIN words w ON s.rid = w.rid INNER JOIN embeddings e ON s.rid = e.rid ORDER BY s.rank ASC")?;
     let label = String::from_utf8(slice.to_vec()).expect("[ERROR]: Not a valid utf-8 string.");
     let result = stmt.query_map(rusqlite::params![label, k], |row| {
-        Ok(Top {
+        Ok(Row {
             rid: row.get(0)?,
             label: row.get(1)?,
             vocab: row.get(2)?,
@@ -161,11 +147,11 @@ pub(crate) fn search<const D: usize>(
     result.collect()
 }
 
-pub(crate) fn top<const D: usize>(
+pub(crate) fn euclid<const D: usize>(
     conn: &Connection,
     vector: &[f32; D],
     k: u8,
-) -> Result<Vec<Top<D>>, rusqlite::Error> {
+) -> Result<Vec<Row<D>>, rusqlite::Error> {
     if vector.len() != D || k <= 0 {
         panic!(
             "[ERROR]: Expecting a vector of length {:?} and non-zero k value",
@@ -174,7 +160,7 @@ pub(crate) fn top<const D: usize>(
     };
     let mut stmt = conn.prepare_cached("SELECT e.rid, s.label, w.vocab, e.distance, e.vector FROM ( SELECT rid, vector, distance FROM embeddings WHERE vector MATCH ? ORDER BY distance ASC LIMIT ?) AS e INNER JOIN words w ON e.rid = w.rid INNER JOIN search s ON e.rid = s.rid ORDER BY e.distance ASC")?;
     let result = stmt.query_map(rusqlite::params![vector.as_bytes(), k], |row| {
-        Ok(Top {
+        Ok(Row {
             rid: row.get(0)?,
             label: row.get(1)?,
             vocab: row.get(2)?,

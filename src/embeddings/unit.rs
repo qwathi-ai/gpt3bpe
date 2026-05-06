@@ -301,16 +301,16 @@ mod search {
 }
 
 #[cfg(test)]
-mod top {
+mod euclid {
     #[test]
     #[should_panic(expected = "[ERROR]: Expecting a vector of length 300 and non-zero k value")]
-    fn test_top_zero_k() {
+    fn test_euclid_zero_k() {
         let conn = crate::embeddings::connection(None);
         let row = crate::embeddings::unit::VECTORS[0];
-        crate::embeddings::top::<{ crate::embeddings::DIMENSIONS }>(&conn, &row.1, 0).unwrap();
+        crate::embeddings::euclid::<{ crate::embeddings::DIMENSIONS }>(&conn, &row.1, 0).unwrap();
     }
     #[test]
-    fn test_top() {
+    fn test_euclid() {
         let conn = crate::embeddings::connection(None);
         for row in crate::embeddings::unit::VECTORS.iter() {
             crate::embeddings::insert::<{ crate::embeddings::DIMENSIONS }>(
@@ -323,7 +323,7 @@ mod top {
 
         let row = crate::embeddings::unit::VECTORS[0];
         let result =
-            crate::embeddings::top::<{ crate::embeddings::DIMENSIONS }>(&conn, &row.1, 10)
+            crate::embeddings::euclid::<{ crate::embeddings::DIMENSIONS }>(&conn, &row.1, 10)
                 .unwrap();
         assert_eq!(result[0].vector, row.1);
         assert_eq!(result[0].label, row.0);

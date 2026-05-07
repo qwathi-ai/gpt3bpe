@@ -243,7 +243,7 @@ mod insert {
     }
     #[test]
     #[should_panic(
-        expected = "[ERROR]: Failed to insert embedding: SqliteFailure(Error { code: ConstraintViolation, extended_code: 2067 }, Some(\"UNIQUE constraint failed: words.label\"))"
+        expected = "called `Result::unwrap()` on an `Err` value: SqliteFailure(Error { code: ConstraintViolation, extended_code: 2067 }, Some(\"UNIQUE constraint failed: words.label\"))"
     )]
     fn test_insert_constraint_violation() {
         let conn = crate::embeddings::connection(None);
@@ -301,16 +301,16 @@ mod search {
 }
 
 #[cfg(test)]
-mod euclid {
+mod nearest {
     #[test]
     #[should_panic(expected = "[ERROR]: Expecting a vector of length 300 and non-zero k value")]
-    fn test_euclid_zero_k() {
+    fn test_nearest_zero_k() {
         let conn = crate::embeddings::connection(None);
         let row = crate::embeddings::unit::VECTORS[0];
-        crate::embeddings::euclid::<{ crate::embeddings::DIMENSIONS }>(&conn, &row.1, 0).unwrap();
+        crate::embeddings::nearest::<{ crate::embeddings::DIMENSIONS }>(&conn, &row.1, 0).unwrap();
     }
     #[test]
-    fn test_euclid() {
+    fn test_nearest() {
         let conn = crate::embeddings::connection(None);
         for row in crate::embeddings::unit::VECTORS.iter() {
             crate::embeddings::insert::<{ crate::embeddings::DIMENSIONS }>(
@@ -323,7 +323,7 @@ mod euclid {
 
         let row = crate::embeddings::unit::VECTORS[0];
         let result =
-            crate::embeddings::euclid::<{ crate::embeddings::DIMENSIONS }>(&conn, &row.1, 10)
+            crate::embeddings::nearest::<{ crate::embeddings::DIMENSIONS }>(&conn, &row.1, 10)
                 .unwrap();
         assert_eq!(result[0].vector, row.1);
         assert_eq!(result[0].label, row.0);

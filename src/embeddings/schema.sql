@@ -2,16 +2,15 @@ CREATE TABLE IF NOT EXISTS words (
     rid INTEGER PRIMARY KEY AUTOINCREMENT,
     vocab TEXT NOT NULL CHECK (vocab IN ('P50K','R50K','CL100K','O200K')),
     label TEXT NOT NULL UNIQUE
-    -- terminals TEXT[]
 );
 
 CREATE VIRTUAL TABLE IF NOT EXISTS embeddings using vec0 (
-    rid INTEGER PRIMARY KEY,
+    rid INTEGER PRIMARY KEY FOREIGN KEY REFERENCES words(rid) ON DELETE CASCADE,
     vector FLOAT[300]
 );
 
 CREATE VIRTUAL TABLE IF NOT EXISTS search USING fts5 (
-    rid, 
+    rid,
     label,
     tokenize='trigram'
 );
@@ -45,6 +44,6 @@ CREATE TRIGGER IF NOT EXISTS trg_delete_word_embeddings
 INSTEAD OF DELETE ON word_embeddings 
 BEGIN
   DELETE FROM words WHERE rid = old.rid;
-  DELETE FROM embeddings WHERE rid = old.rid;
   DELETE FROM search WHERE rid = old.rid;
+--   DELETE FROM embeddings WHERE rid = old.rid;
 END;

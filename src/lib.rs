@@ -163,19 +163,33 @@ pub extern "C" fn insert(
     let slice = read::<u8>(buffer, buffer_length);
     let embeddings: &[f32; embeddings::DIMENSIONS] =
         read::<f32>(vector, vector_length).try_into().unwrap();
-    let location = match std::env::var("EMBEDDING_LOCATION") {
+    let location = match std::env::var("EMBEDDINGS") {
         Ok(l) => Some(l),
-        Err(_) => None
+        Err(_) => {
+            panic!(
+                "[ERROR]: `EMBEDDINGS` environment variable not set."
+            );           
+        }
     };
     match embeddings::insert(&embeddings::connection(location.as_deref()), slice, embeddings) {
         Ok(_) => true,
-        Err(_) => {
-            #[cfg(debug_assertions)]
-            println!(
-                "[WARNING]: Could not embed {:?}.",
-                String::from_utf8(slice.to_vec()).unwrap_or_default()
-            );
-            false
+        Err(e) => {
+            if e.sqlite_error_code() == Some(rusqlite::ErrorCode::ConstraintViolation) {
+                #[cfg(debug_assertions)]
+                println!(
+                    "[WARNING]: {:?} aleardy exists",
+                    String::from_utf8(slice.to_vec()).unwrap_or_default()
+                );
+                true         
+            } else {
+                #[cfg(debug_assertions)]
+                println!(
+                    "[ERROR]: Could not insert {:?}.\n{:?}",
+                    String::from_utf8(slice.to_vec()).unwrap_or_default(),
+                    e
+                );
+                false
+            }
         }
     }
 }
@@ -186,64 +200,49 @@ pub extern "C" fn search(
     buffer: *const u8,
     buffer_length: usize,
     k: u8,
-    callback: extern "C" fn(usize, usize, usize, f32),
+    callback: extern "C" fn(u16, f32, usize, f32),
 ) {
     let slice = read::<u8>(buffer, buffer_length);
-    let location = match std::env::var("EMBEDDING_LOCATION") {
+    let location = match std::env::var("EMBEDDINGS") {
         Ok(l) => Some(l),
-        Err(_) => None
+        Err(_) => {
+            panic!(
+                "[ERROR]: `EMBEDDINGS` environment variable not set."
+            );           
+        }
     };
-    let mut top =
-        match embeddings::search::<{ embeddings::DIMENSIONS }>(&embeddings::connection(location.as_deref()), slice, k)
-        {
-            Ok(t) => t,
-            Err(e) => {
-                #[cfg(debug_assertions)]
-                println!(
-                    "[ERROR]: Search not found {:?}.\n{:?}",
-                    String::from_utf8(slice.to_vec()).unwrap_or_default(),
-                    e
-                );
-                vec![]
-            }
-        };
-    for (idx, results) in top.drain(..).enumerate() {
-        let len = results.vector.len();
-        for (position, value) in results.vector.iter().enumerate() {
-            println!("idx: {:?} len: {:?} position: {:?} value: {:?}", idx, len, position, value);
-            callback( idx, len, position, *value);
+    let mut top = embeddings::search::<{ embeddings::DIMENSIONS }>(&embeddings::connection(location.as_deref()), slice, k).unwrap();
+    for row in top.drain(..) {
+        for (position, value) in row.vector.iter().enumerate() {
+            callback( row.rid, row.distance, position, *value);
         };
     };
 }
 
 #[cfg(feature = "embeddings")]
 #[no_mangle]
-pub extern "C" fn euclid(
+pub extern "C" fn nearest(
     vector: *const f32,
     vector_length: usize,
     k: u8,
-    callback: extern "C" fn(usize, usize, usize, u8),
+    callback: extern "C" fn(u16, f32, usize, usize, u8),
 ) {
     let slice: &[f32; embeddings::DIMENSIONS] =
         read::<f32>(vector, vector_length).try_into().unwrap();
-    let location = match std::env::var("EMBEDDING_LOCATION") {
+    let location = match std::env::var("EMBEDDINGS") {
         Ok(l) => Some(l),
-        Err(_) => None
+        Err(_) => {
+            panic!(
+                "[ERROR]: `EMBEDDINGS` environment variable not set."
+            );           
+        }
     };
-    let mut top =
-        match embeddings::euclid::<{ embeddings::DIMENSIONS }>(&embeddings::connection(location.as_deref()), slice, k) {
-            Ok(t) => t,
-            Err(e) => {
-                #[cfg(debug_assertions)]
-                println!("[ERROR]: Top not found.\n{:?}", e);
-                vec![]
-            }
-        };
-    for (idx, results) in top.drain(..).enumerate() {
-        let bytes = results.label.as_bytes();
+    let mut top = embeddings::nearest::<{ embeddings::DIMENSIONS }>(&embeddings::connection(location.as_deref()), slice, k).unwrap();
+    for row in top.drain(..) {
+        let bytes = row.label.as_bytes();
         let len = bytes.len();
         for (position, value) in bytes.iter().enumerate() {
-            callback( idx, len,position, *value);
+            callback( row.rid, row.distance, len, position, *value);
         };
     };
 }

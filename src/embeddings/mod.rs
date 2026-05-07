@@ -1,10 +1,7 @@
 mod unit;
 use rusqlite::{ffi::sqlite3_auto_extension, Connection};
 use sqlite_vec::sqlite3_vec_init;
-use std::{
-    env,
-    sync::{Arc, LazyLock, Mutex},
-};
+use std::sync::Once;
 use zerocopy::AsBytes;
 const PADDING: usize = 3;
 pub(crate) const DIMENSIONS: usize = 300;
@@ -36,10 +33,18 @@ pub (crate) fn padding<const P: usize>(input: Vec<u32>) -> Result<[u32; P], &'st
     Ok(result)
 }
 
+static SQLITE_VEC_INIT: Once = Once::new();
+
 pub (crate) fn connection(location: Option<&str>) -> Connection {
+
     unsafe {
         sqlite3_auto_extension(Some(std::mem::transmute(sqlite3_vec_init as *const ())));
     }
+    SQLITE_VEC_INIT.call_once(|| {
+        // This should only be called once per process.
+        // SAFETY: `sqlite3_vec_init` is a valid extension entry point.
+        unsafe { sqlite3_auto_extension(Some(std::mem::transmute(sqlite3_vec_init as *const ()))) };
+    });
     let connection = match location {
         Some(location) => Connection::open(location).unwrap_or_else(|_| {
             panic!("[ERROR]: Failed to open database in location {}", location)
@@ -93,12 +98,8 @@ pub(crate) fn insert<const D: usize>(
             );
             continue;
         };
-        let mut stmt = conn
-            .prepare_cached("INSERT INTO word_embeddings (label, vocab, vector) VALUES (?, ?, ?)")
-            .expect("[ERROR]: Failed to prepare statement");
-
-        stmt.execute(rusqlite::params![label, v, vector.as_bytes()])
-            .expect("[ERROR]: Failed to insert embedding");
+        let mut stmt = conn.prepare_cached("INSERT INTO word_embeddings (label, vocab, vector) VALUES (?, ?, ?)")?;
+        stmt.execute(rusqlite::params![label, v, vector.as_bytes()])?;
         break;
     }
     Ok(())
@@ -106,12 +107,36 @@ pub(crate) fn insert<const D: usize>(
 
 #[derive(Debug)]
 pub (crate)struct Row<const D: usize> {
-    rid: u16,
+    pub rid: u16,
     pub label: String,
-    vocab: String,
     pub distance: f32,
     pub vector: [f32; D],
 }
+
+// pub(crate) fn get<const D: usize>(
+//     conn: &Connection,
+//     rid: u16
+// ) -> Result<Option<Row<D>>, rusqlite::Error> {
+//     let mut stmt = conn.prepare_cached("SELECT w.rid, s.label, w.vocab, e.vector FROM words AS w INNER JOIN embeddings AS e ON w.rid = e.rid INNER JOIN search AS s ON w.rid = s.rid WHERE w.rid = ?")?;
+//     let mut result = stmt.query_map(rusqlite::params![rid], |row| {
+//         Ok(Row {
+//             rid: row.get(0)?,
+//             label: row.get(1)?,
+//             distance: 0.0,
+//             vector: {
+//                 let bytes: Vec<u8> = row.get(3)?;
+//                 let mut arr = [0.0; D];
+//                 bytes
+//                     .chunks_exact(4)
+//                     .map(|a| f32::from_le_bytes(a.try_into().unwrap()))
+//                     .enumerate()
+//                     .for_each(|(i, f)| arr[i] = f);
+//                 arr
+//             },
+//         })
+//     })?;
+//     result.next().transpose()
+// }
 
 pub(crate) fn search<const D: usize>(
     conn: &Connection,
@@ -129,7 +154,6 @@ pub(crate) fn search<const D: usize>(
         Ok(Row {
             rid: row.get(0)?,
             label: row.get(1)?,
-            vocab: row.get(2)?,
             distance: row.get(3)?,
             vector: {
                 let bytes: Vec<u8> = row.get(4)?;
@@ -147,7 +171,7 @@ pub(crate) fn search<const D: usize>(
     result.collect()
 }
 
-pub(crate) fn euclid<const D: usize>(
+pub(crate) fn nearest<const D: usize>(
     conn: &Connection,
     vector: &[f32; D],
     k: u8,
@@ -163,7 +187,6 @@ pub(crate) fn euclid<const D: usize>(
         Ok(Row {
             rid: row.get(0)?,
             label: row.get(1)?,
-            vocab: row.get(2)?,
             distance: row.get(3)?,
             vector: {
                 let bytes: Vec<u8> = row.get(4)?;

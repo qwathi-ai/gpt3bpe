@@ -1,8 +1,8 @@
-# Word Embedding Module
+# Embeddings Module
 
 ## Overview
 
-This module provides functionality for creating and searching word embeddings using a SQLite database. It leverages the `sqlite-vec` extension to enable efficient vector similarity searches directly within SQLite.
+This module provides functionality for creating and searching word embeddings using a SQLite database. It is available when the `embeddings` feature is enabled. It leverages the `sqlite-vec` extension to enable efficient vector similarity searches directly within SQLite.
 
 The primary purpose is to store text labels and their corresponding vector representations (embeddings) and then perform nearest-neighbor searches to find similar items based on either text labels or vector queries.
 
@@ -12,15 +12,18 @@ The primary purpose is to store text labels and their corresponding vector repre
 
 This is the main file of the module, containing the core logic for:
 
-*   **Database Connection**: Establishes a connection to a SQLite database (defaulting to `./embeddings.db`) and initializes the `sqlite-vec` extension.
-*   **Embedding Storage**: The `embed` function takes a text label and its vector embedding, tokenizes the label using various BPE vocabularies, and stores it in the database.
-*   **Vector Search**:
-    *   `search`: Finds the top `k` most similar items to a given text label using FTS5 for text matching and then retrieving the associated vectors.
-    *   `top`: Finds the top `k` most similar items to a given vector using `sqlite-vec` for vector similarity search.
+*   **Database Connection**: Establishes a connection to a SQLite database. The path to the database is expected to be provided via the `EMBEDDINGS` environment variable. The module initializes the `sqlite-vec` extension on the connection.
+*   **`insert`**: Takes a text label and its vector embedding and stores it in the database.
+*   **`search`**: Finds the top `k` most similar items to a given text label by first finding the corresponding vector and then performing a vector similarity search.
+*   **`nearest`**: Finds the top `k` most similar items to a given vector using `sqlite-vec` for vector similarity search.
 
 ### `schema.sql`
 
-This file defines the database schema, which is executed when a connection is first established. It sets up the necessary tables and virtual tables for storing text, vocabularies, and vector embeddings, including FTS5 tables for text search and `vec0` virtual tables for vector search.
+This file defines the database schema, which is executed when a connection is first established. It sets up the necessary tables for storing vector embeddings, including a `vec0` virtual table for efficient vector search.
+
+### `unit.rs`
+
+This file contains unit tests for the embeddings module, ensuring that the `insert`, `search`, and `nearest` functions work as expected.
 
 ### `pos.md`
 

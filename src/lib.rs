@@ -9,6 +9,22 @@
 // //!
 mod bpe;
 
+/// Reads data from a raw pointer into a slice.
+///
+/// This function is unsafe and should be used with caution. It performs several checks to ensure memory safety.
+///
+/// # Arguments
+///
+/// * `pointer` - A raw pointer to the data.
+/// * `length` - The number of elements to read.
+///
+/// # Panics
+///
+/// This function will panic if:
+/// * The pointer is null.
+/// * The pointer is not properly aligned for type `T`.
+/// * The requested length could lead to a buffer overflow.
+/// * The length of the created slice does not match the requested length.
 fn read<T>(pointer: *const T, length: usize) -> &'static [T] {
     assert!(!pointer.is_null(), "[ERROR]: pointer is null.");
     assert!(
@@ -28,6 +44,13 @@ fn read<T>(pointer: *const T, length: usize) -> &'static [T] {
     slice
 }
 
+/// Splits a byte buffer into grapheme clusters.
+///
+/// # Arguments
+///
+/// * `buffer` - A raw pointer to the byte buffer.
+/// * `length` - The length of the buffer.
+/// * `callback` - A C-compatible function that is called for each byte of the resulting grapheme clusters. It receives the index and the byte value.
 #[no_mangle]
 pub extern "C" fn grapheme(buffer: *const u8, length: usize, callback: extern "C" fn(usize, u8)) {
     let slice = read(buffer, length);
@@ -38,6 +61,13 @@ pub extern "C" fn grapheme(buffer: *const u8, length: usize, callback: extern "C
     }
 }
 
+/// Encodes a byte buffer using the r50k vocabulary.
+///
+/// # Arguments
+///
+/// * `buffer` - A raw pointer to the byte buffer.
+/// * `length` - The length of the buffer.
+/// * `callback` - A C-compatible function that is called for each resulting token. It receives the index and the token value.
 #[no_mangle]
 pub extern "C" fn encode_r50k(
     buffer: *const u8,
@@ -51,6 +81,13 @@ pub extern "C" fn encode_r50k(
     }
 }
 
+/// Decodes a buffer of r50k tokens into bytes.
+///
+/// # Arguments
+///
+/// * `buffer` - A raw pointer to the token buffer.
+/// * `length` - The length of the buffer.
+/// * `callback` - A C-compatible function that is called for each resulting byte. It receives the index and the byte value.
 #[no_mangle]
 pub extern "C" fn decode_r50k(
     buffer: *const u16,
@@ -65,6 +102,13 @@ pub extern "C" fn decode_r50k(
     }
 }
 
+/// Encodes a byte buffer using the p50k vocabulary.
+///
+/// # Arguments
+///
+/// * `buffer` - A raw pointer to the byte buffer.
+/// * `length` - The length of the buffer.
+/// * `callback` - A C-compatible function that is called for each resulting token. It receives the index and the token value.
 #[no_mangle]
 pub extern "C" fn encode_p50k(
     buffer: *const u8,
@@ -79,6 +123,14 @@ pub extern "C" fn encode_p50k(
     }
 }
 
+
+/// Decodes a buffer of p50k tokens into bytes.
+///
+/// # Arguments
+///
+/// * `buffer` - A raw pointer to the token buffer.
+/// * `length` - The length of the buffer.
+/// * `callback` - A C-compatible function that is called for each resulting byte. It receives the index and the byte value.
 #[no_mangle]
 pub extern "C" fn decode_p50k(
     buffer: *const u16,
@@ -93,6 +145,13 @@ pub extern "C" fn decode_p50k(
     }
 }
 
+/// Encodes a byte buffer using the cl100k vocabulary.
+///
+/// # Arguments
+///
+/// * `buffer` - A raw pointer to the byte buffer.
+/// * `length` - The length of the buffer.
+/// * `callback` - A C-compatible function that is called for each resulting token. It receives the index and the token value.
 #[no_mangle]
 pub extern "C" fn encode_cl100k(
     buffer: *const u8,
@@ -107,6 +166,14 @@ pub extern "C" fn encode_cl100k(
     }
 }
 
+
+/// Decodes a buffer of cl100k tokens into bytes.
+///
+/// # Arguments
+///
+/// * `buffer` - A raw pointer to the token buffer.
+/// * `length` - The length of the buffer.
+/// * `callback` - A C-compatible function that is called for each resulting byte. It receives the index and the byte value.
 #[no_mangle]
 pub extern "C" fn decode_cl100k(
     buffer: *const u32,
@@ -121,6 +188,13 @@ pub extern "C" fn decode_cl100k(
     }
 }
 
+/// Encodes a byte buffer using the o200k vocabulary.
+///
+/// # Arguments
+///
+/// * `buffer` - A raw pointer to the byte buffer.
+/// * `length` - The length of the buffer.
+/// * `callback` - A C-compatible function that is called for each resulting token. It receives the index and the token value.
 #[no_mangle]
 pub extern "C" fn encode_o200k(
     buffer: *const u8,
@@ -135,6 +209,14 @@ pub extern "C" fn encode_o200k(
     }
 }
 
+
+/// Decodes a buffer of o200k tokens into bytes.
+///
+/// # Arguments
+///
+/// * `buffer` - A raw pointer to the token buffer.
+/// * `length` - The length of the buffer.
+/// * `callback` - A C-compatible function that is called for each resulting byte. It receives the index and the byte value.
 #[no_mangle]
 pub extern "C" fn decode_o200k(
     buffer: *const u32,
@@ -152,6 +234,24 @@ pub extern "C" fn decode_o200k(
 #[cfg(feature = "embeddings")]
 mod embeddings;
 
+/// Inserts a text and its corresponding embedding vector into the database.
+///
+/// This function is only available when the `embeddings` feature is enabled.
+///
+/// # Arguments
+///
+/// * `buffer` - A raw pointer to the byte buffer representing the text.
+/// * `buffer_length` - The length of the text buffer.
+/// * `vector` - A raw pointer to the embedding vector.
+/// * `vector_length` - The length of the vector.
+///
+/// # Returns
+///
+/// Returns `true` if the insertion was successful or if the text already exists in the database, `false` otherwise.
+///
+/// # Panics
+///
+/// This function will panic if the `EMBEDDINGS` environment variable is not set.
 #[cfg(feature = "embeddings")]
 #[no_mangle]
 pub extern "C" fn insert(
@@ -194,6 +294,20 @@ pub extern "C" fn insert(
     }
 }
 
+/// Searches for the most similar embeddings to a given text.
+///
+/// This function is only available when the `embeddings` feature is enabled.
+///
+/// # Arguments
+///
+/// * `buffer` - A raw pointer to the byte buffer representing the text.
+/// * `buffer_length` - The length of the text buffer.
+/// * `k` - The number of nearest neighbors to retrieve.
+/// * `callback` - A C-compatible function that is called for each element of the resulting vectors. It receives the row ID, distance, vector position, and vector value.
+///
+/// # Panics
+///
+/// This function will panic if the `EMBEDDINGS` environment variable is not set.
 #[cfg(feature = "embeddings")]
 #[no_mangle]
 pub extern "C" fn search(
@@ -219,6 +333,20 @@ pub extern "C" fn search(
     };
 }
 
+/// Finds the nearest neighbors to a given embedding vector.
+///
+/// This function is only available when the `embeddings` feature is enabled.
+///
+/// # Arguments
+///
+/// * `vector` - A raw pointer to the embedding vector.
+/// * `vector_length` - The length of the vector.
+/// * `k` - The number of nearest neighbors to retrieve.
+/// * `callback` - A C-compatible function that is called for each byte of the resulting labels. It receives the row ID, distance, label length, byte position, and byte value.
+///
+/// # Panics
+///
+/// This function will panic if the `EMBEDDINGS` environment variable is not set.
 #[cfg(feature = "embeddings")]
 #[no_mangle]
 pub extern "C" fn nearest(

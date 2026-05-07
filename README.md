@@ -8,6 +8,7 @@ It is inspired by Andrej Karpathy's [picoGPT](https://github.com/jaymody/picoGPT
 
 *   **High Performance**: Written in Rust for speed and memory safety.
 *   **Multiple Vocabularies**: Supports `p50k_base`, `r50k_base`, `cl100k_base`, and `o200k_base` vocabularies.
+*   **Embeddings**: Supports vector embeddings for similarity search, backed by SQLite and the `sqlite-vec` extension (optional feature).
 *   **Streaming CLI**: The command-line tool processes input from `stdin`, making it easy to use in shell pipelines.
 *   **Flexible Interface**: Can be used as a standalone CLI tool or as a shared library via a C-compatible Foreign Function Interface (FFI).
 
@@ -25,7 +26,11 @@ To build the CLI tool, you'll need the Rust toolchain installed.
 
 2.  Build the project:
     ```sh
-    cargo build --release --features embedding
+    cargo build --release
+    ```
+    To include the embeddings functionality, build with the `embeddings` feature:
+    ```sh
+    cargo build --release --features embeddings
     ```
 
 3.  The executable will be located at `target/release/gpt3bpe`. You can copy it to a directory in your `PATH`, for example:
@@ -105,8 +110,8 @@ gpt3bpe --help
 
 The tool supports several vocabularies used by different GPT models. The `-v` flag allows you to choose one.
 
-*   **`p50k`** (default): `p50k_base`. For models like `text-davinci-002`. Encodes to `u16` values.
 *   **`r50k`**: `r50k_base` (or `gpt2`). For older models like `text-davinci-001`. Encodes to `u16` values.
+*   **`p50k`** (default): `p50k_base`. For models like `text-davinci-002`. Encodes to `u16` values.
 *   **`cl100k`**: `cl100k_base`. For models like `gpt-3.5-turbo` and `gpt-4`. Encodes to `u32` values.
 *   **`o200k`**: `o200k_base`. For models like `gpt-4o`. Encodes to `u32` values.
 
@@ -124,7 +129,11 @@ crate-type = ["cdylib"]
 
 Then build it:
 ```sh
-cargo build --release --features embedding
+cargo build --release
+```
+Or with embeddings:
+```sh
+cargo build --release --features embeddings
 ```
 This will produce a shared library (e.g., `libgpt3bpe.so` on Linux, `libgpt3bpe.dylib` on macOS, `gpt3bpe.dll` on Windows) in the `target/release` directory.
 
@@ -137,11 +146,11 @@ The library exposes the following functions:
 void grapheme(const uint8_t* buffer, size_t length, void (*callback)(size_t, uint8_t));
 
 // r50k vocabulary
-void encode_r50k(const uint8_t* buffer, size_t length, void (*callback)(size_t, uint32_t));
+void encode_r50k(const uint8_t* buffer, size_t length, void (*callback)(size_t, uint16_t));
 void decode_r50k(const uint16_t* buffer, size_t length, void (*callback)(size_t, uint8_t));
 
 // p50k vocabulary
-void encode_p50k(const uint8_t* buffer, size_t length, void (*callback)(size_t, uint32_t));
+void encode_p50k(const uint8_t* buffer, size_t length, void (*callback)(size_t, uint16_t));
 void decode_p50k(const uint16_t* buffer, size_t length, void (*callback)(size_t, uint8_t));
 
 // cl100k vocabulary
@@ -151,6 +160,17 @@ void decode_cl100k(const uint32_t* buffer, size_t length, void (*callback)(size_
 // o200k vocabulary
 void encode_o200k(const uint8_t* buffer, size_t length, void (*callback)(size_t, uint32_t));
 void decode_o200k(const uint32_t* buffer, size_t length, void (*callback)(size_t, uint8_t));
+
+// --- Embeddings (requires 'embeddings' feature) ---
+
+// Inserts a text and its corresponding embedding vector into the database.
+bool insert(const uint8_t* buffer, size_t buffer_length, const float* vector, size_t vector_length);
+
+// Searches for the most similar embeddings to a given text.
+void search(const uint8_t* buffer, size_t buffer_length, uint8_t k, void (*callback)(uint16_t, float, size_t, float));
+
+// Finds the nearest neighbors to a given embedding vector.
+void nearest(const float* vector, size_t vector_length, uint8_t k, void (*callback)(uint16_t, float, size_t, size_t, uint8_t));
 ```
 
 #### **C Usage Example**
@@ -165,8 +185,4 @@ gcc -o example example.c -L./target/release -lgpt3bpe
 LD_LIBRARY_PATH=./target/release ./example
 ```
 
-### Note on `merges.txt`
-
-The current implementation loads BPE merges from `src/bpe/merges.txt` relative to the current working directory at runtime. Please ensure this file is present at the expected location when running the compiled binary.
-
-For a more robust deployment, consider embedding the file directly into the binary using `include_str!` or `include_bytes!` in `src/bpe/mod.rs`.
+The `merges.txt` and vocabulary files (`.jsonl`) are embedded directly into the binary at compile time, so you do not need to distribute them separately.

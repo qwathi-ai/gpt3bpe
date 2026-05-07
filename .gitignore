@@ -9,6 +9,9 @@ pnpm-lock.yaml
 tsconfig.json
 bun.lock
 deno.lock
+Cargo.lock
+cargo.lock
+package-lock.json
 
 # Project-specific directories
 # Ignore directories for tensor data and parsing logic.
@@ -17,8 +20,6 @@ deno.lock
 # Ignore model embeddings.
 tensor/
 parser/
-gpt3bpe.deno.ts
-models.ts
 model.ts
 model.txt
 embeddings.db
@@ -37,3 +38,7 @@ makefile
 # GitHub
 # Ignore GitHub-specific configuration files (e.g., for Actions).
 .github/
+
+# VSCode
+# Ignore VSCode settings and workspace settings
+.vscode/

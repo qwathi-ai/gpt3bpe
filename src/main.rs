@@ -1,4 +1,6 @@
 mod bpe;
+#[cfg(feature = "embeddings")]
+mod embeddings;
 use argh::FromArgs;
 use std::io::{self, BufRead, Write};
 use std::str::FromStr;
@@ -67,6 +69,15 @@ enum Vocab {
 impl FromStr for Vocab {
     type Err = String;
 
+    /// Parses a string into a `Vocab` enum.
+    ///
+    /// # Arguments
+    ///
+    /// * `s` - The string to parse. Can be "r50k", "p50k", or "cl100k".
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the string is not a valid vocabulary identifier.
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
             "r50k" => Ok(Vocab::R50k),
@@ -80,6 +91,17 @@ impl FromStr for Vocab {
     }
 }
 
+/// The main entry point of the command-line utility.
+///
+/// This function parses command-line arguments, reads from stdin, and performs
+/// the requested operation (grapheme splitting, encoding, or decoding).
+///
+/// # Panics
+///
+/// This function will panic if:
+/// * It fails to read a line from stdin.
+/// * It fails to parse a token from a line during decoding.
+/// * It fails to write the decoded bytes to stdout.
 fn main() {
     let args: GptBpeArgs = argh::from_env();
     let stdin = io::stdin();
@@ -163,7 +185,7 @@ fn main() {
                     };
                     let output = tokens
                         .iter()
-                        .map(|t| t.to_string())
+                        .flat_map(|t| -> Vec<String> { t.iter().map(|u| u.to_string()).collect() })
                         .collect::<Vec<_>>()
                         .join(" ");
                     println!("{output}");

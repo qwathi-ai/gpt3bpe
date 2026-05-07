@@ -352,14 +352,14 @@ mod encoder {
     #[test]
     pub fn test_encode_empty() {
         let input = b"";
-        let result = crate::bpe::encode(input, &crate::bpe::vocabulary::P50K_TOKENS);
+        let result = crate::bpe::encode(input, &crate::bpe::vocabulary::P50K_TOKENS).concat();
         assert!(result.is_empty());
     }
 
     #[test]
     pub fn test_encode_ascii() {
         let input = b"hello world";
-        let result = crate::bpe::encode(input, &crate::bpe::vocabulary::P50K_TOKENS);
+        let result = crate::bpe::encode(input, &crate::bpe::vocabulary::P50K_TOKENS).concat();
         assert_eq!(result, vec![31373, 995]);
     }
 
@@ -367,7 +367,7 @@ mod encoder {
     pub fn test_encode_unicode() {
         // let input = "👋 🌍".as_bytes();
         let input = b"\xF0\x9F\x91\x8B \xF0\x9F\x8C\x8D";
-        let result = crate::bpe::encode(input, &crate::bpe::vocabulary::P50K_TOKENS);
+        let result = crate::bpe::encode(input, &crate::bpe::vocabulary::P50K_TOKENS).concat();
         assert_eq!(
             result,
             vec![
@@ -382,7 +382,7 @@ mod encoder {
         // let input = "hello 👋 world 🌍.".as_bytes();
         let input = b"hello \xF0\x9F\x91\x8B world \xF0\x9F\x8C\x8D.";
         assert_eq!(
-            crate::bpe::encode(input, &crate::bpe::vocabulary::P50K_TOKENS),
+            crate::bpe::encode(input, &crate::bpe::vocabulary::P50K_TOKENS).concat(),
             vec![
                 31373, 196, 160, 195, 176, 197, 129, 196, 179, 196, 173, 995, 196, 160, 195, 176,
                 197, 129, 196, 174, 196, 175, 46
@@ -395,7 +395,7 @@ mod encoder {
         let input = b"let there be light.";
 
         assert_eq!(
-            crate::bpe::encode(input, &crate::bpe::vocabulary::P50K_TOKENS),
+            crate::bpe::encode(input, &crate::bpe::vocabulary::P50K_TOKENS).concat(),
             vec![1616, 612, 307, 1657, 13]
         );
     }
@@ -403,7 +403,7 @@ mod encoder {
     pub fn test_encode_indivisible_values() {
         let input = b"indivisible values.";
         assert_eq!(
-            crate::bpe::encode(input, &crate::bpe::vocabulary::P50K_TOKENS),
+            crate::bpe::encode(input, &crate::bpe::vocabulary::P50K_TOKENS).concat(),
             vec![521, 452, 12843, 3815, 13]
         );
     }
@@ -412,7 +412,7 @@ mod encoder {
     pub fn test_encode_pneumonoultramicroscopicsilicovolcanoconiosis() {
         let input = b"Pneumonoultramicroscopicsilicovolcanoconiosis";
         assert_eq!(
-            crate::bpe::encode(input, &crate::bpe::vocabulary::P50K_TOKENS), 
+            crate::bpe::encode(input, &crate::bpe::vocabulary::P50K_TOKENS).concat(),
             // [Openai](https://platform.openai.com/tokenizer) tokenizer output. But our merge table is not large enough to capture all the merges.
             // , vec![47, 25668, 261, 25955, 859, 2500, 1416, 404, 873, 41896, 709, 349, 5171, 36221, 42960]
             vec![

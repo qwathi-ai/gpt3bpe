@@ -20,10 +20,12 @@ package-lock.json
 # Ignore model embeddings.
 tensor/
 parser/
-model.ts
+init.ts
+init.log
 model.txt
 embeddings.db
 embeddings.unit
+pos.md
 sdk/
 
 # Build artifacts

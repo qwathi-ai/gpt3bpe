@@ -1,6 +1,6 @@
 //! Module inspired by [PicoGPT](https://github.com/jaymody/picoGPT) project.
 
-mod unit;
+pub(crate) mod unit;
 pub(crate) mod vocabulary;
 use regex::bytes::Regex;
 use std::collections::BTreeMap;

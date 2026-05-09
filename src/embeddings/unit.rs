@@ -1,29 +1,29 @@
 
 #[cfg(test)]
-mod padding {
+pub(crate) mod padding {
 
     #[test]
-    fn test_padding_empty() {
+    pub(crate) fn test_padding_empty() {
         let input = vec![];
         assert!(crate::embeddings::padding::<3>(input).is_err());
     }
 
     #[test]
-    fn test_padding_smaller() {
+    pub(crate) fn test_padding_smaller() {
         let input = vec![1, 2];
         let expected = [0, 1, 2];
         assert_eq!(crate::embeddings::padding::<3>(input).unwrap(), expected);
     }
 
     #[test]
-    fn test_padding_equal() {
+    pub(crate) fn test_padding_equal() {
         let input = vec![1, 2, 3];
         let expected = [1, 2, 3];
         assert_eq!(crate::embeddings::padding::<3>(input).unwrap(), expected);
     }
 
     #[test]
-    fn test_padding_larger() {
+    pub(crate) fn test_padding_larger() {
         let input = vec![1, 2, 3, 4];
         assert!(crate::embeddings::padding::<3>(input).is_err());
     }
@@ -230,22 +230,21 @@ pub(crate) static VECTORS: std::sync::LazyLock<Vec<(&str, [f32; 300])>> = {
 };
 
 #[cfg(test)]
-mod insert {
+pub(crate) mod insert {
     #[test]
     #[should_panic(
         expected = "[ERROR]: Expecting non-empty slice and vector of length 300"
     )]
-    fn test_insert_empty_string() {
+    pub(crate) fn test_insert_empty_string() {
         let conn = crate::embeddings::connection(None);
         let row = crate::embeddings::unit::VECTORS[0];
-        crate::embeddings::insert::<{ crate::embeddings::DIMENSIONS }>(&conn, b"", &row.1)
-            .expect("insert failed");
+        crate::embeddings::insert::<{ crate::embeddings::DIMENSIONS }>(&conn, b"", &row.1).unwrap();
     }
     #[test]
     #[should_panic(
         expected = "called `Result::unwrap()` on an `Err` value: SqliteFailure(Error { code: ConstraintViolation, extended_code: 2067 }, Some(\"UNIQUE constraint failed: words.label\"))"
     )]
-    fn test_insert_constraint_violation() {
+    pub(crate) fn test_insert_constraint_violation() {
         let conn = crate::embeddings::connection(None);
         for row in crate::embeddings::unit::VECTORS.iter() {
             crate::embeddings::insert::<{ crate::embeddings::DIMENSIONS }>(
@@ -267,21 +266,21 @@ mod insert {
 }
 
 #[cfg(test)]
-mod search {
+pub(crate) mod search {
     #[test]
     #[should_panic(expected = "[ERROR]: Expecting non-empty slice and non-zero k value")]
-    fn test_search_empty_string() {
+    pub(crate) fn test_search_empty_string() {
         let conn = crate::embeddings::connection(None);
         crate::embeddings::search::<{ crate::embeddings::DIMENSIONS }>(&conn, b"", 10).unwrap();
     }
     #[test]
     #[should_panic(expected = "[ERROR]: Expecting non-empty slice and non-zero k value")]
-    fn test_search_zero_k() {
+    pub(crate) fn test_search_zero_k() {
         let conn = crate::embeddings::connection(None);
         crate::embeddings::search::<{ crate::embeddings::DIMENSIONS }>(&conn, b"let", 0).unwrap();
     }
     #[test]
-    fn test_search() {
+    pub(crate) fn test_search() {
         let conn = crate::embeddings::connection(None);
         for row in crate::embeddings::unit::VECTORS.iter() {
             crate::embeddings::insert::<{ crate::embeddings::DIMENSIONS }>(
@@ -301,16 +300,16 @@ mod search {
 }
 
 #[cfg(test)]
-mod nearest {
+pub(crate) mod nearest {
     #[test]
     #[should_panic(expected = "[ERROR]: Expecting a vector of length 300 and non-zero k value")]
-    fn test_nearest_zero_k() {
+    pub(crate) fn test_nearest_zero_k() {
         let conn = crate::embeddings::connection(None);
         let row = crate::embeddings::unit::VECTORS[0];
         crate::embeddings::nearest::<{ crate::embeddings::DIMENSIONS }>(&conn, &row.1, 0).unwrap();
     }
     #[test]
-    fn test_nearest() {
+    pub(crate) fn test_nearest() {
         let conn = crate::embeddings::connection(None);
         for row in crate::embeddings::unit::VECTORS.iter() {
             crate::embeddings::insert::<{ crate::embeddings::DIMENSIONS }>(

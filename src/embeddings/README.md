@@ -6,6 +6,21 @@ This module provides functionality for creating and searching word embeddings us
 
 The primary purpose is to store text labels and their corresponding vector representations (embeddings) and then perform nearest-neighbor searches to find similar items based on either text labels or vector queries.
 
+## Default Embeddings
+
+The module can be used with any set of pre-trained word embeddings, but it is tested with a specific set of GloVe vectors. The metadata for these embeddings is detailed in `metadata.json`.
+
+Key details:
+*   **Algorithm**: GloVe (Global Vectors), version 1.2
+*   **Dimensions**: 300
+*   **Vocabulary Size**: 262,269
+*   **Corpus**: Gigaword 5th Edition (lemmatized, case-preserved)
+*   **Training Parameters**:
+    *   Window size: 5
+    *   Iterations: 100
+*   **Source**: NLPL Vector Repository
+*   **Creator**: Andrey Kutuzov
+
 ## Core Components
 
 ### `mod.rs`

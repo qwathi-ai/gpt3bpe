@@ -68,8 +68,9 @@ pub(crate) static O200K_TOKENS: LazyLock<BTreeMap<Vec<u8>, u32>> =
 pub(crate) static O200K_UNICODES: LazyLock<BTreeMap<u32, Vec<u16>>> =
     LazyLock::new(|| generate_unicodes("src/bpe/vocabulary/o200k.jsonl"));
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, Default)]
 pub(crate) enum Vocabularies {
+    #[default]
     P50K,
     R50K,
     CL100K,

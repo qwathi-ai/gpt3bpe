@@ -1,72 +1,11 @@
 mod bpe;
+mod cli;
 #[cfg(feature = "embeddings")]
 mod embeddings;
-use argh::FromArgs;
-use std::io::{self, BufRead, Write};
-use std::str::FromStr;
+mod instruments;
+use std::{io::{self, BufRead}, str::FromStr};
 
-#[derive(FromArgs, Debug)]
-/// A command-line utility for the GPT Byte-Pair-Encoder.
-///
-/// This tool provides three main functions:
-///
-///   - grapheme: Splits a string into GPT unicode grapheme characters.
-///   - encode: Encodes a string into tokens using a specified vocabulary (default).
-///   - decode: Decodes a sequence of tokens back into a string.
-///
-/// Input should be piped to the command via stdin.
-/// For example: `echo "hello world" | gpt3bpe` (encodes with p50k)
-///              `echo "31373 995" | gpt3bpe -d -v r50k` (decodes with r50k)
-struct GptBpeArgs {
-    #[argh(subcommand)]
-    command: Option<Command>,
-
-    #[argh(
-        switch,
-        short = 'd',
-        long = "decode",
-        description = "use decode operation."
-    )]
-    decode: bool,
-
-    #[argh(
-        switch,
-        short = 'e',
-        long = "encode",
-        description = "use encode operation (default)."
-    )]
-    encode: bool,
-
-    #[argh(
-        option,
-        short = 'v',
-        description = "vocabulary to use (r50k, p50k, cl100k, o200k) [default: p50k]",
-        default = "Vocab::default()"
-    )]
-    vocabulary: Vocab,
-}
-
-#[derive(FromArgs, Debug)]
-#[argh(subcommand)]
-enum Command {
-    Grapheme(GraphemeCommand),
-}
-
-#[derive(FromArgs, Debug)]
-/// Splits a string into GPT unicode grapheme characters.
-#[argh(subcommand, name = "grapheme")]
-struct GraphemeCommand {}
-
-#[derive(Debug, PartialEq, Eq, Default)]
-enum Vocab {
-    #[default]
-    R50k,
-    P50k,
-    Cl100k,
-    O200k,
-}
-
-impl FromStr for Vocab {
+impl FromStr for bpe::vocabulary::Vocabularies {
     type Err = String;
 
     /// Parses a string into a `Vocab` enum.
@@ -80,10 +19,10 @@ impl FromStr for Vocab {
     /// Returns an error if the string is not a valid vocabulary identifier.
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "r50k" => Ok(Vocab::R50k),
-            "p50k" => Ok(Vocab::P50k),
-            "cl100k" => Ok(Vocab::Cl100k),
-            "o200k" => Ok(Vocab::O200k),
+            "r50k" => Ok(bpe::vocabulary::Vocabularies::R50K),
+            "p50k" => Ok(bpe::vocabulary::Vocabularies::P50K),
+            "cl100k" => Ok(bpe::vocabulary::Vocabularies::CL100K),
+            "o200k" => Ok(bpe::vocabulary::Vocabularies::O200K),
             _ => Err(format!(
                 "unknown vocabulary: {s}. Please use one of: r50k, p50k, cl100k, o200k"
             )),
@@ -103,94 +42,46 @@ impl FromStr for Vocab {
 /// * It fails to parse a token from a line during decoding.
 /// * It fails to write the decoded bytes to stdout.
 fn main() {
-    let args: GptBpeArgs = argh::from_env();
+    let args: cli::Arguments = argh::from_env();
     let stdin = io::stdin();
 
     if args.encode && args.decode {
-        eprintln!("Error: --encode and --decode are mutually exclusive.");
+        eprintln!("[ERROR]: --encode and --decode are mutually exclusive.");
         std::process::exit(1);
-    }
+    };
 
-    match args.command {
-        Some(Command::Grapheme(_)) => {
-            for line in stdin.lock().lines() {
-                let line = line.expect("Could not read line from stdin");
-                let graphemes = bpe::grapheme(line.as_bytes());
-                let output = graphemes
-                    .iter()
-                    .map(|g| String::from_utf8_lossy(g))
-                    .collect::<Vec<_>>()
-                    .join(" ");
-                println!("{output}");
-            }
-        }
-        None => {
-            if args.decode {
-                // Decode
-                for line in stdin.lock().lines() {
-                    let line = line.expect("Could not read line from stdin");
-                    if line.trim().is_empty() {
-                        println!();
-                        continue;
-                    }
+    for line in stdin.lock().lines() {
+        let line = line.expect("Could not read line from stdin");
 
-                    let decoded_bytes = match args.vocabulary {
-                        Vocab::R50k => {
-                            let tokens: Vec<u16> = line
-                                .split_whitespace()
-                                .map(|s| s.parse().expect("Invalid u16 token"))
-                                .collect();
-                            bpe::decode(&tokens, &bpe::vocabulary::R50K_UNICODES)
-                        }
-                        Vocab::P50k => {
-                            let tokens: Vec<u16> = line
-                                .split_whitespace()
-                                .map(|s| s.parse().expect("Invalid u16 token"))
-                                .collect();
-                            bpe::decode(&tokens, &bpe::vocabulary::P50K_UNICODES)
-                        }
-                        Vocab::Cl100k => {
-                            let tokens: Vec<u32> = line
-                                .split_whitespace()
-                                .map(|s| s.parse().expect("Invalid u32 token"))
-                                .collect();
-                            bpe::decode(&tokens, &bpe::vocabulary::CL100K_UNICODES)
-                        }
-                        Vocab::O200k => {
-                            let tokens: Vec<u32> = line
-                                .split_whitespace()
-                                .map(|s| s.parse().expect("Invalid u32 token"))
-                                .collect();
-                            bpe::decode(&tokens, &bpe::vocabulary::O200K_UNICODES)
-                        }
-                    };
-                    io::stdout()
-                        .write_all(&decoded_bytes)
-                        .expect("Failed to write to stdout");
-                    println!();
-                }
-            } else {
-                // Encode
-                for line in stdin.lock().lines() {
-                    let line = line.expect("Could not read line from stdin");
-                    let tokens = match args.vocabulary {
-                        Vocab::R50k => bpe::encode(line.as_bytes(), &bpe::vocabulary::R50K_TOKENS),
-                        Vocab::P50k => bpe::encode(line.as_bytes(), &bpe::vocabulary::P50K_TOKENS),
-                        Vocab::Cl100k => {
-                            bpe::encode(line.as_bytes(), &bpe::vocabulary::CL100K_TOKENS)
-                        }
-                        Vocab::O200k => {
-                            bpe::encode(line.as_bytes(), &bpe::vocabulary::O200K_TOKENS)
-                        }
-                    };
-                    let output = tokens
-                        .iter()
-                        .flat_map(|t| -> Vec<String> { t.iter().map(|u| u.to_string()).collect() })
-                        .collect::<Vec<_>>()
-                        .join(" ");
-                    println!("{output}");
-                }
+        if let Some(cli::Command::Grapheme(_)) = args.command {
+            let _ = cli::grapheme(line, std::io::stdout());
+            continue;
+        };
+
+        if args.decode {
+            let _ = cli::decode(line, &args, std::io::stdout());
+            continue;
+        };
+
+        let tokens = match args.vocabulary {
+            bpe::vocabulary::Vocabularies::R50K => {
+                bpe::encode(line.as_bytes(), &bpe::vocabulary::R50K_TOKENS)
+            },
+            bpe::vocabulary::Vocabularies::P50K => {
+                bpe::encode(line.as_bytes(), &bpe::vocabulary::P50K_TOKENS)
+            },
+            bpe::vocabulary::Vocabularies::CL100K => {
+                bpe::encode(line.as_bytes(), &bpe::vocabulary::CL100K_TOKENS)
+            },
+            bpe::vocabulary::Vocabularies::O200K => {
+                bpe::encode(line.as_bytes(), &bpe::vocabulary::O200K_TOKENS)
             }
-        }
+        };
+        let output = tokens
+            .iter()
+            .flat_map(|t| -> Vec<String> { t.iter().map(|u| u.to_string()).collect() })
+            .collect::<Vec<_>>()
+            .join(" ");
+        println!("{output}");
     }
 }

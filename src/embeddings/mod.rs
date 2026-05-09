@@ -1,4 +1,4 @@
-mod unit;
+pub(crate) mod unit;
 use rusqlite::{ffi::sqlite3_auto_extension, Connection};
 use sqlite_vec::sqlite3_vec_init;
 use std::sync::Once;

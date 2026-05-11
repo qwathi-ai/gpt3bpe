@@ -1,3 +1,4 @@
+#![feature(portable_simd)]
 mod bpe;
 mod cli;
 #[cfg(feature = "embeddings")]

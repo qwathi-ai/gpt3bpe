@@ -238,7 +238,7 @@ pub(crate) mod insert {
     pub(crate) fn test_insert_empty_string() {
         let conn = crate::embeddings::connection(None);
         let row = crate::embeddings::unit::VECTORS[0];
-        crate::embeddings::insert::<{ crate::embeddings::DIMENSIONS }>(&conn, b"", &row.1).unwrap();
+        crate::embeddings::insert(&conn, b"", &row.1).unwrap();
     }
     #[test]
     #[should_panic(
@@ -247,7 +247,7 @@ pub(crate) mod insert {
     pub(crate) fn test_insert_constraint_violation() {
         let conn = crate::embeddings::connection(None);
         for row in crate::embeddings::unit::VECTORS.iter() {
-            crate::embeddings::insert::<{ crate::embeddings::DIMENSIONS }>(
+            crate::embeddings::insert(
                 &conn,
                 row.0.as_bytes(),
                 &row.1,
@@ -255,7 +255,7 @@ pub(crate) mod insert {
             .unwrap();
         };
         for row in crate::embeddings::unit::VECTORS.iter() {
-            crate::embeddings::insert::<{ crate::embeddings::DIMENSIONS }>(
+            crate::embeddings::insert(
                 &conn,
                 row.0.as_bytes(),
                 &row.1,
@@ -271,19 +271,19 @@ pub(crate) mod search {
     #[should_panic(expected = "[ERROR]: Expecting non-empty slice and non-zero k value")]
     pub(crate) fn test_search_empty_string() {
         let conn = crate::embeddings::connection(None);
-        crate::embeddings::search::<{ crate::embeddings::DIMENSIONS }>(&conn, b"", 10).unwrap();
+        crate::embeddings::search(&conn, b"", 10).unwrap();
     }
     #[test]
     #[should_panic(expected = "[ERROR]: Expecting non-empty slice and non-zero k value")]
     pub(crate) fn test_search_zero_k() {
         let conn = crate::embeddings::connection(None);
-        crate::embeddings::search::<{ crate::embeddings::DIMENSIONS }>(&conn, b"let", 0).unwrap();
+        crate::embeddings::search(&conn, b"let", 0).unwrap();
     }
     #[test]
     pub(crate) fn test_search() {
         let conn = crate::embeddings::connection(None);
         for row in crate::embeddings::unit::VECTORS.iter() {
-            crate::embeddings::insert::<{ crate::embeddings::DIMENSIONS }>(
+            crate::embeddings::insert(
                 &conn,
                 row.0.as_bytes(),
                 &row.1,
@@ -292,9 +292,15 @@ pub(crate) mod search {
         };
 
         let result =
-            crate::embeddings::search::<{ crate::embeddings::DIMENSIONS }>(&conn, b"let", 10)
+            crate::embeddings::search(&conn, b"let", 10)
                 .unwrap();
-        assert_eq!(result[0].vector, crate::embeddings::unit::VECTORS[0].1);
+        let expected_vector: [std::simd::f32x4; crate::embeddings::SIMD_VECTORS] = {
+            let (prefix, simd_slice, suffix) = unsafe { crate::embeddings::unit::VECTORS[0].1.align_to::<std::simd::f32x4>() };
+            assert!(prefix.is_empty());
+            assert!(suffix.is_empty());
+            simd_slice.try_into().unwrap()
+        };
+        assert_eq!(result[0].vector.unwrap(), expected_vector);
         assert_eq!(result[0].label, crate::embeddings::unit::VECTORS[0].0);
     }
 }
@@ -306,13 +312,13 @@ pub(crate) mod nearest {
     pub(crate) fn test_nearest_zero_k() {
         let conn = crate::embeddings::connection(None);
         let row = crate::embeddings::unit::VECTORS[0];
-        crate::embeddings::nearest::<{ crate::embeddings::DIMENSIONS }>(&conn, &row.1, 0).unwrap();
+        crate::embeddings::nearest(&conn, &row.1, 0).unwrap();
     }
     #[test]
     pub(crate) fn test_nearest() {
         let conn = crate::embeddings::connection(None);
         for row in crate::embeddings::unit::VECTORS.iter() {
-            crate::embeddings::insert::<{ crate::embeddings::DIMENSIONS }>(
+            crate::embeddings::insert(
                 &conn,
                 row.0.as_bytes(),
                 &row.1,
@@ -322,9 +328,15 @@ pub(crate) mod nearest {
 
         let row = crate::embeddings::unit::VECTORS[0];
         let result =
-            crate::embeddings::nearest::<{ crate::embeddings::DIMENSIONS }>(&conn, &row.1, 10)
+            crate::embeddings::nearest(&conn, &row.1, 10)
                 .unwrap();
-        assert_eq!(result[0].vector, row.1);
+        let expected_vector: [std::simd::f32x4; crate::embeddings::SIMD_VECTORS] = {
+            let (prefix, simd_slice, suffix) = unsafe { row.1.align_to::<std::simd::f32x4>() };
+            assert!(prefix.is_empty());
+            assert!(suffix.is_empty());
+            simd_slice.try_into().unwrap()
+        };
+        assert_eq!(result[0].vector.unwrap(), expected_vector);
         assert_eq!(result[0].label, row.0);
     }
 }

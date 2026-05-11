@@ -167,7 +167,8 @@ pub (crate)struct Row {
 ///
 /// # Returns
 ///
-/// An array of `f32` of length `DIMENSIONS` representing the positional encoding.
+/// An array of SIMD vectors `[std::simd::f32x4; SIMD_VECTORS]` that represents
+/// the positional encoding. The total number of floats is equal to `DIMENSIONS`.
 pub(crate) fn position(position: usize) -> [std::simd::f32x4; SIMD_VECTORS] {
     let mut pe_array = [0.0; DIMENSIONS];
     let position = position as f32;
@@ -284,4 +285,3 @@ pub(crate) fn nearest<const D: usize>(
 
     result.collect()
 }
-

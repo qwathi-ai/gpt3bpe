@@ -98,7 +98,7 @@ mod flamegraph {
 
         {
             let grapheme_guard = pprof::ProfilerGuardBuilder::default()
-                .frequency(2500)
+                .frequency(100000)
                 .blocklist(&["libc", "libgcc", "pthread", "vdso"])
                 .build()
                 .unwrap();
@@ -137,7 +137,7 @@ mod flamegraph {
         }
         {
             let arguments_guard = pprof::ProfilerGuardBuilder::default()
-                .frequency(1000)
+                .frequency(100000)
                 .blocklist(&["libc", "libgcc", "pthread", "vdso"])
                 .build()
                 .unwrap();
@@ -155,7 +155,7 @@ mod flamegraph {
 
         {
             let padding_guard = pprof::ProfilerGuardBuilder::default()
-                .frequency(2500)
+                .frequency(100000)
                 .blocklist(&["libc", "libgcc", "pthread", "vdso"])
                 .build()
                 .unwrap();
@@ -193,7 +193,7 @@ mod flamegraph {
         // }
         {
             let search_guard = pprof::ProfilerGuardBuilder::default()
-                .frequency(1000)
+                .frequency(100000)
                 .blocklist(&["libc", "libgcc", "pthread", "vdso"])
                 .build()
                 .unwrap();
@@ -212,7 +212,7 @@ mod flamegraph {
         }
         {
             let nearest_guard = pprof::ProfilerGuardBuilder::default()
-                .frequency(1000)
+                .frequency(100000)
                 .blocklist(&["libc", "libgcc", "pthread", "vdso"])
                 .build()
                 .unwrap();

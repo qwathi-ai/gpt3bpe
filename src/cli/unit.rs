@@ -17,11 +17,28 @@ pub(crate) mod grapheme {
         let mut buffer: Vec<u8> = Vec::new();
         crate::cli::grapheme("hello 👋".to_string(), &mut buffer).unwrap();
         assert_eq!(String::from_utf8(buffer).unwrap(), "h e l l o Ġ ð Ł ĳ ĭ\n");
+    }
 
-        // Test case with an empty string
+
+    #[test]
+    pub (crate) fn test_grapheme_empty() {
         let mut buffer: Vec<u8> = Vec::new();
         crate::cli::grapheme("".to_string(), &mut buffer).unwrap();
         assert_eq!(String::from_utf8(buffer).unwrap(), "\n");
+    }
+
+    #[test]
+    pub (crate) fn test_grapheme_with_numbers() {
+        let mut buffer: Vec<u8> = Vec::new();
+        crate::cli::grapheme("123".to_string(), &mut buffer).unwrap();
+        assert_eq!(String::from_utf8(buffer).unwrap(), "1 2 3\n");
+    }
+
+    #[test]
+    pub (crate) fn test_grapheme_special_chars() {
+        let mut buffer: Vec<u8> = Vec::new();
+        crate::cli::grapheme("!@#".to_string(), &mut buffer).unwrap();
+        assert_eq!(String::from_utf8(buffer).unwrap(), "! @ #\n");
     }
 }
 

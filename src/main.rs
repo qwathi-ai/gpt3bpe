@@ -1,35 +1,10 @@
-#![feature(portable_simd)]
+// #![feature(portable_simd)]
 mod bpe;
 mod cli;
 #[cfg(feature = "embeddings")]
 mod embeddings;
 mod instruments;
-use std::{io::{self, BufRead}, str::FromStr};
-
-impl FromStr for bpe::vocabulary::Vocabularies {
-    type Err = String;
-
-    /// Parses a string into a `Vocab` enum.
-    ///
-    /// # Arguments
-    ///
-    /// * `s` - The string to parse. Can be "r50k", "p50k", or "cl100k".
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the string is not a valid vocabulary identifier.
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
-            "r50k" => Ok(bpe::vocabulary::Vocabularies::R50K),
-            "p50k" => Ok(bpe::vocabulary::Vocabularies::P50K),
-            "cl100k" => Ok(bpe::vocabulary::Vocabularies::CL100K),
-            "o200k" => Ok(bpe::vocabulary::Vocabularies::O200K),
-            _ => Err(format!(
-                "unknown vocabulary: {s}. Please use one of: r50k, p50k, cl100k, o200k"
-            )),
-        }
-    }
-}
+use std::{io::{self, BufRead}};
 
 /// The main entry point of the command-line utility.
 ///

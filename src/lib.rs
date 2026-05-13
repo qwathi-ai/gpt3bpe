@@ -1,4 +1,4 @@
-#![feature(portable_simd)]
+// #![feature(portable_simd)]
 // //! Generative Pre-trained Transformer Byte Pair Encoder (GPTBPE)
 // //!
 // //! # Overview
@@ -326,17 +326,11 @@ pub extern "C" fn search(
         }
     };
     let mut top =
-        embeddings::search(&embeddings::connection(location.as_deref()), slice, k).unwrap();
+        embeddings::search::<{embeddings::DIMENSIONS}>(&embeddings::connection(location.as_deref()), slice, k).unwrap();
     for row in top.drain(..) {
-        if let Some(vector) = row.vector {
-            for (i, simd_vec) in vector.iter().enumerate() {
-                for j in 0..embeddings::SIMD_WIDTH {
-                    let position = i * embeddings::SIMD_WIDTH + j;
-                    let value = simd_vec[j];
-                    callback(row.rid, row.distance, position, value);
-                }
-            }
-        }
+        for (position, value) in row.vector.iter().enumerate() {
+            callback(row.rid, row.distance, position, *value);
+        };
     };
 }
 

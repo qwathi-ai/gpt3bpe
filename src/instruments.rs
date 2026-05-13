@@ -103,6 +103,9 @@ mod flamegraph {
                 .build()
                 .unwrap();
             crate::cli::unit::grapheme::test_grapheme_split();
+            crate::cli::unit::grapheme::test_grapheme_empty();
+            crate::cli::unit::grapheme::test_grapheme_with_numbers();
+            crate::cli::unit::grapheme::test_grapheme_special_chars();
             if let Ok(report) = grapheme_guard.report().build() {
                 let file = std::fs::File::create("src/cli/flamegraph/grapheme.svg").unwrap();
                 let mut options = pprof::flamegraph::Options::default();
@@ -152,7 +155,7 @@ mod flamegraph {
                 eprintln!("⚠️ Arguments: Could not build report");
             }
         }
-
+        #[cfg(feature = "embeddings")]
         {
             let padding_guard = pprof::ProfilerGuardBuilder::default()
                 .frequency(100000)
@@ -191,6 +194,8 @@ mod flamegraph {
         //         eprintln!("⚠️ Insert: Could not build report");
         //     }
         // }
+
+        #[cfg(feature = "embeddings")]
         {
             let search_guard = pprof::ProfilerGuardBuilder::default()
                 .frequency(100000)
@@ -210,6 +215,7 @@ mod flamegraph {
                 eprintln!("⚠️ Search: Could not build report");
             }
         }
+        #[cfg(feature = "embeddings")]
         {
             let nearest_guard = pprof::ProfilerGuardBuilder::default()
                 .frequency(100000)

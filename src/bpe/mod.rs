@@ -99,8 +99,15 @@ static BYTES_TO_UNICODE: LazyLock<BTreeMap<Vec<u8>, u16>> = LazyLock::new(|| {
 
 /// ## Merges
 static MERGES: LazyLock<HashMap<Vec<u8>, u32>> = LazyLock::new(|| {
-    const MERGES_CONTENTS: &str = include_str!("merges.txt");
-    MERGES_CONTENTS
+    let merges_contents: &str = match std::env::var("MERGES") {
+        Ok(l) => {
+            // return the contents of the file by dynamically reading in the file.
+            &std::fs::read_to_string(l)
+                .unwrap()
+        },
+        Err(_) => include_str!("merges.txt")
+    };
+    merges_contents
         .lines()
         .filter(|line| !line.starts_with('#') && !line.trim().is_empty())
         .filter_map(|line| {

@@ -35,7 +35,7 @@ strip = "debuginfo"
 
 [features]
 default = []
-embeddings = ["dep:rusqlite", "dep:sqlite-vec", "dep:zerocopy", "bytemuck"]
+embeddings = ["dep:rusqlite", "dep:sqlite-vec", "dep:zerocopy"]
 
 [dependencies]
 # Encoding
@@ -47,11 +47,16 @@ serde_json = "1.0.114"
 # Main command line
 argh = "0.1.12"
 
-# # Embeddings
+# Embeddings
 rusqlite = { version = "0.31.0", features = ["bundled"], optional = true }
 sqlite-vec = { version = "0.1.6", optional = true }
-bytemuck = { version = "1.25.0", optional = true, features = ["nightly_portable_simd", "derive"] }
-zerocopy = { version = "0.7.32", optional = true, features = ["simd-nightly"] }
+# bytemuck = { version = "1.25.0", optional = true, features = ["nightly_portable_simd", "derive"] }
+zerocopy = { version = "0.7.32", optional = true }
+
+# rusqlite = { version = "0.31.0", features = ["bundled"] }
+# sqlite-vec = { version = "0.1.6" }
+# bytemuck = { version = "1.25.0" }
+# zerocopy = { version = "0.7.32" }
 
 [dev-dependencies]
 pprof = { version = "0.15", features = ["flamegraph"] }

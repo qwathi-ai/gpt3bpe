@@ -162,8 +162,8 @@ pub (crate)struct Row<const D: usize>{
     pub label: String,
     pub distance: f32,
     pub vector: [f32; D]
-
 }
+
 /// Calculates the positional encoding for a given position in a sequence.
 ///
 /// Positional encodings are added to the input embeddings to provide the model

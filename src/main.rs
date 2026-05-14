@@ -1,8 +1,10 @@
-// #![feature(portable_simd)]
+#![feature(portable_simd)]
 mod bpe;
 mod cli;
 #[cfg(feature = "embeddings")]
 mod embeddings;
+mod neural;
+#[cfg(feature = "instruments")]
 mod instruments;
 use std::{io::{self, BufRead}};
 
@@ -33,6 +35,11 @@ fn main() {
             let _ = cli::grapheme(line, std::io::stdout());
             continue;
         };
+
+        // if let Some(cli::Command::Generate(_)) = args.command {
+        //     let _ = cli::generate(line, std::io::stdout());
+        //     continue;
+        // };
 
         if args.decode {
             let _ = cli::decode(line, &args, std::io::stdout());

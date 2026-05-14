@@ -1,4 +1,4 @@
-// #![feature(portable_simd)]
+#![feature(portable_simd)]
 // //! Generative Pre-trained Transformer Byte Pair Encoder (GPTBPE)
 // //!
 // //! # Overview
@@ -375,3 +375,5 @@ pub extern "C" fn nearest(
         };
     };
 }
+
+mod neural;

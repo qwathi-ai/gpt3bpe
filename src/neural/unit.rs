@@ -1,34 +1,3 @@
-
-#[cfg(test)]
-pub(crate) mod padding {
-
-    #[test]
-    pub(crate) fn test_padding_empty() {
-        let input = vec![];
-        assert!(crate::embeddings::padding::<3>(input).is_err());
-    }
-
-    #[test]
-    pub(crate) fn test_padding_smaller() {
-        let input = vec![1, 2];
-        let expected = [0, 1, 2];
-        assert_eq!(crate::embeddings::padding::<3>(input).unwrap(), expected);
-    }
-
-    #[test]
-    pub(crate) fn test_padding_equal() {
-        let input = vec![1, 2, 3];
-        let expected = [1, 2, 3];
-        assert_eq!(crate::embeddings::padding::<3>(input).unwrap(), expected);
-    }
-
-    #[test]
-    pub(crate) fn test_padding_larger() {
-        let input = vec![1, 2, 3, 4];
-        assert!(crate::embeddings::padding::<3>(input).is_err());
-    }
-}
-
 #[cfg(test)]
 static VECTORS: std::sync::LazyLock<Vec<(&str, [f32; 300])>> = {
     std::sync::LazyLock::new(|| {
@@ -230,109 +199,109 @@ static VECTORS: std::sync::LazyLock<Vec<(&str, [f32; 300])>> = {
 };
 
 #[cfg(test)]
-pub(crate) mod insert {
-    #[test]
-    #[should_panic(
-        expected = "[ERROR]: Expecting non-empty slice and vector of length 300"
-    )]
-    pub(crate) fn test_insert_empty_string() {
-        let conn = crate::embeddings::connection(None);
-        let row = crate::embeddings::unit::VECTORS[0];
-        crate::embeddings::insert(&conn, b"", &row.1).unwrap();
-    }
-    #[test]
-    #[should_panic(
-        expected = "called `Result::unwrap()` on an `Err` value: SqliteFailure(Error { code: ConstraintViolation, extended_code: 2067 }, Some(\"UNIQUE constraint failed: words.label\"))"
-    )]
-    pub(crate) fn test_insert_constraint_violation() {
-        let conn = crate::embeddings::connection(None);
-        for row in crate::embeddings::unit::VECTORS.iter() {
-            crate::embeddings::insert(
-                &conn,
-                row.0.as_bytes(),
-                &row.1,
-            )
-            .unwrap();
-        };
-        for row in crate::embeddings::unit::VECTORS.iter() {
-            crate::embeddings::insert(
-                &conn,
-                row.0.as_bytes(),
-                &row.1,
-            )
-            .unwrap();
-        };
-    }
-}
+mod tensor {
+    use crate::neural::tensor::Tensor;
+    use std::simd::num::SimdFloat;
 
-#[cfg(test)]
-pub(crate) mod search {
-    #[test]
-    #[should_panic(expected = "[ERROR]: Expecting non-empty slice and non-zero k value")]
-    pub(crate) fn test_search_empty_string() {
-        let conn = crate::embeddings::connection(None);
-        crate::embeddings::search::<{crate::embeddings::DIMENSIONS}>(&conn, b"", 10).unwrap();
+    fn assert_tensor_approx_eq<const D: usize, const L: usize>(
+        a: &Tensor<'_, f32, D, L>,
+        b: &Tensor<'_, f32, D, L>,
+    ) {
+        const EPSILON: f32 = 1e-6;
+        for (vec_a, vec_b) in a.iter().zip(b.iter()) {
+            let diff = *vec_a - *vec_b;
+            let max_diff = diff.abs().reduce_max();
+            assert!(max_diff < EPSILON, "Tensors are not approximately equal. Max diff: {}", max_diff);
+        }
     }
-    #[test]
-    #[should_panic(expected = "[ERROR]: Expecting non-empty slice and non-zero k value")]
-    pub(crate) fn test_search_zero_k() {
-        let conn = crate::embeddings::connection(None);
-        crate::embeddings::search::<{crate::embeddings::DIMENSIONS}>(&conn, b"let", 0).unwrap();
-    }
-    #[test]
-    pub(crate)fn test_search() {
-        let conn = crate::embeddings::connection(None);
-        for row in crate::embeddings::unit::VECTORS.iter() {
-            crate::embeddings::insert::<{ crate::embeddings::DIMENSIONS }>(
-                &conn,
-                row.0.as_bytes(),
-                &row.1,
-            )
-            .unwrap();
-        };
-        for (idx, row) in crate::embeddings::unit::VECTORS.iter().enumerate() {
-            let result = crate::embeddings::search::<{ crate::embeddings::DIMENSIONS }>(
-                &conn,
-                row.0.as_bytes(),
-                10,
-            )
-            .unwrap();
-            assert_eq!(result[0].vector, crate::embeddings::unit::VECTORS[idx].1);
-            assert_eq!(result[0].label, crate::embeddings::unit::VECTORS[idx].0);
-        };
-    }
-}
 
-#[cfg(test)]
-pub(crate) mod nearest {
-    #[test]
-    #[should_panic(expected = "[ERROR]: Expecting a vector of length 300 and non-zero k value")]
-    pub(crate) fn test_nearest_zero_k() {
-        let conn = crate::embeddings::connection(None);
-        let row = crate::embeddings::unit::VECTORS[0];
-        crate::embeddings::nearest(&conn, &row.1, 0).unwrap();
+    fn assert_tensor_approx_scalar_eq<const D: usize, const L: usize>(
+        a: &Tensor<'_, f32, D, L>,
+        scalar: f32,
+    ) {
+        const EPSILON: f32 = 1e-6;
+        for vec_a in a.iter() {
+            let scalar_vec = std::simd::f32x4::splat(scalar);
+            let diff = *vec_a - scalar_vec;
+            let max_diff = diff.abs().reduce_max();
+            assert!(max_diff < EPSILON, "Tensor not approximately equal to scalar. Max diff: {}", max_diff);
+        }
     }
-    #[test]
-    pub(crate) fn test_nearest() {
-        let conn = crate::embeddings::connection(None);
-        for row in crate::embeddings::unit::VECTORS.iter() {
-            crate::embeddings::insert(
-                &conn,
-                row.0.as_bytes(),
-                &row.1,
-            )
-            .unwrap();
-        };
 
-        for (idx, row) in crate::embeddings::unit::VECTORS.iter().enumerate() {
-            let result = crate::embeddings::nearest::<{ crate::embeddings::DIMENSIONS }>(
-                &conn,
-                &row.1,
-                10,
-            )
-            .unwrap();
-            assert_eq!(result[0].vector, crate::embeddings::unit::VECTORS[idx].1);
-            assert_eq!(result[0].label, crate::embeddings::unit::VECTORS[idx].0);
-        };
+    #[test]
+    fn addition() {
+        for (_, vector) in crate::neural::unit::VECTORS.iter() {
+            let a: f32 = 3.14;
+            let t: Tensor<'_, f32, 300, 75> = crate::neural::tensor::Tensor::from(vector);
+            let s: Tensor<'_, f32, 300, 75> = t.clone() - &a;
+            assert_tensor_approx_eq(&(s.clone() + &a), &t);
+            let r = s.clone() + &t;
+            assert_tensor_approx_eq(&(r - &s), &t);
+        }
     }
+
+    #[test]
+    fn scale() {
+        for (_, vector) in crate::neural::unit::VECTORS.iter() {
+            let a: f32 = 3.14;
+            let t: Tensor<'_, f32, 300, 75> = crate::neural::tensor::Tensor::from(vector);
+            let s: Tensor<'_, f32, 300, 75> = t.clone() * &a;
+            assert_tensor_approx_eq(&(t.clone() * &a), &s);
+            assert_tensor_approx_eq(&t, &(s.clone() / &a));
+        }
+    }
+
+    #[test]
+    fn zero_negation() {
+        for (_, vector) in crate::neural::unit::VECTORS.iter() {
+            let t: Tensor<'_, f32, 300, 75> = crate::neural::tensor::Tensor::from(vector);
+            assert_tensor_approx_eq(&(t.clone() + &0.0), &t.clone());
+            assert_tensor_approx_scalar_eq(&(t.clone() + &(t.clone() * &-1.0)), 0.0);
+        }
+    }
+
+    #[test]
+    fn distribution() {
+        for (_, vector) in crate::neural::unit::VECTORS.iter() {
+            let a: f32 = 3.14;
+            let t:Tensor<'_, f32, 300, 75> = crate::neural::tensor::Tensor::from(vector);
+            let s:Tensor<'_, f32, 300, 75> = t.clone();
+            assert_tensor_approx_eq(&((t.clone() + &s) * &a), &(t * &a + &(s * &a)));
+        }
+    }
+
+    #[test]
+    fn associative_addition() {
+        for (_, vector) in crate::neural::unit::VECTORS.iter() {
+            let t: Tensor<'_, f32, 300, 75> = crate::neural::tensor::Tensor::from(vector);
+            let s: Tensor<'_, f32, 300, 75> = t.clone();
+            let r: Tensor<'_, f32, 300, 75> = s.clone();
+            assert_tensor_approx_eq(&((t.clone() + &s) + &r), &(t + &(s + &r)));
+        }
+    }
+
+    #[test]
+    fn commutative_addition() {
+        for (_, vector) in crate::neural::unit::VECTORS.iter() {
+            let t:Tensor<'_, f32, 300, 75> = crate::neural::tensor::Tensor::from(vector);
+            let s:Tensor<'_, f32, 300, 75> = t.clone();
+            assert_tensor_approx_eq(&(t.clone() + &s), &(s + &t));
+        }
+    }
+
+    // // Wish me luck.
+    // #[test]
+    // fn multilinearity() {
+    //     let A: i8 = super::random_number();
+    //     let B: i8 = super::random_number();
+    //     let v = crate::tensor::new::<i8, 4>([-1,1], vec![1, 2, 3]);
+    
+    //     const B: i8 = 7;
+    //     let w = v.clone();
+    //     let u = v.clone();
+    //     assert_eq!(
+    //         u.clone() * &((v.clone() * &A) + &(w.clone() * &B)),
+    //         (v * &u) * &A + &(u * &w) * &B
+    //     );
+    // }
 }

@@ -90,188 +90,236 @@
 //! 6. **Duality**: There is a duality between tensors and multilinear maps, where a tensor can be seen as a multilinear map from a set of vector spaces to the underlying field.
 //! 
 //! These properties ensure that tensors can be manipulated in a consistent manner, enabling a wide range of applications in fields such as physics, engineering, and computer science.
-const SIMD_LANES: usize = 75; // Consistent with the embedding db. 300/4 = 75
-const SIMD_WIDTH: usize = 4;
+
+pub(crate)const SIMD_LANES: usize = 75; // Consistent with the embedding db. 300/4 = 75
+pub(crate) const SIMD_WIDTH: usize = 4;
 
 #[derive(Debug)]
-// ensure consistent with the embeddings module
-struct Tensor<'a, T, const DIMENSIONS: usize, const LANES: usize = 75> where T: 'a {
-    data: &'a [T; DIMENSIONS],
+/// A tensor struct designed for efficient SIMD operations on multi-dimensional data.
+///
+/// This struct holds a reference to the raw data and a SIMD-vectorized representation
+/// to accelerate mathematical computations.
+pub struct Tensor<'a, T, const DIMENSIONS: usize, const LANES: usize> where T: 'a + Copy {
+    pub data: &'a [T; DIMENSIONS],
     vector: [std::simd::f32x4; LANES],
 }
 
-impl<'a, T: std::simd::SimdElement, const DIMENSIONS: usize, const LANES: usize = 75> Tensor<'a, T, DIMENSIONS, LANES> {
-    pub fn new(data: &'a [T; DIMENSIONS]) -> Self {
+impl<'a, const DIMENSIONS: usize, const LANES: usize> Tensor<'a, f32, DIMENSIONS, LANES> {
+    /// Creates a new `Tensor` from a slice of data.
+    ///
+    /// The constructor partitions the input data into SIMD vectors (`f32x4`).
+    /// It will panic if the data length is not an even multiple of the SIMD width (4).
+    pub fn new(data: &'a [f32; DIMENSIONS]) -> Self {
        Tensor{
         data,
-        // The `as_chunks` method splits the slice into chunks of 4 elements.
-        // It returns the chunks and a remainder slice.
-        // We expect the remainder to be empty, and panic if it's not.
         vector: {
             let (chunks, remainder) = data.as_chunks::<{SIMD_WIDTH}>();
-            assert!(remainder.is_empty(), "Data length must be a multiple of 4");
-            // This is a safe transmutation because `f32x4` has the same memory layout as `[f32; 4]`.
-            *bytemuck::cast_ref(chunks)
+            assert!(remainder.is_empty(), "Data length must be a multiple of {}", SIMD_WIDTH);
+            chunks.iter().map(|array: &[f32; 4]| std::simd::f32x4::from_array(*array)).collect::<Vec<_>>().try_into().unwrap()
         }
        }
     }
 }
 
+impl<'a, T: Copy, const DIMENSIONS: usize, const LANES: usize> Tensor<'a, T, DIMENSIONS, LANES> {
+    /// Returns an iterator over the SIMD vectors of the tensor.
+    pub fn iter(&self) -> std::slice::Iter<'_, std::simd::f32x4> {
+        self.vector.iter()
+    }
 
-impl<'a, T: std::simd::SimdElement, const DIMENSIONS: usize, const LANES: usize = 75> Iterator for Tensor<'a, T, DIMENSIONS, LANES> {
-    type Item = Tensor<T, DIMENSIONS, LANES>;
-    fn next(&mut self) -> Option<Self::Item> {
-        // return each simd element as a new tensor.
-        self.vector.next()
+    /// Returns a mutable iterator over the SIMD vectors of the tensor.
+    pub fn iter_mut(&mut self) -> std::slice::IterMut<'_, std::simd::f32x4> {
+        self.vector.iter_mut()
     }
 }
 
-impl<T: std::simd::SimdElement, const DIMENSIONS: usize, const LANES: usize = 75> From<&Vec<T>> for Tensor<T, DIMENSIONS, LANES> {
-    fn from(data: &Vec<T>) -> Self {
-        Tensor::new(data.as_slice().try_into().unwrap())
+impl<'a, const DIMENSIONS: usize, const LANES: usize> From<&'a [f32; DIMENSIONS]> for Tensor<'a, f32, DIMENSIONS, LANES> {
+    /// Creates a `Tensor` from a reference to a fixed-size array.
+    fn from(data: &'a [f32; DIMENSIONS]) -> Self {
+        Tensor::new(data)
     }
 }
 
-impl<T: std::simd::SimdElement, const DIMENSIONS: usize, const LANES: usize = 75> From<&[std::simd::f32x4; LANES]> for Tensor<T, DIMENSIONS, LANES> {
-    fn from(vector: &[std::simd::f32x4; LANES]) -> Self {
-        Tensor::new(vector.as_slice().try_into().unwrap())
-    }
-}
-
-
-impl<T: std::simd::SimdElement, const DIMENSIONS: usize, const LANES: usize = 75> Clone for Tensor<T, DIMENSIONS, LANES> {
+impl<'a, T: Copy, const DIMENSIONS: usize, const LANES: usize> Clone for Tensor<'a, T, DIMENSIONS, LANES> {
+    /// Clones the `Tensor`.
+    ///
+    /// This creates a new `Tensor` with the same `data` reference and a copy of the `vector` data.
     fn clone(&self) -> Self { 
-        Tensor::from(self.vector)
+        Self {
+            data: self.data,
+            vector: self.vector,
+        }
     }
 }
 
+impl<'a, T: Copy, const DIMENSIONS: usize, const LANES: usize> Copy for Tensor<'a, T, DIMENSIONS, LANES> {}
 
-impl<T: std::simd::SimdElement, const DIMENSIONS: usize, const LANES: usize = 75> To<&[T; DIMENSIONS]> for Tensor<T, DIMENSIONS, LANES> {
-    fn from(&self) -> Self {
-        self.vector.as_slice().try_into().unwrap()
+impl<'a, const DIMENSIONS: usize, const LANES: usize> AsRef<[f32; DIMENSIONS]> for Tensor<'a, f32, DIMENSIONS, LANES> {
+    /// Returns a reference to the underlying data array.
+    fn as_ref(&self) -> &[f32; DIMENSIONS] {
+        self.data
     }
 }
 
-impl<T: std::simd::SimdElement + std::cmp::PartialEq, const DIMENSIONS: usize, const LANES: usize = 75> PartialEq<T> for Tensor<T, DIMENSIONS, LANES>
+impl<'a, const DIMENSIONS: usize, const LANES: usize> PartialEq<f32> for Tensor<'a, f32, DIMENSIONS, LANES>
 {
-    fn eq(&self, rhs: &T) -> bool {
-        // find an efficient way to ensure two arrays are equal.
-        let mut fact = true;
-        let mut cursor = self.vector.iter();
-        while let Some(value) = cursor.next() {
-            if value != simd::splat(*rhs)  {
-                fact = false;
-                break;
-            };
-        };
-        fact
+    /// Checks if all elements in the tensor are equal to a scalar value.
+    fn eq(&self, rhs: &f32) -> bool {
+        let splat = std::simd::f32x4::splat(*rhs);
+        self.vector.iter().all(|&value| value == splat)
     }
 }
 
-impl<T: std::simd::SimdElement + for<'a> std::ops::AddAssign<&'a T> + Copy, const DIMENSIONS: usize, const LANES: usize = 75>
-    core::ops::Add<&T> for Tensor<T, DIMENSIONS, LANES>
+impl<'a, T: Copy, const DIMENSIONS: usize, const LANES: usize> PartialEq<Tensor<'a, T, DIMENSIONS, LANES>> for Tensor<'a, T, DIMENSIONS, LANES>
 {
-    type Output = Tensor<T, DIMENSIONS, LANES>;
-
-    fn add(mut self, rhs: &T) -> Self::Output {
-        Tensor::from(self.vector.iter_mut().for_each(|val| *val += simd::splat(*rhs)))
-    }
-}
-
-impl<T: std::simd::SimdElement + for<'a> std::ops::SubAssign<&'a T> + Copy, const DIMENSIONS: usize, const LANES: usize = 75>
-    core::ops::Sub<&T> for Tensor<T, DIMENSIONS, LANES>
-{
-    type Output = Tensor<T, DIMENSIONS, LANES>;
-
-    fn sub(mut self, rhs: &T) -> Self::Output {
-        Tensor::from(self.vector.iter_mut().for_each(|val| *val -= simd::splat(*rhs)))
-    }
-}
-
-impl<T: std::simd::SimdElement + for<'a> std::ops::MulAssign<&'a T> + Copy, const DIMENSIONS: usize, const LANES: usize = 75>
-    core::ops::Mul<&T> for Tensor<T, DIMENSIONS, LANES>
-{
-    type Output = Tensor<T, DIMENSIONS, LANES>;
-
-    fn mul(mut self, rhs: &T) -> Self::Output {
-        Tensor::from(self.vector.iter_mut().for_each(|val| *val *= simd::splat(*rhs)))
-    }
-}
-
-impl<T: std::simd::SimdElement + std::cmp::PartialEq, const DIMENSIONS: usize, const LANES: usize = 75> PartialEq for Tensor<T, DIMENSIONS, LANES>
-{
+    /// Checks if two tensors are equal by comparing their `vector` fields.
     fn eq(&self, other: &Self) -> bool {
-        // find an efficient way to ensure two arraysof type [simd::f32x4;75] are equal.
-        let mut fact = true;
-        let mut cursor = self.vector.iter().zip(other.vector.iter());
-        while let Some((value, o)) = cursor.next() {
-            if value != o {
-                fact = false;
-                break;
-            };
-        };
-        fact
+        self.vector.iter().zip(other.vector.iter()).all(|(a, b)| a == b)
     }
 }
 
-// The following impls are commented out because they require more complex logic
-// to handle the `vector` field and potential data ownership issues.
-// They also need to ensure that the operations are element-wise on the `data` field
-// and that the `vector` field is updated correctly or re-calculated.
-// impl<T: std::simd::SimdElement + for<'a> std::ops::AddAssign<&'a T> + Copy, const D: usize>
-//     core::ops::Add<&Tensor<T, D>> for Tensor<T, D>
-// {
-//     type Output = Tensor<T, D>;
 
-//     fn add(mut self, other: &Tensor<T, D, W>) -> Self::Output {
-//         let mut new_data = *self.data;
-//         for (val, rhs) in new_data.iter_mut().zip(other.data.iter()) { *val += rhs; }
-//         Tensor::new(&new_data)
-//     }
-// }
-//
-// impl<T: std::simd::SimdElement + for<'a> std::ops::SubAssign<&'a T> + Copy, const D: usize, const W: usize>
-//     core::ops::Sub<&Tensor<T, D, W>> for Tensor<T, D, W>
+/// # Scalar Subtraction (Negation)
+impl<'a, const DIMENSIONS: usize, const LANES: usize> core::ops::Sub<&f32> for Tensor<'a, f32, DIMENSIONS, LANES>
+{
+    type Output = Self;
+
+    /// Performs element-wise subtraction of the tensor by a scalar.
+    fn sub(mut self, rhs: &f32) -> Self::Output {
+        let splat = std::simd::f32x4::splat(*rhs);
+        for val in self.vector.iter_mut() { *val -= splat; }
+        self
+    }
+}
+
+/// # Scalar Addition
+impl<'a, const DIMENSIONS: usize, const LANES: usize> core::ops::Add<&f32> for Tensor<'a, f32, DIMENSIONS, LANES> {
+    type Output = Self;
+
+    /// Performs element-wise addition of the tensor by a scalar.
+    fn add(mut self, rhs: &f32) -> Self::Output {
+        let splat = std::simd::f32x4::splat(*rhs);
+        for val in self.vector.iter_mut() { *val += splat; }
+        self
+    }
+}
+
+/// # Scalar Division
+impl<'a, const DIMENSIONS: usize, const LANES: usize> core::ops::Div<&f32> for Tensor<'a, f32, DIMENSIONS, LANES>
+{
+    type Output = Self;
+
+    /// Performs element-wise multiplication of the tensor by a scalar.
+    fn div(mut self, rhs: &f32) -> Self::Output {
+        let rhs_splat = std::simd::f32x4::splat(*rhs);
+        for val in self.vector.iter_mut() { *val /= rhs_splat; }
+        self
+    }
+}
+
+/// # Scalar Multiplication
+impl<'a, const DIMENSIONS: usize, const LANES: usize> core::ops::Mul<&f32> for Tensor<'a, f32, DIMENSIONS, LANES>
+{
+    type Output = Self;
+
+    /// Performs element-wise multiplication of the tensor by a scalar.
+    fn mul(mut self, rhs: &f32) -> Self::Output {
+        let rhs_splat = std::simd::f32x4::splat(*rhs);
+        for val in self.vector.iter_mut() { *val *= rhs_splat; }
+        self
+    }
+}
+
+
+// Tensor-to-Slice Operations
+/// # Element-wise Addition
+impl<'a, const DIMENSIONS: usize, const LANES: usize> core::ops::Add<&'a [f32;DIMENSIONS]>
+    for Tensor<'a, f32, DIMENSIONS, LANES>
+{
+    type Output = Self;
+
+    /// Performs element-wise addition of two tensors.
+    fn add(self, other: &'a [f32;DIMENSIONS]) -> Self::Output {
+        self + &Tensor::from(other)
+    }
+}
+
+/// # Element-wise Subtraction (Negation)
+impl<'a, const DIMENSIONS: usize, const LANES: usize> core::ops::Sub<&'a [f32;DIMENSIONS]>
+    for Tensor<'a, f32, DIMENSIONS, LANES>
+{
+    type Output = Self;
+
+    /// Performs element-wise addition of two tensors.
+    fn sub(self, other: &'a [f32;DIMENSIONS]) -> Self::Output {
+        self - &Tensor::from(other)
+    }
+}
+
+// Tensor-to-Tensor Operations
+/// # Element-wise Addition
+impl<'a, const DIMENSIONS: usize, const LANES: usize> core::ops::Add<&Tensor<'a, f32, DIMENSIONS, LANES>>
+    for Tensor<'a, f32, DIMENSIONS, LANES>
+{
+    type Output = Self;
+
+    /// Performs element-wise addition of two tensors.
+    fn add(mut self, other: &Tensor<'a, f32, DIMENSIONS, LANES>) -> Self::Output {
+        for (lhs, rhs) in self.vector.iter_mut().zip(other.vector.iter()) {
+            *lhs += rhs;
+        }
+        self
+    }
+}
+
+/// # Element-wise Subtraction (Negation)
+impl<'a, const DIMENSIONS: usize, const LANES: usize> core::ops::Sub<&Tensor<'a, f32, DIMENSIONS, LANES>>
+    for Tensor<'a, f32, DIMENSIONS, LANES>
+{
+    type Output = Self;
+
+    /// Performs element-wise subtraction of two tensors.
+    fn sub(mut self, other: &Tensor<'a, f32, DIMENSIONS, LANES>) -> Self::Output {
+        for (lhs, rhs) in self.vector.iter_mut().zip(other.vector.iter()) {
+            *lhs -= rhs;
+        }
+        self
+    }
+}
+
+// /// # Tensor Contraction (dot product)
+// /// Tensors can be contracted, reducing the order of the tensor by summing over one or more pairs of indices.
+// /// This implementation computes the dot product, a form of contraction.
+// /// $$ C_{ik} = \sum_j T_{ijk} $$
+// impl<'a, 'b, const DIMENSIONS: usize, const LANES: usize> core::ops::Mul<&'b Tensor<'a, f32, DIMENSIONS, LANES>>
+//     for &'a Tensor<'a, f32, DIMENSIONS, LANES>
 // {
-//     type Output = Tensor<T, D, W>;
-//
-//     fn sub(mut self, other: &Tensor<T, D, W>) -> Self::Output {
-//         let mut new_data = *self.data;
-//         for (val, rhs) in new_data.iter_mut().zip(other.data.iter()) { *val -= rhs; }
-//         Tensor::new(&new_data)
-//     }
-// }
-//
-// impl<T: std::simd::SimdElement> core::ops::Mul<&Tensor<T, D, W>> for Tensor<T, D, W>
-// {
-//     type Output = Tensor<T, D, W>;
-//
-//     fn mul(self, other: &Tensor<T, D, W>) -> Self::Output {
-//         // Tensor matrix multiplication simd optimised.
-//         // convert from a [std::simd::f32x4;75] to a [f32;300]. use bytemuck if required.
-//         unimplemented!()
-//     }
-// }
-//
-// impl<T: std::simd::SimdElement> core::ops::Div<&Tensor<T, D, W>> for Tensor<T, D, W>
-// {
-//     type Output = Tensor<T, D, W>;
-//
-//     fn div(self, other: &Tensor<T, D, W>) -> Self::Output {
-//         // Tensor matrix multiplication simd optimised.
-//         // convert from a [std::simd::f32x4;75] to a [f32;300]. use bytemuck if required.
-//         unimplemented!()
+//     type Output = f32;
+
+//     /// Computes the dot product of two tensors using SIMD.
+//     /// This is a sum of the element-wise products.
+//     fn mul(self, other: &'b Tensor<'a, f32, DIMENSIONS, LANES>) -> Self::Output {
+//         self.vector
+//             .iter()
+//             .zip(other.vector.iter())
+//             .map(|(a, b)| (*a * *b).reduce_sum()) // Multiply SIMD vectors and sum the result
+//             .sum() // Sum the results from all chunks
 //     }
 // }
 
-// macro_rules! tensor {
-//     () => { 
-//         todo!()
-//      };
-//     ($elem:expr; $n:expr) => { 
-//         todo!()
-//      };
-//     ($($x:expr),+ $(,)?) => { 
-//         todo!()
-//      };
+// /// # Element-wise Division
+// /// Performs element-wise division (Hadamard division) between two tensors of the same shape.
+// /// This is not a standard linear algebra operation but is common in numerical computing.
+// impl<'a, const DIMENSIONS: usize, const LANES: usize> core::ops::Div<&Tensor<'a, f32, DIMENSIONS, LANES>>
+//     for Tensor<'a, f32, DIMENSIONS, LANES>
+// {
+//     type Output = Self;
+
+//     /// Performs element-wise division of two tensors.
+//     fn div(mut self, other: &Tensor<'a, f32, DIMENSIONS, LANES>) -> Self::Output {
+//         for (lhs, rhs) in self.vector.iter_mut().zip(other.vector.iter()) {
+//             *lhs /= *rhs;
+//         }
+//         self
+//     }
 // }

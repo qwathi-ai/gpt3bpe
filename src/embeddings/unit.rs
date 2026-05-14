@@ -30,7 +30,7 @@ pub(crate) mod padding {
 }
 
 #[cfg(test)]
-pub(crate) static VECTORS: std::sync::LazyLock<Vec<(&str, [f32; 300])>> = {
+static VECTORS: std::sync::LazyLock<Vec<(&str, [f32; 300])>> = {
     std::sync::LazyLock::new(|| {
         vec![
             (

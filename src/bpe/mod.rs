@@ -1,4 +1,14 @@
-//! Module inspired by [PicoGPT](https://github.com/jaymody/picoGPT) project.
+//! # Byte-Pair Encoding (BPE)
+//!
+//! This module provides the core implementation for Byte-Pair Encoding, a tokenization
+//! strategy used by GPT models. It includes functionality for:
+//!
+//! - Splitting text into initial tokens based on a regex pattern.
+//! - Mapping raw bytes to a "safe" set of Unicode characters to handle arbitrary byte sequences.
+//! - Applying BPE merges based on a predefined rank table.
+//! - Encoding text into token IDs and decoding them back into text.
+//!
+//! The implementation is inspired by Andrej Karpathy's [picoGPT](https://github.com/jaymody/picoGPT) project.
 
 pub(crate) mod unit;
 pub(crate) mod vocabulary;
@@ -11,33 +21,31 @@ use std::fmt::Display;
 use std::sync::LazyLock;
 use unicode_segmentation::UnicodeSegmentation;
 
-/// Data structure for byte pairings of type `[T]`.
-///
-/// ## Byte Pair
+/// A type alias representing a pair of bytes and its rank during the BPE merge process.
+/// The `usize` is the index of the first byte in the pair, and `Type` is its merge rank.
 type BytePair<Type> = (usize, Type);
 
-/// Regular expression pattern for finding token contractions.
+/// A regex pattern for the initial splitting of text into processable chunks.
 ///
-/// ## Tokens regular expression
+/// This pattern is designed to handle various text structures found in GPT-2/3 tokenization,
+/// including:
+/// - Contractions (e.g., "'s", "'t", "'re").
+/// - Words composed of letters (`\p{L}+`).
+/// - Sequences of numbers (`\p{N}+`).
+/// - Punctuation and other non-alphanumeric characters.
+/// - Whitespace.
 const TOKENS_RE: &str =
     r"(u)'s|'t|'re|'ve|'m|'l l|'d| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(\S)|\s+";
 
-/// I like the original comment on this. So I'm keeping it.
+/// A set of "safe" Unicode characters used for the reversible BPE mapping.
 ///
+/// The BPE algorithm works on Unicode strings, but raw byte streams can contain values
+/// that are not valid Unicode or are control characters that can cause issues. To handle
+/// any possible byte value from 0 to 255, this scheme maps each byte to a distinct, printable
+/// Unicode character. This avoids "unknown token" errors and makes the tokenization process
+/// fully reversible.
 ///
-/// > Returns list of utf-8 byte and a corresponding list of unicode strings.
-/// > The reversible bpe codes work on unicode strings.
-/// > This means you need a large # of unicode characters in your vocab if you want to avoid UNKs.
-/// > When you're at something like a 10B token dataset you end up needing around 5K for decent coverage.
-/// > This is a significant percentage of your normal, say, 32K bpe vocab.
-/// > To avoid that, we want lookup tables between utf-8 bytes and unicode strings.
-/// > And avoids mapping to whitespace/control characters the bpe code barfs on.
-///    
-///  ```python
-/// bs = list(range(ord("!"), ord("~") + 1)) + list(range(ord("¡"), ord("¬") + 1)) + list(range(ord("®"), ord("ÿ") + 1))
-///  ```
-///
-/// ## UNICODES
+/// This array defines the initial set of characters, which is then extended to cover all 256 byte values.
 const GPT_UNICODES: [u16; 188] = [
     33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56,
     57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80,
@@ -51,9 +59,10 @@ const GPT_UNICODES: [u16; 188] = [
     253, 254, 255,
 ];
 
-/// Maps GPT unicode scheme to u8 byte vector.
+/// Lazily initialized map from a raw byte value (as a `u16`) to its "safe" Unicode representation.
 ///
-/// ## Unicode to bytes
+/// This is part of the reversible BPE scheme. It ensures that every possible byte can be
+/// represented as a unique, printable Unicode character before tokenization.
 static UNICODE_TO_BYTES: LazyLock<BTreeMap<u16, Vec<u8>>> = LazyLock::new(|| {
     let mut x = GPT_UNICODES.to_vec();
     let mut y: Vec<u16> = x.clone();
@@ -74,9 +83,10 @@ static UNICODE_TO_BYTES: LazyLock<BTreeMap<u16, Vec<u8>>> = LazyLock::new(|| {
     tree
 });
 
-/// Maps u8 byte vector to GPT unicode scheme.
+/// Lazily initialized map from a "safe" Unicode representation back to its original raw byte value.
 ///
-/// ## Bytes to unicode
+/// This is the inverse of `UNICODE_TO_BYTES` and is used during the decoding process to
+/// reconstruct the original byte stream from the tokenized Unicode characters.
 static BYTES_TO_UNICODE: LazyLock<BTreeMap<Vec<u8>, u16>> = LazyLock::new(|| {
     let mut x = GPT_UNICODES.to_vec();
     let mut y: Vec<u16> = x.clone();
@@ -97,15 +107,19 @@ static BYTES_TO_UNICODE: LazyLock<BTreeMap<Vec<u8>, u16>> = LazyLock::new(|| {
     tree
 });
 
-/// ## Merges
+/// Lazily initialized map of BPE merge rules.
+///
+/// This map contains the core logic of the Byte-Pair Encoding algorithm. It maps a pair of
+/// subword units (as a byte vector) to its merge rank (a `u32`). The lower the rank, the
+/// earlier the pair is merged.
+/// The `merges.txt` file is embedded at compile time, but can be overridden at runtime by setting the `MERGES` environment variable.
 static MERGES: LazyLock<HashMap<Vec<u8>, u32>> = LazyLock::new(|| {
     let merges_contents: &str = match std::env::var("MERGES") {
         Ok(l) => {
             // return the contents of the file by dynamically reading in the file.
-            &std::fs::read_to_string(l)
-                .unwrap()
-        },
-        Err(_) => include_str!("merges.txt")
+            &std::fs::read_to_string(l).unwrap()
+        }
+        Err(_) => include_str!("merges.txt"),
     };
     merges_contents
         .lines()
@@ -123,13 +137,13 @@ static MERGES: LazyLock<HashMap<Vec<u8>, u32>> = LazyLock::new(|| {
         .collect()
 });
 
+/// Splits a byte slice into a sequence of GPT-style Unicode graphemes.
 ///
-/// ## Grapheme
-/// ### Arguments
-/// * `slice` - byte vector
+/// This function first segments the input text into Unicode grapheme clusters to correctly
+/// handle multi-byte characters. It then converts each raw byte of the graphemes into its
+/// corresponding "safe" Unicode representation using the `UNICODE_TO_BYTES` map.
 ///
-/// ### Returns
-/// * GPT Unicode characters.
+/// This is a crucial pre-processing step before applying BPE merges.
 pub fn grapheme(slice: &[u8]) -> Vec<Vec<u8>> {
     let char_to_unicode = |char: &str| -> Vec<Vec<u8>> {
         char.chars()
@@ -149,16 +163,12 @@ pub fn grapheme(slice: &[u8]) -> Vec<Vec<u8>> {
         .collect()
 }
 
-/// Find token contractions in a byte vector.
-/// See [token regular expression](crate::tokenizer::TOKENS_RE) for implementation.
+/// Splits a byte slice into initial token chunks based on the `TOKENS_RE` regex.
 ///
-/// ## Tokenizer
-/// ### Arguments
-/// * `slice` - byte vector
-///
-/// ### Returns
-/// * token contractions.
-pub(crate) fn tokens(slice: &[u8]) -> Vec<&[u8]> {
+/// This function performs the first pass of tokenization, breaking the input text into
+/// larger, more manageable pieces like words, numbers, punctuation, and contractions before
+/// the BPE merging process begins.
+pub fn tokens(slice: &[u8]) -> Vec<&[u8]> {
     Regex::new(TOKENS_RE)
         .unwrap()
         .find_iter(slice)
@@ -166,22 +176,23 @@ pub(crate) fn tokens(slice: &[u8]) -> Vec<&[u8]> {
         .collect()
 }
 
-/// Responsible for encoding and decoding text using the Byte Pair Encoding method, commonly used for tokenization.
+/// An iterator that performs the Byte-Pair Encoding merge process.
+///
+/// It iteratively finds the byte pair with the lowest merge rank, merges it,
+/// and yields the new sequence of token IDs. This continues until no more
+/// merges are possible.
 struct BytePairEncoder {
-    ///
-    /// ## Slice
+    /// The sequence of graphemes to be merged.
     pub grapheme: Vec<Vec<u8>>,
-
-    ///
-    /// ## Pairs
+    /// A vector where each element is a tuple containing the start index of a unit in `grapheme`
+    /// and the rank of the pair formed by this unit and the next.
     pairs: Vec<BytePair<u32>>,
-
-    ///
-    /// ## Encoder
+    /// A map from a byte sequence (a potential token) to its rank or token ID.
     encoder: BTreeMap<Vec<u8>, u32>,
 }
 
 impl BytePairEncoder {
+    /// Creates a new `BytePairEncoder`.
     pub fn new<T: Into<u32> + Copy + Ord + Debug>(
         grapheme: Vec<Vec<u8>>,
         lookup: &BTreeMap<Vec<u8>, T>,
@@ -209,6 +220,7 @@ impl BytePairEncoder {
         }
     }
 
+    /// Gets the rank of a potential merged pair starting at `start_idx` with a given `length`.
     fn get_rank(&self, start_idx: usize, length: usize) -> Option<u32> {
         if start_idx + length <= self.pairs.len() {
             self.encoder
@@ -227,6 +239,10 @@ impl BytePairEncoder {
 impl Iterator for BytePairEncoder {
     type Item = Vec<u32>;
 
+    /// Finds the next best pair to merge and returns the new sequence of token IDs.
+    ///
+    /// On each call, it identifies the pair with the lowest rank, merges them into a single unit,
+    /// and updates the ranks of the adjacent pairs. It then returns the full list of current token IDs.
     fn next(&mut self) -> Option<Self::Item> {
         if self.pairs.len() == 1 {
             return None;
@@ -287,16 +303,17 @@ impl Iterator for BytePairEncoder {
     }
 }
 
-/// Encodes a given byte slice into a token vector.
-/// ## Encode
+/// Encodes a byte slice into a vector of token ID vectors using BPE.
 ///
-/// ### Arguments
-/// * `slice` - a byte vector.
-/// * `lookup` - a lookup table with vocabulary scheme (slice to tokens).
+/// This function orchestrates the entire encoding process:
+/// 1. It splits the input `slice` into initial chunks using `tokens`.
+/// 2. For each chunk, it checks if it exists as a whole token in the `lookup` table.
+/// 3. If not, it converts the chunk to graphemes and uses `BytePairEncoder` to
+///    iteratively merge subword units until no more merges are possible.
+/// 4. The final token IDs for each chunk are collected and returned.
 ///
-/// ### Returns
-/// * a [token](crate::tokenizer::tokens) vector equivalent of slice.
-pub(crate) fn encode<T: Copy + Ord + Debug + Into<u32>>(
+/// Each inner `Vec<u32>` corresponds to the tokens from one of the initial chunks.
+pub fn encode<T: Copy + Ord + Debug + Into<u32>>(
     slice: &[u8],
     lookup: &LazyLock<BTreeMap<Vec<u8>, T>>,
 ) -> Vec<Vec<u32>> {
@@ -322,16 +339,15 @@ pub(crate) fn encode<T: Copy + Ord + Debug + Into<u32>>(
     result
 }
 
-/// Decode a given token vector into a byte slice.
-/// ## Decode
+/// Decodes a slice of token IDs back into a byte vector.
 ///
-/// ### Arguments
-/// * `tokens` - a token vector.
-/// * `lookup` - a lookup table with vocabulary scheme (tokens to slice).
-///
-/// ### Returns
-/// * a byte slice.
-pub(crate) fn decode<T: Copy + Ord + Debug + Display>(
+/// This function reverses the encoding process:
+/// 1. It looks up each token ID in the `lookup` table to get its corresponding "safe"
+///    Unicode characters.
+/// 2. It segments the resulting Unicode string into graphemes.
+/// 3. Each grapheme is then mapped back to its original raw byte value using the
+///    `BYTES_TO_UNICODE` map.
+pub fn decode<T: Copy + Ord + Debug + Display>(
     tokens: &[T],
     lookup: &LazyLock<BTreeMap<T, Vec<u16>>>,
 ) -> Vec<u8> {

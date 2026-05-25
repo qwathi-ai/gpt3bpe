@@ -24,15 +24,15 @@ where
     BTreeMap<String, T>: DeserializeOwned,
 {
     let file = std::fs::File::open(file_path)
-        .unwrap_or_else(|_| panic!("[ERROR]: Could not read {} tokens file", file_path));
+        .unwrap_or_else(|_| panic!("[ERROR]: Could not read {file_path} tokens file"));
     let file = std::io::BufReader::new(file);
 
     std::io::BufRead::lines(file)
-        .filter_map(Result::ok)
+        .map_while(Result::ok)
         .filter(|line| !line.starts_with('#') && !line.trim().is_empty())
         .map(|line| {
             serde_json::from_str::<BTreeMap<String, T>>(&line)
-                .unwrap_or_else(|_| panic!("[ERROR]: Could not load {} tokens", file_path))
+                .unwrap_or_else(|_| panic!("[ERROR]: Could not load {file_path} tokens"))
         })
         .flat_map(|data| {
             data.into_iter()
@@ -55,15 +55,15 @@ where
     BTreeMap<String, T>: DeserializeOwned,
 {
     let file = std::fs::File::open(file_path)
-        .unwrap_or_else(|_| panic!("[ERROR]: Could not read {} unicodes file", file_path));
+        .unwrap_or_else(|_| panic!("[ERROR]: Could not read {file_path} unicodes file"));
     let file = std::io::BufReader::new(file);
 
     std::io::BufRead::lines(file)
-        .filter_map(Result::ok)
+        .map_while(Result::ok)
         .filter(|line| !line.starts_with('#') && !line.trim().is_empty())
         .map(|line| {
             serde_json::from_str::<BTreeMap<String, T>>(&line)
-                .unwrap_or_else(|_| panic!("[ERROR]: Could not load {} unicodes", file_path))
+                .unwrap_or_else(|_| panic!("[ERROR]: Could not load {file_path} unicodes"))
         })
         .flat_map(|data| {
             data.into_iter().map(|(key, token)| {
@@ -78,18 +78,18 @@ where
 ///
 /// The file path can be overridden by the `VOCABULARY` environment variable.
 pub(crate) static R50K_TOKENS: LazyLock<BTreeMap<Vec<u8>, u16>> =
-    LazyLock::new(|| match std::env::var("VOCABULARY"){
+    LazyLock::new(|| match std::env::var("VOCABULARY") {
         Ok(l) => load_vocabulary(&(l + "/r50k.jsonl")),
-        Err(_) => load_vocabulary("src/bpe/vocabulary/r50k.jsonl")
+        Err(_) => load_vocabulary("src/bpe/vocabulary/r50k.jsonl"),
     });
 
 /// Lazily loaded `r50k_base` reverse mapping from token IDs to Unicode code points for decoding.
 ///
 /// The file path can be overridden by the `VOCABULARY` environment variable.
 pub(crate) static R50K_UNICODES: LazyLock<BTreeMap<u16, Vec<u16>>> =
-    LazyLock::new(|| match std::env::var("VOCABULARY"){
+    LazyLock::new(|| match std::env::var("VOCABULARY") {
         Ok(l) => generate_unicodes(&(l + "/r50k.jsonl")),
-        Err(_) => generate_unicodes("src/bpe/vocabulary/r50k.jsonl")
+        Err(_) => generate_unicodes("src/bpe/vocabulary/r50k.jsonl"),
     });
 
 /// Lazily loaded `p50k_base` vocabulary mapping token bytes to token IDs.
@@ -97,18 +97,18 @@ pub(crate) static R50K_UNICODES: LazyLock<BTreeMap<u16, Vec<u16>>> =
 /// Used by models like `text-davinci-002`.
 /// The file path can be overridden by the `VOCABULARY` environment variable.
 pub(crate) static P50K_TOKENS: LazyLock<BTreeMap<Vec<u8>, u16>> =
-    LazyLock::new(||  match std::env::var("VOCABULARY"){
+    LazyLock::new(|| match std::env::var("VOCABULARY") {
         Ok(l) => load_vocabulary(&(l + "/p50k.jsonl")),
-        Err(_) => load_vocabulary("src/bpe/vocabulary/p50k.jsonl")
+        Err(_) => load_vocabulary("src/bpe/vocabulary/p50k.jsonl"),
     });
 
 /// Lazily loaded `p50k_base` reverse mapping from token IDs to Unicode code points for decoding.
 ///
 /// The file path can be overridden by the `VOCABULARY` environment variable.
 pub(crate) static P50K_UNICODES: LazyLock<BTreeMap<u16, Vec<u16>>> =
-    LazyLock::new(|| match std::env::var("VOCABULARY"){
+    LazyLock::new(|| match std::env::var("VOCABULARY") {
         Ok(l) => generate_unicodes(&(l + "/p50k.jsonl")),
-        Err(_) => generate_unicodes("src/bpe/vocabulary/p50k.jsonl")
+        Err(_) => generate_unicodes("src/bpe/vocabulary/p50k.jsonl"),
     });
 
 /// Lazily loaded `cl100k_base` vocabulary mapping token bytes to token IDs.
@@ -116,18 +116,18 @@ pub(crate) static P50K_UNICODES: LazyLock<BTreeMap<u16, Vec<u16>>> =
 /// Used by models like `gpt-3.5-turbo` and `gpt-4`.
 /// The file path can be overridden by the `VOCABULARY` environment variable.
 pub(crate) static CL100K_TOKENS: LazyLock<BTreeMap<Vec<u8>, u32>> =
-    LazyLock::new(|| match std::env::var("VOCABULARY"){
+    LazyLock::new(|| match std::env::var("VOCABULARY") {
         Ok(l) => load_vocabulary(&(l + "/cl100k.jsonl")),
-        Err(_) => load_vocabulary("src/bpe/vocabulary/cl100k.jsonl")
+        Err(_) => load_vocabulary("src/bpe/vocabulary/cl100k.jsonl"),
     });
 
 /// Lazily loaded `cl100k_base` reverse mapping from token IDs to Unicode code points for decoding.
 ///
 /// The file path can be overridden by the `VOCABULARY` environment variable.
 pub(crate) static CL100K_UNICODES: LazyLock<BTreeMap<u32, Vec<u16>>> =
-    LazyLock::new(|| match std::env::var("VOCABULARY"){
-        Ok(l) =>  generate_unicodes(&(l + "/cl100k.jsonl")),
-        Err(_) => generate_unicodes("src/bpe/vocabulary/cl100k.jsonl")
+    LazyLock::new(|| match std::env::var("VOCABULARY") {
+        Ok(l) => generate_unicodes(&(l + "/cl100k.jsonl")),
+        Err(_) => generate_unicodes("src/bpe/vocabulary/cl100k.jsonl"),
     });
 
 /// Lazily loaded `o200k_base` vocabulary mapping token bytes to token IDs.
@@ -135,31 +135,32 @@ pub(crate) static CL100K_UNICODES: LazyLock<BTreeMap<u32, Vec<u16>>> =
 /// Used by models like `gpt-4o`.
 /// The file path can be overridden by the `VOCABULARY` environment variable.
 pub(crate) static O200K_TOKENS: LazyLock<BTreeMap<Vec<u8>, u32>> =
-    LazyLock::new(|| match std::env::var("VOCABULARY"){
+    LazyLock::new(|| match std::env::var("VOCABULARY") {
         Ok(l) => load_vocabulary(&(l + "/o200k.jsonl")),
-        Err(_) => load_vocabulary("src/bpe/vocabulary/o200k.jsonl")
+        Err(_) => load_vocabulary("src/bpe/vocabulary/o200k.jsonl"),
     });
 
 /// Lazily loaded `o200k_base` reverse mapping from token IDs to Unicode code points for decoding.
 ///
 /// The file path can be overridden by the `VOCABULARY` environment variable.
 pub(crate) static O200K_UNICODES: LazyLock<BTreeMap<u32, Vec<u16>>> =
-    LazyLock::new(|| match std::env::var("VOCABULARY"){
+    LazyLock::new(|| match std::env::var("VOCABULARY") {
         Ok(l) => generate_unicodes(&(l + "/o200k.jsonl")),
-        Err(_) => generate_unicodes("src/bpe/vocabulary/o200k.jsonl")
+        Err(_) => generate_unicodes("src/bpe/vocabulary/o200k.jsonl"),
     });
 
 /// An enumeration of the supported BPE vocabularies.
 #[derive(Debug, PartialEq, Eq, Default)]
 pub(crate) enum Vocabularies {
-    #[default] /// `p50k_base` vocabulary, used by `text-davinci-002`.
+    #[default]
+    /// `p50k_base` vocabulary, used by `text-davinci-002`.
     P50K,
     /// `r50k_base` (or `gpt2`) vocabulary.
     R50K,
     /// `cl100k_base` vocabulary, used by `gpt-3.5-turbo` and `gpt-4`.     
     CL100K,
     /// `o200k_base` vocabulary, used by `gpt-4o`.    
-    O200K
+    O200K,
 }
 
 impl Vocabularies {

@@ -5,20 +5,20 @@
 //! primary logic for dispatching to the correct encoding, decoding, or
 //! grapheme-splitting functions based on user input.
 pub(crate) mod unit;
-use std::io;
-use std::io::{ Write };
-use argh::FromArgs;
 use crate::bpe;
+use argh::FromArgs;
+use std::io;
+use std::io::Write;
 
 /// Subcommand for splitting a string into GPT Unicode graphemes.
 #[derive(FromArgs, Debug)]
 #[argh(subcommand, name = "grapheme")]
-pub (crate) struct GraphemeCommand {}
+pub(crate) struct GraphemeCommand {}
 
 /// An enumeration of all available subcommands.
 #[derive(FromArgs, Debug)]
 #[argh(subcommand)]
-pub (crate) enum Command {
+pub(crate) enum Command {
     Grapheme(GraphemeCommand),
 }
 
@@ -33,7 +33,7 @@ pub (crate) enum Command {
 ///   - grapheme: Splits a string into GPT unicode grapheme characters.
 ///
 /// Input should be piped to the command via stdin.
-/// For example: 
+/// For example:
 /// * `echo "hello world" | gpt3bpe` (encodes with p50k)
 /// * `echo "31373 995" | gpt3bpe -d -v r50k` (decodes with r50k)
 pub struct Arguments {
@@ -45,7 +45,7 @@ pub struct Arguments {
         description = "use encode operation (default)."
     )]
     pub encode: bool,
-    
+
     /// Use the decode operation instead of the default encode.
     #[argh(
         switch,
@@ -66,7 +66,7 @@ pub struct Arguments {
 
     /// an optional subcommand to execute (e.g., `grapheme`).
     #[argh(subcommand)]
-    pub (crate) command: Option<Command>,
+    pub(crate) command: Option<Command>,
 }
 
 /// Splits an input string into its constituent GPT-style graphemes and writes them to a writer.
@@ -84,10 +84,10 @@ pub struct Arguments {
 pub fn grapheme(line: String, mut writer: impl Write) -> io::Result<()> {
     let graphemes = bpe::grapheme(line.trim().as_bytes());
     let output = graphemes
-    .iter()
-    .map(|g| String::from_utf8_lossy(g))
-    .collect::<Vec<_>>()
-    .join(" ");
+        .iter()
+        .map(|g| String::from_utf8_lossy(g))
+        .collect::<Vec<_>>()
+        .join(" ");
     writeln!(writer, "{output}")
 }
 
@@ -113,28 +113,28 @@ pub fn decode(line: String, args: &Arguments, mut writer: impl Write) -> io::Res
 
     let decoded_bytes = match args.vocabulary {
         bpe::vocabulary::Vocabularies::R50K => {
-            let tokens: Vec<u16> = line.trim()
+            let tokens: Vec<u16> = line
                 .split_whitespace()
                 .filter_map(|s| s.parse().ok())
                 .collect();
             bpe::decode(&tokens, &bpe::vocabulary::R50K_UNICODES)
         }
         bpe::vocabulary::Vocabularies::P50K => {
-            let tokens: Vec<u16> = line.trim()
+            let tokens: Vec<u16> = line
                 .split_whitespace()
                 .filter_map(|s| s.parse().ok())
                 .collect();
             bpe::decode(&tokens, &bpe::vocabulary::P50K_UNICODES)
         }
         bpe::vocabulary::Vocabularies::CL100K => {
-            let tokens: Vec<u32> = line.trim()
+            let tokens: Vec<u32> = line
                 .split_whitespace()
                 .filter_map(|s| s.parse().ok())
                 .collect();
             bpe::decode(&tokens, &bpe::vocabulary::CL100K_UNICODES)
         }
         bpe::vocabulary::Vocabularies::O200K => {
-            let tokens: Vec<u32> = line.trim()
+            let tokens: Vec<u32> = line
                 .split_whitespace()
                 .filter_map(|s| s.parse().ok())
                 .collect();

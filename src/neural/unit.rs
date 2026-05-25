@@ -201,39 +201,39 @@ static VECTORS: std::sync::LazyLock<Vec<(&str, [f32; 300])>> = {
 #[cfg(test)]
 mod tensor {
     use crate::neural::tensor::Tensor;
-    use std::simd::num::SimdFloat;
 
     fn assert_tensor_approx_eq<const D: usize, const L: usize>(
-        a: &Tensor<'_, f32, D, L>,
-        b: &Tensor<'_, f32, D, L>,
+        a: &Tensor<f32, D, L>,
+        b: &Tensor<f32, D, L>,
     ) {
         const EPSILON: f32 = 1e-6;
         for (vec_a, vec_b) in a.iter().zip(b.iter()) {
             let diff = *vec_a - *vec_b;
-            let max_diff = diff.abs().reduce_max();
+            let max_diff = diff.abs().to_array().iter().fold(f32::NEG_INFINITY, |a, &b| a.max(b));
             assert!(max_diff < EPSILON, "Tensors are not approximately equal. Max diff: {}", max_diff);
         }
     }
 
     fn assert_tensor_approx_scalar_eq<const D: usize, const L: usize>(
-        a: &Tensor<'_, f32, D, L>,
+        a: &Tensor<f32, D, L>,
         scalar: f32,
     ) {
         const EPSILON: f32 = 1e-6;
         for vec_a in a.iter() {
-            let scalar_vec = std::simd::f32x4::splat(scalar);
+            let scalar_vec = wide::f32x4::splat(scalar);
             let diff = *vec_a - scalar_vec;
-            let max_diff = diff.abs().reduce_max();
+            let max_diff = diff.abs().to_array().iter().fold(f32::NEG_INFINITY, |a, &b| a.max(b));
             assert!(max_diff < EPSILON, "Tensor not approximately equal to scalar. Max diff: {}", max_diff);
         }
     }
 
     #[test]
+    /// Tests tensor-scalar and tensor-tensor addition and subtraction.
     fn addition() {
         for (_, vector) in crate::neural::unit::VECTORS.iter() {
             let a: f32 = 3.14;
-            let t: Tensor<'_, f32, 300, 75> = crate::neural::tensor::Tensor::from(vector);
-            let s: Tensor<'_, f32, 300, 75> = t.clone() - &a;
+            let t: Tensor<f32, 300, 75> = crate::neural::tensor::Tensor::from(vector);
+            let s: Tensor<f32, 300, 75> = t.clone() - &a;
             assert_tensor_approx_eq(&(s.clone() + &a), &t);
             let r = s.clone() + &t;
             assert_tensor_approx_eq(&(r - &s), &t);
@@ -241,54 +241,73 @@ mod tensor {
     }
 
     #[test]
+    /// Tests tensor-scalar multiplication and division (scaling).
     fn scale() {
         for (_, vector) in crate::neural::unit::VECTORS.iter() {
             let a: f32 = 3.14;
-            let t: Tensor<'_, f32, 300, 75> = crate::neural::tensor::Tensor::from(vector);
-            let s: Tensor<'_, f32, 300, 75> = t.clone() * &a;
+            let t: Tensor<f32, 300, 75> = crate::neural::tensor::Tensor::from(vector);
+            let s: Tensor<f32, 300, 75> = t.clone() * &a;
             assert_tensor_approx_eq(&(t.clone() * &a), &s);
             assert_tensor_approx_eq(&t, &(s.clone() / &a));
         }
     }
 
     #[test]
+    /// Verifies the properties of the zero tensor and negation.
+    /// - `T + 0 = T` (Identity element for addition)
+    /// - `T + (-T) = 0` (Inverse element for addition)
+    ///
+    /// where `-T` is `T * -1.0`.
     fn zero_negation() {
         for (_, vector) in crate::neural::unit::VECTORS.iter() {
-            let t: Tensor<'_, f32, 300, 75> = crate::neural::tensor::Tensor::from(vector);
+            let t: Tensor<f32, 300, 75> = crate::neural::tensor::Tensor::from(vector);
             assert_tensor_approx_eq(&(t.clone() + &0.0), &t.clone());
             assert_tensor_approx_scalar_eq(&(t.clone() + &(t.clone() * &-1.0)), 0.0);
         }
     }
 
     #[test]
+    /// Verifies the distributive property of scalar multiplication over tensor addition.
+    ///
+    /// `a * (T + S) = a * T + a * S`
     fn distribution() {
         for (_, vector) in crate::neural::unit::VECTORS.iter() {
             let a: f32 = 3.14;
-            let t:Tensor<'_, f32, 300, 75> = crate::neural::tensor::Tensor::from(vector);
-            let s:Tensor<'_, f32, 300, 75> = t.clone();
+            let t:Tensor<f32, 300, 75> = crate::neural::tensor::Tensor::from(vector);
+            let s:Tensor<f32, 300, 75> = t.clone();
             assert_tensor_approx_eq(&((t.clone() + &s) * &a), &(t * &a + &(s * &a)));
         }
     }
 
     #[test]
+    /// Verifies the associative property of tensor addition.
+    ///
+    /// `(T + S) + R = T + (S + R)`
     fn associative_addition() {
         for (_, vector) in crate::neural::unit::VECTORS.iter() {
-            let t: Tensor<'_, f32, 300, 75> = crate::neural::tensor::Tensor::from(vector);
-            let s: Tensor<'_, f32, 300, 75> = t.clone();
-            let r: Tensor<'_, f32, 300, 75> = s.clone();
+            let t: Tensor<f32, 300, 75> = crate::neural::tensor::Tensor::from(vector);
+            let s: Tensor<f32, 300, 75> = t.clone();
+            let r: Tensor<f32, 300, 75> = s.clone();
             assert_tensor_approx_eq(&((t.clone() + &s) + &r), &(t + &(s + &r)));
         }
     }
 
     #[test]
+    /// Verifies the commutative property of tensor addition.
+    ///
+    /// `T + S = S + T`
     fn commutative_addition() {
         for (_, vector) in crate::neural::unit::VECTORS.iter() {
-            let t:Tensor<'_, f32, 300, 75> = crate::neural::tensor::Tensor::from(vector);
-            let s:Tensor<'_, f32, 300, 75> = t.clone();
+            let t:Tensor<f32, 300, 75> = crate::neural::tensor::Tensor::from(vector);
+            let s:Tensor<f32, 300, 75> = t.clone();
             assert_tensor_approx_eq(&(t.clone() + &s), &(s + &t));
         }
     }
 
+    // /// Verifies the multilinearity property of tensor operations.
+    // ///
+    // /// `u * (A*v + B*w) = A*(u*v) + B*(u*w)`
+    // ///
     // // Wish me luck.
     // #[test]
     // fn multilinearity() {
@@ -304,4 +323,147 @@ mod tensor {
     //         (v * &u) * &A + &(u * &w) * &B
     //     );
     // }
+}
+
+mod perception {
+    use crate::neural::{
+        tensor::{Tensor, WIDTH},
+        Activation, Layer, Network
+    };
+    use rand::{RngExt};
+
+    const INPUT: usize = 4;
+    const INPUT_LANES: usize = INPUT / WIDTH;
+    const HIDDEN: usize = 4;
+    const HIDDEN_LANES: usize = HIDDEN / WIDTH;
+    const OUTPUT: usize = 4;
+    const OUTPUT_LANES: usize = OUTPUT / WIDTH;
+
+    fn create_Network(
+        layers: Vec<Layer<f32, INPUT, INPUT_LANES, OUTPUT, OUTPUT_LANES>>,
+    ) -> Network<INPUT, INPUT_LANES, OUTPUT, OUTPUT_LANES> {
+        Network::new(1000, 0.01, 0.1, 0.9, Some(layers))
+    }
+
+    fn create_layers() -> Vec<Layer<f32, INPUT, INPUT_LANES, OUTPUT, OUTPUT_LANES>> {
+        let mut weights1_data = [[0.0; INPUT]; HIDDEN];
+        let mut rng = rand::rng();
+        for i in 0..HIDDEN {
+            for j in 0..INPUT {
+                weights1_data[i][j] = rng.random_range(-1.0f32..1.0f32);                
+            }
+        }
+        let weights1: [Tensor<f32, INPUT, INPUT_LANES>; HIDDEN] = weights1_data
+            .map(|d| Tensor::from(&d))
+            .try_into()
+            .unwrap();
+        let biases1 = [0.0; HIDDEN];
+        let layer1 = Layer::new(weights1, biases1);
+
+        let mut weights2_data = [[0.0; HIDDEN]; OUTPUT];
+        for i in 0..OUTPUT {
+            for j in 0..HIDDEN {
+                weights2_data[i][j] = rng.random_range(-1.0f32..1.0f32);
+            }
+        }
+        let weights2: [Tensor<f32, HIDDEN, HIDDEN_LANES>; OUTPUT] = weights2_data
+            .map(|d| Tensor::from(&d))
+            .try_into()
+            .unwrap();
+        let biases2 = [0.0; OUTPUT];
+        let layer2 = Layer::new(weights2, biases2);
+
+        vec![layer1, layer2]
+    }
+
+    fn train_and_test_gate(
+        inputs: &[[f32; INPUT]],
+        targets: &[[f32; OUTPUT]],
+        test_cases: &[(Tensor<f32, INPUT, INPUT_LANES>, f32)],
+    ) {
+        let layers = create_layers();
+        let mut p = create_Network(layers);
+
+        for _ in 0..p.iterations {
+            for i in 0..inputs.len() {
+                let x = Tensor::from(&inputs[i]);
+                let y = Tensor::from(&targets[i]);
+                let activation = if i == p.layers.len() - 1 {
+                    Activation::Sigmoid
+                } else {
+                    Activation::ReLU
+                };
+                p.train(&x, &y, &activation);
+            }
+        }
+
+        for (input, expected) in test_cases {
+            let mut current_input = input.clone();
+            for (i, layer) in p.layers.iter().enumerate() {
+                let activation = if i == p.layers.len() - 1 {
+                    Activation::Sigmoid
+                } else {
+                    Activation::ReLU
+                };
+                current_input = layer.clone().forward(&current_input, &activation);
+            }
+            let prediction = current_input.as_ref()[0];
+            assert!((prediction - expected).abs() < 0.1, "Prediction: {}, Expected: {}", prediction, expected);
+        }
+    }
+
+    #[test]
+    fn test_xor_gate() {
+        let inputs = [
+            [0.0, 0.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0, 0.0],
+            [1.0, 0.0, 0.0, 0.0],
+            [1.0, 1.0, 0.0, 0.0],
+        ];
+        let targets = [
+            [0.0, 0.0, 0.0, 0.0],
+            [1.0, 0.0, 0.0, 0.0],
+            [1.0, 0.0, 0.0, 0.0],
+            [0.0, 0.0, 0.0, 0.0],
+        ];
+        let test_cases = [
+            (Tensor::from(&inputs[0]), 0.0),
+            (Tensor::from(&inputs[1]), 1.0),
+            (Tensor::from(&inputs[2]), 1.0),
+            (Tensor::from(&inputs[3]), 0.0),
+        ];
+        train_and_test_gate(&inputs, &targets, &test_cases);
+    }
+
+    #[test]
+    fn test_or_gate() {
+        let inputs = &[[0.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0], [1.0, 1.0, 0.0, 0.0]];
+        let targets = &[[0.0, 0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0]];
+        let test_cases = &[(Tensor::from(&inputs[0]), 0.0), (Tensor::from(&inputs[1]), 1.0), (Tensor::from(&inputs[2]), 1.0), (Tensor::from(&inputs[3]), 1.0)];
+        train_and_test_gate(inputs, targets, test_cases);
+    }
+
+    #[test]
+    fn test_and_gate() {
+        let inputs = &[[0.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0], [1.0, 1.0, 0.0, 0.0]];
+        let targets = &[[0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0]];
+        let test_cases = &[(Tensor::from(&inputs[0]), 0.0), (Tensor::from(&inputs[1]), 0.0), (Tensor::from(&inputs[2]), 0.0), (Tensor::from(&inputs[3]), 1.0)];
+        train_and_test_gate(inputs, targets, test_cases);
+    }
+
+    #[test]
+    fn test_nand_gate() {
+        let inputs = &[[0.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0], [1.0, 1.0, 0.0, 0.0]];
+        let targets = &[[1.0, 0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0]];
+        let test_cases = &[(Tensor::from(&inputs[0]), 1.0), (Tensor::from(&inputs[1]), 1.0), (Tensor::from(&inputs[2]), 1.0), (Tensor::from(&inputs[3]), 0.0)];
+        train_and_test_gate(inputs, targets, test_cases);
+    }
+
+    #[test]
+    fn test_nor_gate() {
+        let inputs = &[[0.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0], [1.0, 1.0, 0.0, 0.0]];
+        let targets = &[[1.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0]];
+        let test_cases = &[(Tensor::from(&inputs[0]), 1.0), (Tensor::from(&inputs[1]), 0.0), (Tensor::from(&inputs[2]), 0.0), (Tensor::from(&inputs[3]), 0.0)];
+        train_and_test_gate(inputs, targets, test_cases);
+    }
 }

@@ -453,7 +453,7 @@ mod neural {
     ) {
         // 1. Create the initial network (a list of layers).
         let mut network = create_layers();
-        let iterations = 1000;
+        let iterations = 10000;
         let learning_rate = 0.1;
 
         // 4. Run the training loop for a fixed number of iterations.

@@ -4,7 +4,7 @@ mod unit;
 use crate::neural::tensor::Tensor;
 use wide::f32x4;
 
-/// Represents the activation function to be applied to the output of a neural network layer.
+/// Represents the activation function to be applied to the output of a neural network Perceptron.
 #[derive(Debug, Clone)]
 pub enum Activation {
     /// Rectified Linear Unit: `f(x) = max(0, x)`.
@@ -19,25 +19,17 @@ pub enum Activation {
     None,
 }
 
-type Layers<
-    T,
-    const INPUT: usize,
-    const INPUT_LANES: usize,
-    const OUTPUT: usize,
-    const OUTPUT_LANES: usize,
-> = Vec<Layer<T, INPUT, INPUT_LANES, OUTPUT, OUTPUT_LANES>>;
-
-/// A tuple holding the gradients for a layer's weights and biases.
+/// A tuple holding the gradients for a Perceptron's weights and biases.
 type Gradients<T, const INPUT: usize, const INPUT_LANES: usize, const OUTPUT: usize> = (
     // Weight gradients
     [Tensor<T, INPUT, INPUT_LANES>; OUTPUT],
     // Bias gradients
-    [T; OUTPUT],
+    Vec<T>,
 );
 
-/// A fully connected layer in a neural network.
+/// A fully connected Perceptron in a neural network.
 #[derive(Clone, Debug)]
-pub struct Layer<
+pub (crate) struct Perceptron<
     T: std::marker::Copy,
     const INPUT: usize,
     const INPUT_LANES: usize,
@@ -54,7 +46,7 @@ impl<
         const INPUT_LANES: usize,
         const OUTPUT: usize,
         const OUTPUT_LANES: usize,
-    > Layer<f32, INPUT, INPUT_LANES, OUTPUT, OUTPUT_LANES>
+    > Perceptron<f32, INPUT, INPUT_LANES, OUTPUT, OUTPUT_LANES>
 where
     for<'b> &'b Tensor<f32, INPUT, INPUT_LANES>:
         std::ops::Mul<&'b Tensor<f32, INPUT, INPUT_LANES>, Output = f32>,
@@ -82,14 +74,14 @@ where
         weights: [tensor::Tensor<f32, INPUT, INPUT_LANES>; OUTPUT],
         biases: [f32; OUTPUT],
     ) -> Self {
-        Layer {
+        Perceptron {
             transpose: Self::transpose(&weights),
             weights,
             biases,
         }
     }
 
-    /// Performs the forward pass of the layer (Modified to accept &self instead of consuming self).
+    /// Performs the forward pass of the Perceptron (Modified to accept &self instead of consuming self).
     pub fn forward(
         &self,
         x: &[f32; INPUT],
@@ -108,10 +100,10 @@ where
     pub fn backward(
         &self,
         dx: Vec<f32>,
-        prev: Vec<f32>
+        input: Vec<f32>
     ) -> Gradients<f32, INPUT, INPUT_LANES, OUTPUT> {
         // 4. Calculate bias changes required for training from adjusted signals
-        let prev = Tensor::new(prev);
+        let prev = Tensor::new(input);
 
         // 4. Calculate weight changes using outer product of adjusted error and previous input
         let dw: [Tensor<f32, INPUT, INPUT_LANES>; OUTPUT] = dx
@@ -122,16 +114,34 @@ where
             .unwrap();
         let dx = Tensor::new(dx);
 
-        // 5. Calculate the difference / error required for the previous layer (dx * W)
-        let mut gradient: [] = vec![0.0; INPUT];
+        // 5. Calculate the difference / error required for the previous Perceptron (dx * W)
+        let mut gradient: [f32; INPUT] = [0.0; INPUT];
         for (i, item) in gradient.iter_mut().enumerate() {
             // Fix: Multiply the column of the transposed weights matrix by the adjusted incoming error
             *item = &self.transpose[i] * &dx;
         }
 
 
-        // 6. Return weight changes, bias changes, and difference in signals for previous layer
-        (dw, gradient)
+        // 6. Return weight changes, bias changes, and difference in signals for previous Perceptron
+        (dw, gradient.to_vec())
+    }
+
+    fn train(&self, rate: f32, x: &Tensor<f32, INPUT, INPUT_LANES>, dy: &Tensor<f32, OUTPUT, OUTPUT_LANES>) -> Self {
+        // 3. Backward pass to get weight and bias gradients
+        let (dw, db) = self.backward(dy.as_ref().to_vec(), x.as_ref().to_vec());
+
+        // 4. Update weights and biases using calculated gradients and learning rate
+        let mut new_weights = self.weights.clone();
+        for i in 0..OUTPUT {
+            new_weights[i] = new_weights[i].clone() - &(dw[i].clone() * &rate);
+        }
+        let mut new_biases = self.biases.clone();
+        for i in 0..OUTPUT {
+            new_biases[i] -= db[i] * rate;
+        }
+
+        // 5. Return a new Perceptron instance with updated weights and biases
+        Perceptron::new(new_weights, new_biases)
     }
 
     /// Calculates the activation derivative using the post-activation output state
@@ -256,101 +266,6 @@ where
                 result
             },
             Activation::None => result,
-        }
-    }
-}
-
-/// Represents a simple multi-layer Network (MLP).
-pub struct Network<
-    const INPUT: usize,
-    const INPUT_LANES: usize,
-    const OUTPUT: usize,
-    const OUTPUT_LANES: usize,
-> {
-    pub iterations: usize,
-    pub threshold: f32,
-    pub rate: f32,
-    pub momentum: f32,
-    pub layers: Layers<f32, INPUT, INPUT_LANES, OUTPUT, OUTPUT_LANES>,
-}
-
-impl<
-        const INPUT: usize,
-        const INPUT_LANES: usize,
-        const OUTPUT: usize,
-        const OUTPUT_LANES: usize,
-    > Network<INPUT, INPUT_LANES, OUTPUT, OUTPUT_LANES>
-where
-    for<'b> &'b Tensor<f32, INPUT, INPUT_LANES>:
-        std::ops::Mul<&'b Tensor<f32, INPUT, INPUT_LANES>, Output = f32>,
-    for<'b> &'b Tensor<f32, OUTPUT, OUTPUT_LANES>:
-        std::ops::Mul<&'b Tensor<f32, OUTPUT, OUTPUT_LANES>, Output = f32>,
-{
-    pub fn new(
-        iterations: usize,
-        threshold: f32,
-        rate: f32,
-        momentum: f32,
-        layers: Option<Layers<f32, INPUT, INPUT_LANES, OUTPUT, OUTPUT_LANES>>,
-    ) -> Self {
-        Network {
-            iterations,
-            threshold,
-            rate,
-            momentum,
-            layers: match layers {
-                Some(l) => l,
-                None => vec![],
-            }
-        }
-    }
-
-    pub fn add(&mut self, layer: Layer<f32, INPUT, INPUT_LANES, OUTPUT, OUTPUT_LANES>) {
-        self.layers.push(layer);
-    }
-
-    pub fn train(
-        &mut self,
-        x: &Tensor<f32, INPUT, INPUT_LANES>,
-        y: &Tensor<f32, OUTPUT, OUTPUT_LANES>,
-        activation: &Activation,
-    ) {
-        // --- 1. Forward Pass ---
-        let mut inputs: NetworkInputs<f32, OUTPUT, OUTPUT_LANES> = vec![];
-        let mut input = x.clone().as_ref().to_vec();
-
-        for layer in self.layers.iter() {
-            let output = layer.forward(input.as_slice().try_into().unwrap(), activation);
-            inputs.push(output.clone());
-            input = output.as_ref().to_vec();
-        }
-
-        // --- 2. Backward Pass ---
-        // Fix: Clone the last entry out before applying subtraction to satisfy operator requirements
-        let mut cost = y - &inputs.last().unwrap().clone();
-        let mut partials = vec![];
-
-        for (i, layer) in self.layers.iter().rev().enumerate() {
-            let idx = self.layers.len() - 1 - i;
-            let output = &inputs[idx];        // Input to this layer
-            let current = &inputs[idx + 1];  // Output of this layer
-            
-            let d= layer.backward(&cost, output, current, activation.clone());
-            cost = grad_to_pass;
-            partials.push(layer_grads);
-        }
-        all_gradients.reverse();
-
-        // --- 3. Update Weights, Biases & Sync Transposed Representation ---
-        for (i, layer) in self.layers.iter_mut().enumerate() {
-            let (d_weights, d_biases) = &all_gradients[i];
-            for j in 0..OUTPUT {
-                // Fix: Clone moving elements explicitly into value-taking operators
-                layer.weights[j] = layer.weights[j].clone() - &(d_weights[j].clone() * &self.rate);
-                layer.biases[j] -= d_biases[j] * self.rate;
-            }
-            // CRITICAL FIX: Re-sync transpose matrix so the next training pass uses updated values!
-            layer.transpose = Self::transpose(&layer.weights);
         }
     }
 }

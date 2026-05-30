@@ -328,7 +328,7 @@ mod tensor {
 mod perception {
     use crate::neural::{
         tensor::{Tensor, WIDTH},
-        Activation, Layer, Network
+        Activation, Perceptron
     };
     use rand::{RngExt};
 

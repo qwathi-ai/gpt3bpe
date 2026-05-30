@@ -325,12 +325,12 @@ mod tensor {
     // }
 }
 
-mod perception {
+mod neural {
     use crate::neural::{
-        tensor::{Tensor, WIDTH},
-        Activation, Perceptron
+        tensor::{self, Tensor, WIDTH},
+        Activation, Layer
     };
-    use rand::{RngExt};
+    use rand::RngExt;
 
     const INPUT: usize = 4;
     const INPUT_LANES: usize = INPUT / WIDTH;
@@ -338,19 +338,14 @@ mod perception {
     const HIDDEN_LANES: usize = HIDDEN / WIDTH;
     const OUTPUT: usize = 4;
     const OUTPUT_LANES: usize = OUTPUT / WIDTH;
-
-    fn create_Network(
-        layers: Vec<Layer<f32, INPUT, INPUT_LANES, OUTPUT, OUTPUT_LANES>>,
-    ) -> Network<INPUT, INPUT_LANES, OUTPUT, OUTPUT_LANES> {
-        Network::new(1000, 0.01, 0.1, 0.9, Some(layers))
-    }
-
+    
+    /// Creates a 2-layer network for testing purposes.
     fn create_layers() -> Vec<Layer<f32, INPUT, INPUT_LANES, OUTPUT, OUTPUT_LANES>> {
         let mut weights1_data = [[0.0; INPUT]; HIDDEN];
         let mut rng = rand::rng();
         for i in 0..HIDDEN {
             for j in 0..INPUT {
-                weights1_data[i][j] = rng.random_range(-1.0f32..1.0f32);                
+                weights1_data[i][j] = rng.random() //.gen_range(-1.0f32..1.0f32);                
             }
         }
         let weights1: [Tensor<f32, INPUT, INPUT_LANES>; HIDDEN] = weights1_data
@@ -363,7 +358,7 @@ mod perception {
         let mut weights2_data = [[0.0; HIDDEN]; OUTPUT];
         for i in 0..OUTPUT {
             for j in 0..HIDDEN {
-                weights2_data[i][j] = rng.random_range(-1.0f32..1.0f32);
+                weights2_data[i][j] = rng.random();
             }
         }
         let weights2: [Tensor<f32, HIDDEN, HIDDEN_LANES>; OUTPUT] = weights2_data
@@ -376,38 +371,106 @@ mod perception {
         vec![layer1, layer2]
     }
 
+    /// Performs a forward pass through the entire network (a list of layers).
+    fn network_forward(
+        layers: &[Layer<f32, INPUT, INPUT_LANES, OUTPUT, OUTPUT_LANES>],
+        x: &Tensor<f32, INPUT, INPUT_LANES>,
+    ) -> Tensor<f32, OUTPUT, OUTPUT_LANES> {
+        // The initial input to the network is the input tensor `x`.
+        // We convert it to a Vec<f32> to allow for size changes between layers.
+        let mut current_input_vec = x.as_ref().to_vec();
+
+        for (i, layer) in layers.iter().enumerate() {
+            // Use ReLU for all hidden layers and Sigmoid for the final output layer.
+            let activation = if i == layers.len() - 1 {
+                Activation::Sigmoid
+            } else {
+                Activation::ReLU
+            };
+
+            // The forward pass requires a fixed-size array. We convert our dynamic Vec.
+            let input_array: &[f32; INPUT] = current_input_vec.as_slice().try_into().unwrap();
+            let output_tensor = layer.forward(input_array, &activation);
+
+            // The output of the current layer becomes the input for the next.
+            current_input_vec = output_tensor.as_ref().to_vec();
+        }
+
+        // The final vector is converted back to a Tensor to be returned.
+        Tensor::new(current_input_vec)
+    }
+
+    /// Performs a single training iteration (forward and backward pass) and returns the updated network.
+    fn train_network(
+        mut network: Vec<Layer<f32, INPUT, INPUT_LANES, OUTPUT, OUTPUT_LANES>>,
+        x: &Tensor<f32, INPUT, INPUT_LANES>,
+        y: &Tensor<f32, OUTPUT, OUTPUT_LANES>,
+        rate: f32,
+    ) -> Vec<Layer<f32, INPUT, INPUT_LANES, OUTPUT, OUTPUT_LANES>> {
+        // 1. Forward pass: We need to store the input and output of each layer for backpropagation.
+        let mut layer_inputs = vec![x.clone()];
+        let mut layer_outputs = vec![];
+
+        let mut current_input = x.clone();
+        for (i, layer) in network.iter().enumerate() {
+            let activation = if i == network.len() - 1 { Activation::Sigmoid } else { Activation::ReLU };
+            let output = layer.forward(current_input.as_ref(), &activation);
+            layer_outputs.push(output.clone());
+            current_input = output.clone();
+            if i < network.len() - 1 {
+                layer_inputs.push(current_input.clone());
+            }
+        }
+
+        // 2. Backward pass: Propagate the error from the output layer back to the input layer.
+        let final_output = layer_outputs.last().unwrap();
+        let mut error = final_output.clone() - y; // Initial error is the difference between prediction and target.
+
+        for i in (0..network.len()).rev() {
+            let activation = if i == network.len() - 1 { Activation::Sigmoid } else { Activation::ReLU };
+            
+            // Adjust the error based on the activation function's derivative.
+            let delta = Layer::<f32, INPUT, INPUT_LANES, 4, 1>::derive(&error, &layer_outputs[i], activation);
+            
+            // Train the current layer using the adjusted error and its original input.
+            // This returns a new, updated layer.
+            let updated_layer = network[i].train(rate, &layer_inputs[i], &delta);
+            
+            // Calculate the error to be passed to the previous layer.
+            let (_, prev_error) = network[i].backward(delta.as_ref().to_vec(), layer_inputs[i].as_ref().to_vec());
+            error = Tensor::new(prev_error);
+            
+            // Replace the old layer with the newly trained one.
+            network[i] = updated_layer;
+        }
+        network
+    }
+
     fn train_and_test_gate(
         inputs: &[[f32; INPUT]],
         targets: &[[f32; OUTPUT]],
         test_cases: &[(Tensor<f32, INPUT, INPUT_LANES>, f32)],
     ) {
-        let layers = create_layers();
-        let mut p = create_Network(layers);
+        // 1. Create the initial network (a list of layers).
+        let mut network = create_layers();
+        let iterations = 1000;
+        let learning_rate = 0.1;
 
-        for _ in 0..p.iterations {
+        // 4. Run the training loop for a fixed number of iterations.
+        for _ in 0..iterations {
             for i in 0..inputs.len() {
                 let x = Tensor::from(&inputs[i]);
                 let y = Tensor::from(&targets[i]);
-                let activation = if i == p.layers.len() - 1 {
-                    Activation::Sigmoid
-                } else {
-                    Activation::ReLU
-                };
-                p.train(&x, &y, &activation);
+                // 2 & 3. The train_network function handles the forward pass, backpropagation,
+                // and returns the newly updated network.
+                network = train_network(network, &x, &y, learning_rate);
             }
         }
 
+        // 5. After training, run a final forward pass on the test cases and assert the results.
         for (input, expected) in test_cases {
-            let mut current_input = input.clone();
-            for (i, layer) in p.layers.iter().enumerate() {
-                let activation = if i == p.layers.len() - 1 {
-                    Activation::Sigmoid
-                } else {
-                    Activation::ReLU
-                };
-                current_input = layer.clone().forward(&current_input, &activation);
-            }
-            let prediction = current_input.as_ref()[0];
+            let prediction_tensor = network_forward(&network, input);
+            let prediction = prediction_tensor.as_ref()[0];
             assert!((prediction - expected).abs() < 0.1, "Prediction: {}, Expected: {}", prediction, expected);
         }
     }

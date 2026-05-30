@@ -62,8 +62,9 @@ rusqlite = { version = "0.31.0", features = ["bundled"] }
 sqlite-vec = { version = "0.1.6" }
 zerocopy = { version = "0.7.32" }
 libm = { version = "0.2.8" }
+rand = { version = "0.10.1" }
 
 
 [dev-dependencies]
 pprof = { version = "0.15", features = ["flamegraph"] }
-rand = { version = "0.10.1" }
+## rand = { version = "0.10.1" }

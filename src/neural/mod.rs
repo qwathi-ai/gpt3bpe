@@ -1,10 +1,15 @@
-mod optimizer;
+//! A module for building and training individual neural network layers.
+//!
+//! This module provides the `Layer` struct, which represents a single, fully-connected
+//! layer in a neural network. It includes methods for forward propagation (`forward`),
+//! backpropagation (`backward`), and a training step (`train`). This design allows for
+//! the flexible construction of multi-layered networks externally.
 mod tensor;
 mod unit;
 use crate::neural::tensor::Tensor;
 use wide::f32x4;
 
-/// Represents the activation function to be applied to the output of a neural network Perceptron.
+/// Represents the activation function to be applied to the output of a neural network Layer.
 #[derive(Debug, Clone)]
 pub enum Activation {
     /// Rectified Linear Unit: `f(x) = max(0, x)`.
@@ -19,17 +24,27 @@ pub enum Activation {
     None,
 }
 
-/// A tuple holding the gradients for a Perceptron's weights and biases.
+/// A tuple holding the gradients for a `Layer`'s weights and the error for the previous layer.
+///
+/// This is returned by the `backward` pass and contains:
+/// 1.  Weight gradients (`dw`): The adjustments needed for each weight in the layer.
+/// 2.  Propagated error (`dx`): The error signal to be passed back to the preceding layer.
 type Gradients<T, const INPUT: usize, const INPUT_LANES: usize, const OUTPUT: usize> = (
-    // Weight gradients
+    // Gradients for the layer's weights.
     [Tensor<T, INPUT, INPUT_LANES>; OUTPUT],
-    // Bias gradients
+    // Error to be propagated to the previous layer.
     Vec<T>,
 );
 
-/// A fully connected Perceptron in a neural network.
+/// A fully connected Layer in a neural network.
+///
+/// A `Layer` is defined by its weights, biases, and the dimensions of its input and output.
+/// It is designed to be a self-contained unit that can be composed into a larger network.
+/// The `transpose` of the weights is pre-computed and stored for efficiency during the
+/// backpropagation pass.
 #[derive(Clone, Debug)]
-pub (crate) struct Perceptron<
+pub (crate) struct Layer<
+    // The numeric type for calculations, typically `f32`.
     T: std::marker::Copy,
     const INPUT: usize,
     const INPUT_LANES: usize,
@@ -37,22 +52,25 @@ pub (crate) struct Perceptron<
     const OUTPUT_LANES: usize,
 > {
     pub weights: [tensor::Tensor<T, INPUT, INPUT_LANES>; OUTPUT],
+    /// Pre-computed transpose of the weights matrix, used for efficient backpropagation.
     pub transpose: [tensor::Tensor<T, OUTPUT, OUTPUT_LANES>; INPUT],
     pub biases: [T; OUTPUT],
 }
 
+/// Implementation of a `Layer` using `f32` for its computations.
 impl<
         const INPUT: usize,
         const INPUT_LANES: usize,
         const OUTPUT: usize,
         const OUTPUT_LANES: usize,
-    > Perceptron<f32, INPUT, INPUT_LANES, OUTPUT, OUTPUT_LANES>
+    > Layer<f32, INPUT, INPUT_LANES, OUTPUT, OUTPUT_LANES>
 where
     for<'b> &'b Tensor<f32, INPUT, INPUT_LANES>:
         std::ops::Mul<&'b Tensor<f32, INPUT, INPUT_LANES>, Output = f32>,
     for<'b> &'b Tensor<f32, OUTPUT, OUTPUT_LANES>:
         std::ops::Mul<&'b Tensor<f32, OUTPUT, OUTPUT_LANES>, Output = f32>,
 {
+    /// Transposes a matrix of tensors.
     pub fn transpose(input: &[tensor::Tensor<f32, INPUT, INPUT_LANES>; OUTPUT]) -> [tensor::Tensor<f32, OUTPUT, OUTPUT_LANES>; INPUT] {
         let mut transpose_data: Vec<Vec<f32>> = vec![vec![0.0; OUTPUT]; INPUT];
 
@@ -70,18 +88,27 @@ where
             .unwrap()
     }
 
+    /// Creates a new `Layer` with the given weights and biases.
+    ///
+    /// The transposed weight matrix is automatically computed and stored.
     pub fn new(
         weights: [tensor::Tensor<f32, INPUT, INPUT_LANES>; OUTPUT],
         biases: [f32; OUTPUT],
     ) -> Self {
-        Perceptron {
+        Layer {
             transpose: Self::transpose(&weights),
             weights,
             biases,
         }
     }
 
-    /// Performs the forward pass of the Perceptron (Modified to accept &self instead of consuming self).
+    /// Performs the forward pass for the layer.
+    ///
+    /// This computes `output = activation(weights * input + biases)`.
+    ///
+    /// # Arguments
+    /// * `x` - The input vector for the layer.
+    /// * `activation` - The activation function to apply to the output.
     pub fn forward(
         &self,
         x: &[f32; INPUT],
@@ -96,41 +123,57 @@ where
         self.activate(&tensor::Tensor::new(data), activation)
     }
 
-    /// Step-by-step implementation of your custom backpropagation pipeline
+    /// Performs the backward pass (backpropagation) for the layer.
+    ///
+    /// This method calculates the gradients for the weights and the error to be
+    /// propagated to the previous layer.
+    ///
+    /// # Arguments
+    /// * `dx` - The error gradient from the next layer (or the loss function).
+    /// * `input` - The original input vector that was fed into the `forward` pass.
+    ///
+    /// # Returns
+    /// A `Gradients` tuple containing:
+    /// * The weight gradients (`dw`).
+    /// * The error to propagate to the previous layer (`dx_prev`).
     pub fn backward(
         &self,
         dx: Vec<f32>,
         input: Vec<f32>
     ) -> Gradients<f32, INPUT, INPUT_LANES, OUTPUT> {
-        // 4. Calculate bias changes required for training from adjusted signals
+        // Calculate weight gradients (dw) using the outer product of the incoming error (dx)
+        // and the original input to this layer.
         let prev = Tensor::new(input);
-
-        // 4. Calculate weight changes using outer product of adjusted error and previous input
         let dw: [Tensor<f32, INPUT, INPUT_LANES>; OUTPUT] = dx
             .iter()
             .map(|&d| prev.clone() * &d)
             .collect::<Vec<_>>()
             .try_into()
             .unwrap();
+
         let dx = Tensor::new(dx);
 
-        // 5. Calculate the difference / error required for the previous Perceptron (dx * W)
+        // Calculate the error to be propagated to the previous layer (dx_prev).
+        // This is done by multiplying the incoming error (dx) by the transposed weights (W^T).
         let mut gradient: [f32; INPUT] = [0.0; INPUT];
         for (i, item) in gradient.iter_mut().enumerate() {
-            // Fix: Multiply the column of the transposed weights matrix by the adjusted incoming error
             *item = &self.transpose[i] * &dx;
         }
 
-
-        // 6. Return weight changes, bias changes, and difference in signals for previous Perceptron
+        // Return the weight gradients and the propagated error.
+        // Note: The bias gradients are equivalent to `dx`, so they are handled in the `train` method.
         (dw, gradient.to_vec())
     }
 
+    /// Performs a single training step and returns a new, updated `Layer`.
+    ///
+    /// This method calculates gradients via backpropagation and updates the layer's
+    /// weights and biases according to the learning rate. It returns a new `Layer`
+    /// instance, leaving the original unchanged (functional approach).
     fn train(&self, rate: f32, x: &Tensor<f32, INPUT, INPUT_LANES>, dy: &Tensor<f32, OUTPUT, OUTPUT_LANES>) -> Self {
-        // 3. Backward pass to get weight and bias gradients
+        // The incoming error `dy` also serves as the bias gradient `db`.
         let (dw, db) = self.backward(dy.as_ref().to_vec(), x.as_ref().to_vec());
 
-        // 4. Update weights and biases using calculated gradients and learning rate
         let mut new_weights = self.weights.clone();
         for i in 0..OUTPUT {
             new_weights[i] = new_weights[i].clone() - &(dw[i].clone() * &rate);
@@ -140,11 +183,18 @@ where
             new_biases[i] -= db[i] * rate;
         }
 
-        // 5. Return a new Perceptron instance with updated weights and biases
-        Perceptron::new(new_weights, new_biases)
+        Layer::new(new_weights, new_biases)
     }
 
-    /// Calculates the activation derivative using the post-activation output state
+    /// Calculates the derivative of the activation function.
+    ///
+    /// This is a crucial step in backpropagation, where the error gradient `dx` is
+    /// adjusted based on the activation function's derivative.
+    ///
+    /// # Arguments
+    /// * `dx` - The incoming error gradient.
+    /// * `output` - The post-activation output from the forward pass.
+    /// * `activation` - The activation function that was used.
     fn derive(
         dx: &Tensor<f32, OUTPUT, OUTPUT_LANES>,
         output: &Tensor<f32, OUTPUT, OUTPUT_LANES>,

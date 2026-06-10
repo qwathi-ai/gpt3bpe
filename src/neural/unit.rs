@@ -327,58 +327,41 @@ mod tensor {
 
 mod neural {
     use crate::neural::{
-        tensor::{self, Tensor, WIDTH},
+        tensor::{ Tensor, WIDTH },
         Activation, Layer
     };
-    use rand::RngExt;
+    use rand::RngExt; 
+    const LAYERS: usize = 2;
 
-    const INPUT: usize = 4;
-    const INPUT_LANES: usize = INPUT / WIDTH;
-    const HIDDEN: usize = 4;
-    const HIDDEN_LANES: usize = HIDDEN / WIDTH;
-    const OUTPUT: usize = 4;
-    const OUTPUT_LANES: usize = OUTPUT / WIDTH;
-    
     /// Creates a 2-layer network for testing purposes.
-    fn create_layers() -> Vec<Layer<f32, INPUT, INPUT_LANES, OUTPUT, OUTPUT_LANES>> {
-        let mut weights1_data = [[0.0; INPUT]; HIDDEN];
+    fn create_layers() -> Vec<Layer<f32, WIDTH, 1, WIDTH, 1>> {
         let mut rng = rand::rng();
-        for i in 0..HIDDEN {
-            for j in 0..INPUT {
-                weights1_data[i][j] = rng.random() //.gen_range(-1.0f32..1.0f32);                
+        let layers = vec![];
+        for l in 0..LAYERS {
+            let mut w = [[0.0; WIDTH];WIDTH];
+            let mut weights = vec![];
+            let mut biases = [0.0; WIDTH];
+            for i in 0..WIDTH {
+                biases[i] = rng.random();
+                for j in 0..WIDTH {
+                    w[i][j] = rng.random();                
+                }
+                weights.push(Tensor::new(w[i].to_vec()));
             }
-        }
-        let weights1: [Tensor<f32, INPUT, INPUT_LANES>; HIDDEN] = weights1_data
-            .map(|d| Tensor::from(&d))
-            .try_into()
-            .unwrap();
-        let biases1 = [0.0; HIDDEN];
-        let layer1 = Layer::new(weights1, biases1);
+            layers.push(Layer::new(weights, biases))
 
-        let mut weights2_data = [[0.0; HIDDEN]; OUTPUT];
-        for i in 0..OUTPUT {
-            for j in 0..HIDDEN {
-                weights2_data[i][j] = rng.random();
-            }
         }
-        let weights2: [Tensor<f32, HIDDEN, HIDDEN_LANES>; OUTPUT] = weights2_data
-            .map(|d| Tensor::from(&d))
-            .try_into()
-            .unwrap();
-        let biases2 = [0.0; OUTPUT];
-        let layer2 = Layer::new(weights2, biases2);
-
-        vec![layer1, layer2]
+        layers
     }
 
     /// Performs a forward pass through the entire network (a list of layers).
     fn network_forward(
-        layers: &[Layer<f32, INPUT, INPUT_LANES, OUTPUT, OUTPUT_LANES>],
-        x: &Tensor<f32, INPUT, INPUT_LANES>,
-    ) -> Tensor<f32, OUTPUT, OUTPUT_LANES> {
+        layers: &[Layer<f32, WIDTH, 1, WIDTH, 1>],
+        x: &Tensor<f32, WIDTH, 1>,
+    ) -> Tensor<f32, WIDTH, 1> {
         // The initial input to the network is the input tensor `x`.
         // We convert it to a Vec<f32> to allow for size changes between layers.
-        let mut current_input_vec = x.as_ref().to_vec();
+        let mut input = x.as_ref().to_vec();
 
         for (i, layer) in layers.iter().enumerate() {
             // Use ReLU for all hidden layers and Sigmoid for the final output layer.
@@ -389,20 +372,17 @@ mod neural {
             };
 
             // The forward pass requires a fixed-size array. We convert our dynamic Vec.
-            let input_array: &[f32; INPUT] = current_input_vec.as_slice().try_into().unwrap();
-            let output_tensor = layer.forward(input_array, &activation);
-
-            // The output of the current layer becomes the input for the next.
-            current_input_vec = output_tensor.as_ref().to_vec();
+            let input_array: &[f32; WIDTH] = input.as_slice().try_into().unwrap();
+            input = layer.forward(input_array, &activation).as_ref().to_vec();
         }
 
         // The final vector is converted back to a Tensor to be returned.
-        Tensor::new(current_input_vec)
+        Tensor::new(input)
     }
 
     /// Performs a single training iteration (forward and backward pass) and returns the updated network.
     fn train_network(
-        mut network: Vec<Layer<f32, INPUT, INPUT_LANES, OUTPUT, OUTPUT_LANES>>,
+        mut network: Vec<Layer<f32, WIDTH, 1, WIDTH, 1>>,
         x: &Tensor<f32, INPUT, INPUT_LANES>,
         y: &Tensor<f32, OUTPUT, OUTPUT_LANES>,
         rate: f32,
@@ -453,7 +433,7 @@ mod neural {
     ) {
         // 1. Create the initial network (a list of layers).
         let mut network = create_layers();
-        let iterations = 10000;
+        let iterations = 100;
         let learning_rate = 0.1;
 
         // 4. Run the training loop for a fixed number of iterations.

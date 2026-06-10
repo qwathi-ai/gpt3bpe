@@ -171,8 +171,10 @@ where
     /// weights and biases according to the learning rate. It returns a new `Layer`
     /// instance, leaving the original unchanged (functional approach).
     fn train(&self, rate: f32, x: &Tensor<f32, INPUT, INPUT_LANES>, dy: &Tensor<f32, OUTPUT, OUTPUT_LANES>) -> Self {
-        // The incoming error `dy` also serves as the bias gradient `db`.
-        let (dw, db) = self.backward(dy.as_ref().to_vec(), x.as_ref().to_vec());
+        // The incoming error `dy` is the gradient for the biases (`db`).
+        let db = dy.as_ref();
+        // The backward pass calculates weight gradients (`dw`) and the error for the previous layer.
+        let (dw, _) = self.backward(dy.as_ref().to_vec(), x.as_ref().to_vec());
 
         let mut new_weights = self.weights.clone();
         for i in 0..OUTPUT {
@@ -180,7 +182,7 @@ where
         }
         let mut new_biases = self.biases.clone();
         for i in 0..OUTPUT {
-            new_biases[i] -= db[i] * rate;
+            new_biases[i] -= db[i] * rate; // Update biases using the correct gradient.
         }
 
         Layer::new(new_weights, new_biases)

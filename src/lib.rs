@@ -424,7 +424,6 @@ pub extern "C" fn search(
 ///
 /// # Safety
 /// This function will panic if the `EMBEDDINGS` environment variable is not set.
-#[cfg(feature = "embeddings")]
 #[no_mangle]
 pub extern "C" fn nearest(
     vector: *const f32,

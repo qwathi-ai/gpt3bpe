@@ -51,19 +51,13 @@ wide = { version = "0.7.5", features = ["serde"] }
 argh = "0.1.12"
 
 # Embeddings
-# rusqlite = { version = "0.31.0", features = ["bundled"], optional = true }
-# sqlite-vec = { version = "0.1.6", optional = true }
-# zerocopy = { version = "0.7.32", optional = true }
+rusqlite = { version = "0.31.0", features = ["bundled"]}
+sqlite-vec = { version = "0.1.6"}
+zerocopy = { version = "0.7.32"}
 
 # # Neural
-# libm = { version = "0.2.8", optional = true }
-
-rusqlite = { version = "0.31.0", features = ["bundled"] }
-sqlite-vec = { version = "0.1.6" }
-zerocopy = { version = "0.7.32" }
 libm = { version = "0.2.8" }
 rand = { version = "0.10.1" }
-
 
 [dev-dependencies]
 pprof = { version = "0.15", features = ["flamegraph"] }

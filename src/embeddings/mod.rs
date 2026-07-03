@@ -11,7 +11,7 @@
 //!   a raw embedding vector.
 //! - **Positional Encoding**: Generating sinusoidal positional encodings, a key component for
 //!   sequence models like Transformers to understand token order.
-pub(crate) mod unit;
+// pub(crate) mod unit;
 use crate::bpe;
 use rusqlite::{ffi::sqlite3_auto_extension, Connection};
 use sqlite_vec::sqlite3_vec_init;

@@ -218,6 +218,21 @@ impl<const DIMENSIONS: usize, const TOKENS: usize> core::ops::Sub<&[f32;DIMENSIO
     }
 }
 
+/// Implements element-wise multiplication between a `Tensor` and a raw slice.
+impl<const DIMENSIONS: usize, const TOKENS: usize> core::ops::Mul<&[f32;DIMENSIONS]>
+    for Tensor<f32, DIMENSIONS, TOKENS>
+{
+    type Output = Self;
+
+    /// Performs element-wise multiplication of two tensors.
+    fn mul(mut self, other: &[f32;DIMENSIONS]) -> Self::Output {
+        for (lhs, rhs) in self.data.iter_mut().zip(other.iter()) {
+            *lhs *= rhs;
+        }
+        self
+    }
+}
+
 // Tensor-to-Tensor Operations
 /// Implements element-wise addition between two `Tensor`s.
 ///

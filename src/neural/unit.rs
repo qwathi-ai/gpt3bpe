@@ -209,8 +209,16 @@ mod tensor {
         const EPSILON: f32 = 1e-6;
         for (vec_a, vec_b) in a.iter().zip(b.iter()) {
             let diff = *vec_a - *vec_b;
-            let max_diff = diff.abs().to_array().iter().fold(f32::NEG_INFINITY, |a, &b| a.max(b));
-            assert!(max_diff < EPSILON, "Tensors are not approximately equal. Max diff: {}", max_diff);
+            let max_diff = diff
+                .abs()
+                .to_array()
+                .iter()
+                .fold(f32::NEG_INFINITY, |a, &b| a.max(b));
+            assert!(
+                max_diff < EPSILON,
+                "Tensors are not approximately equal. Max diff: {}",
+                max_diff
+            );
         }
     }
 
@@ -222,8 +230,16 @@ mod tensor {
         for vec_a in a.iter() {
             let scalar_vec = wide::f32x4::splat(scalar);
             let diff = *vec_a - scalar_vec;
-            let max_diff = diff.abs().to_array().iter().fold(f32::NEG_INFINITY, |a, &b| a.max(b));
-            assert!(max_diff < EPSILON, "Tensor not approximately equal to scalar. Max diff: {}", max_diff);
+            let max_diff = diff
+                .abs()
+                .to_array()
+                .iter()
+                .fold(f32::NEG_INFINITY, |a, &b| a.max(b));
+            assert!(
+                max_diff < EPSILON,
+                "Tensor not approximately equal to scalar. Max diff: {}",
+                max_diff
+            );
         }
     }
 
@@ -273,8 +289,8 @@ mod tensor {
     fn distribution() {
         for (_, vector) in crate::neural::unit::VECTORS.iter() {
             let a: f32 = 3.14;
-            let t:Tensor<f32, 300, 75> = crate::neural::tensor::Tensor::from(vector);
-            let s:Tensor<f32, 300, 75> = t.clone();
+            let t: Tensor<f32, 300, 75> = crate::neural::tensor::Tensor::from(vector);
+            let s: Tensor<f32, 300, 75> = t.clone();
             assert_tensor_approx_eq(&((t.clone() + &s) * &a), &(t * &a + &(s * &a)));
         }
     }
@@ -298,8 +314,8 @@ mod tensor {
     /// `T + S = S + T`
     fn commutative_addition() {
         for (_, vector) in crate::neural::unit::VECTORS.iter() {
-            let t:Tensor<f32, 300, 75> = crate::neural::tensor::Tensor::from(vector);
-            let s:Tensor<f32, 300, 75> = t.clone();
+            let t: Tensor<f32, 300, 75> = crate::neural::tensor::Tensor::from(vector);
+            let s: Tensor<f32, 300, 75> = t.clone();
             assert_tensor_approx_eq(&(t.clone() + &s), &(s + &t));
         }
     }
@@ -314,7 +330,7 @@ mod tensor {
     //     let A: i8 = super::random_number();
     //     let B: i8 = super::random_number();
     //     let v = crate::tensor::new::<i8, 4>([-1,1], vec![1, 2, 3]);
-    
+
     //     const B: i8 = 7;
     //     let w = v.clone();
     //     let u = v.clone();
@@ -327,186 +343,106 @@ mod tensor {
 
 mod neural {
     use crate::neural::{
-        tensor::{ Tensor, WIDTH },
-        Activation, Layer
+        self,
+        tensor::{Tensor, WIDTH},
     };
-    use rand::RngExt; 
-    const LAYERS: usize = 2;
 
-    /// Creates a 2-layer network for testing purposes.
-    fn create_layers() -> Vec<Layer<f32, WIDTH, 1, WIDTH, 1>> {
-        let mut rng = rand::rng();
-        let layers = vec![];
-        for l in 0..LAYERS {
-            let mut w = [[0.0; WIDTH];WIDTH];
-            let mut weights = vec![];
-            let mut biases = [0.0; WIDTH];
-            for i in 0..WIDTH {
-                biases[i] = rng.random();
-                for j in 0..WIDTH {
-                    w[i][j] = rng.random();                
-                }
-                weights.push(Tensor::new(w[i].to_vec()));
-            }
-            layers.push(Layer::new(weights, biases))
-
-        }
-        layers
-    }
-
-    /// Performs a forward pass through the entire network (a list of layers).
-    fn network_forward(
-        layers: &[Layer<f32, WIDTH, 1, WIDTH, 1>],
-        x: &Tensor<f32, WIDTH, 1>,
-    ) -> Tensor<f32, WIDTH, 1> {
-        // The initial input to the network is the input tensor `x`.
-        // We convert it to a Vec<f32> to allow for size changes between layers.
-        let mut input = x.as_ref().to_vec();
-
-        for (i, layer) in layers.iter().enumerate() {
-            // Use ReLU for all hidden layers and Sigmoid for the final output layer.
-            let activation = if i == layers.len() - 1 {
-                Activation::Sigmoid
-            } else {
-                Activation::ReLU
-            };
-
-            // The forward pass requires a fixed-size array. We convert our dynamic Vec.
-            let input_array: &[f32; WIDTH] = input.as_slice().try_into().unwrap();
-            input = layer.forward(input_array, &activation).as_ref().to_vec();
-        }
-
-        // The final vector is converted back to a Tensor to be returned.
-        Tensor::new(input)
-    }
-
-    /// Performs a single training iteration (forward and backward pass) and returns the updated network.
-    fn train_network(
-        mut network: Vec<Layer<f32, WIDTH, 1, WIDTH, 1>>,
-        x: &Tensor<f32, INPUT, INPUT_LANES>,
-        y: &Tensor<f32, OUTPUT, OUTPUT_LANES>,
-        rate: f32,
-    ) -> Vec<Layer<f32, INPUT, INPUT_LANES, OUTPUT, OUTPUT_LANES>> {
-        // 1. Forward pass: We need to store the input and output of each layer for backpropagation.
-        let mut layer_inputs = vec![x.clone()];
-        let mut layer_outputs = vec![];
-
-        let mut current_input = x.clone();
-        for (i, layer) in network.iter().enumerate() {
-            let activation = if i == network.len() - 1 { Activation::Sigmoid } else { Activation::ReLU };
-            let output = layer.forward(current_input.as_ref(), &activation);
-            layer_outputs.push(output.clone());
-            current_input = output.clone();
-            if i < network.len() - 1 {
-                layer_inputs.push(current_input.clone());
-            }
-        }
-
-        // 2. Backward pass: Propagate the error from the output layer back to the input layer.
-        let final_output = layer_outputs.last().unwrap();
-        let mut error = final_output.clone() - y; // Initial error is the difference between prediction and target.
-
-        for i in (0..network.len()).rev() {
-            let activation = if i == network.len() - 1 { Activation::Sigmoid } else { Activation::ReLU };
-            
-            // Adjust the error based on the activation function's derivative.
-            let delta = Layer::<f32, INPUT, INPUT_LANES, 4, 1>::derive(&error, &layer_outputs[i], activation);
-            
-            // Train the current layer using the adjusted error and its original input.
-            // This returns a new, updated layer.
-            let updated_layer = network[i].train(rate, &layer_inputs[i], &delta);
-            
-            // Calculate the error to be passed to the previous layer.
-            let (_, prev_error) = network[i].backward(delta.as_ref().to_vec(), layer_inputs[i].as_ref().to_vec());
-            error = Tensor::new(prev_error);
-            
-            // Replace the old layer with the newly trained one.
-            network[i] = updated_layer;
-        }
-        network
-    }
-
-    fn train_and_test_gate(
-        inputs: &[[f32; INPUT]],
-        targets: &[[f32; OUTPUT]],
-        test_cases: &[(Tensor<f32, INPUT, INPUT_LANES>, f32)],
-    ) {
-        // 1. Create the initial network (a list of layers).
-        let mut network = create_layers();
-        let iterations = 100;
-        let learning_rate = 0.1;
+    fn test(layers: usize, gates: &[[[f32; WIDTH]; 2]; WIDTH * WIDTH]) {
+        let iterations = 1000;
+        let learning_rate = 0.4;
+        let threshold: f32 = 0.1;
+        let mut network = neural::layers(layers);
 
         // 4. Run the training loop for a fixed number of iterations.
-        for _ in 0..iterations {
-            for i in 0..inputs.len() {
-                let x = Tensor::from(&inputs[i]);
-                let y = Tensor::from(&targets[i]);
-                // 2 & 3. The train_network function handles the forward pass, backpropagation,
-                // and returns the newly updated network.
-                network = train_network(network, &x, &y, learning_rate);
+        for [input, expected] in gates.iter() {
+            let x = Tensor::from(input);
+            let y = Tensor::from(expected);
+            let mut outputs = crate::neural::forward(&network, &Tensor::from(input));
+            println!("before training: {:?}", outputs);
+            for _ in 0..iterations {
+                network = crate::neural::train(network, &x, &y, &learning_rate);
             }
+            outputs = crate::neural::forward(&network, &Tensor::from(input));
+            println!("after training: {:?}", outputs);
+            let prediction = outputs.last().unwrap();
+            let error: Tensor<f32, 4, 1> = Tensor::from(expected) - &Tensor::new(prediction.to_vec());
+            assert!(
+                error.as_ref().to_vec().iter().copied().sum::<f32>() < threshold,
+                "Prediction: {:?}, Expected: {:?}",
+                prediction,
+                expected
+            );
         }
-
-        // 5. After training, run a final forward pass on the test cases and assert the results.
-        for (input, expected) in test_cases {
-            let prediction_tensor = network_forward(&network, input);
-            let prediction = prediction_tensor.as_ref()[0];
-            assert!((prediction - expected).abs() < 0.1, "Prediction: {}, Expected: {}", prediction, expected);
-        }
     }
 
     #[test]
-    fn test_xor_gate() {
-        let inputs = [
-            [0.0, 0.0, 0.0, 0.0],
-            [0.0, 1.0, 0.0, 0.0],
-            [1.0, 0.0, 0.0, 0.0],
-            [1.0, 1.0, 0.0, 0.0],
+    fn pcnot() {
+        let gates = [
+            [
+                [0.0, 0.0, 0.0, 0.0], // 0000
+                [0.0, 0.0, 0.0, 0.0], // 0000 // No controls are active.
+            ],
+            [
+                [0.0, 0.0, 0.0, 1.0], // 0001
+                [0.0, 0.0, 1.0, 1.0], // 0011 // Control 2 is active.
+            ],
+            [
+                [0.0, 0.0, 1.0, 0.0], // 0010
+                [0.0, 0.0, 1.0, 0.0], // 0010 // No controls are active.
+            ],
+            [
+                [1.0, 1.0, 0.0, 0.0], // 0011
+                [0.0, 0.0, 0.0, 1.0], // 0001 // Control 2 is active.
+            ],
+            [
+                [0.0, 1.0, 0.0, 0.0], // 0100
+                [1.0, 1.0, 0.0, 0.0], // 1100 // Control 1 is active.
+            ],
+            [
+                [0.0, 1.0, 0.0, 1.0], // 0101
+                [1.0, 1.0, 1.0, 1.0], // 1111 // Both controls are active.
+            ],
+            [
+                [0.0, 1.0, 1.0, 0.0], // 0110
+                [1.0, 1.0, 1.0, 0.0], // 1110 // Control 1 is active.
+            ],
+            [
+                [0.0, 1.0, 1.0, 1.0], // 0111
+                [1.0, 1.0, 0.0, 1.0], // 1101 // Both controls are active.
+            ],
+            [
+                [1.0, 0.0, 0.0, 0.0], // 1000
+                [1.0, 0.0, 0.0, 0.0], // 1000 // No controls are active.
+            ],
+            [
+                [1.0, 0.0, 0.0, 1.0], // 1001
+                [1.0, 0.0, 1.0, 1.0], //1011 // Control 2 is active.
+            ],
+            [
+                [1.0, 0.0, 1.0, 0.0], // 1010
+                [1.0, 0.0, 1.0, 0.0], //1010 // No controls are active.
+            ],
+            [
+                [1.0, 0.0, 1.0, 1.0], // 1011
+                [1.0, 0.0, 0.0, 1.0], //1001 // Control 2 is active.
+            ],
+            [
+                [1.0, 1.0, 0.0, 0.0], // 1100
+                [1.0, 1.0, 0.0, 0.0], //1100 // Control 1 is active.
+            ],
+            [
+                [1.0, 1.0, 0.0, 1.0], // 1101
+                [1.0, 1.0, 1.0, 1.0], //1111 // Both controls are active.
+            ],
+            [
+                [1.0, 1.0, 1.0, 0.0], // 1110
+                [1.0, 1.0, 1.0, 0.0], //1110 // Control 1 is active.
+            ],
+            [
+                [1.0, 1.0, 1.0, 1.0], // 1111
+                [1.0, 1.0, 0.0, 1.0], //1101 // Both controls are active.
+            ],
         ];
-        let targets = [
-            [0.0, 0.0, 0.0, 0.0],
-            [1.0, 0.0, 0.0, 0.0],
-            [1.0, 0.0, 0.0, 0.0],
-            [0.0, 0.0, 0.0, 0.0],
-        ];
-        let test_cases = [
-            (Tensor::from(&inputs[0]), 0.0),
-            (Tensor::from(&inputs[1]), 1.0),
-            (Tensor::from(&inputs[2]), 1.0),
-            (Tensor::from(&inputs[3]), 0.0),
-        ];
-        train_and_test_gate(&inputs, &targets, &test_cases);
-    }
-
-    #[test]
-    fn test_or_gate() {
-        let inputs = &[[0.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0], [1.0, 1.0, 0.0, 0.0]];
-        let targets = &[[0.0, 0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0]];
-        let test_cases = &[(Tensor::from(&inputs[0]), 0.0), (Tensor::from(&inputs[1]), 1.0), (Tensor::from(&inputs[2]), 1.0), (Tensor::from(&inputs[3]), 1.0)];
-        train_and_test_gate(inputs, targets, test_cases);
-    }
-
-    #[test]
-    fn test_and_gate() {
-        let inputs = &[[0.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0], [1.0, 1.0, 0.0, 0.0]];
-        let targets = &[[0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0]];
-        let test_cases = &[(Tensor::from(&inputs[0]), 0.0), (Tensor::from(&inputs[1]), 0.0), (Tensor::from(&inputs[2]), 0.0), (Tensor::from(&inputs[3]), 1.0)];
-        train_and_test_gate(inputs, targets, test_cases);
-    }
-
-    #[test]
-    fn test_nand_gate() {
-        let inputs = &[[0.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0], [1.0, 1.0, 0.0, 0.0]];
-        let targets = &[[1.0, 0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0]];
-        let test_cases = &[(Tensor::from(&inputs[0]), 1.0), (Tensor::from(&inputs[1]), 1.0), (Tensor::from(&inputs[2]), 1.0), (Tensor::from(&inputs[3]), 0.0)];
-        train_and_test_gate(inputs, targets, test_cases);
-    }
-
-    #[test]
-    fn test_nor_gate() {
-        let inputs = &[[0.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0], [1.0, 1.0, 0.0, 0.0]];
-        let targets = &[[1.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0]];
-        let test_cases = &[(Tensor::from(&inputs[0]), 1.0), (Tensor::from(&inputs[1]), 0.0), (Tensor::from(&inputs[2]), 0.0), (Tensor::from(&inputs[3]), 0.0)];
-        train_and_test_gate(inputs, targets, test_cases);
+        test(4, &gates);
     }
 }

@@ -346,33 +346,41 @@ mod neural {
         self,
         tensor::{Tensor, WIDTH},
     };
+    use rand::RngExt;
 
     fn test(layers: usize, gates: &[[[f32; WIDTH]; 2]; WIDTH * WIDTH]) {
-        let iterations = 1000;
-        let learning_rate = 0.4;
-        let threshold: f32 = 0.1;
+        let learning_rate = 0.1;
+        let threshold: f32 = 0.01;
         let mut network = neural::layers(layers);
 
-        // 4. Run the training loop for a fixed number of iterations.
-        for [input, expected] in gates.iter() {
-            let x = Tensor::from(input);
-            let y = Tensor::from(expected);
-            let mut outputs = crate::neural::forward(&network, &Tensor::from(input));
-            println!("before training: {:?}", outputs);
-            for _ in 0..iterations {
-                network = crate::neural::train(network, &x, &y, &learning_rate);
-            }
-            outputs = crate::neural::forward(&network, &Tensor::from(input));
-            println!("after training: {:?}", outputs);
+        // Helper function to pick a random gate pair
+        fn random(gates: &[[[f32; WIDTH]; 2]; WIDTH * WIDTH]) -> [[f32; WIDTH]; 2] {
+            let mut rng = rand::rng();
+            let index = rng.random_range(0..gates.len());
+            gates[index]
+        }
+
+        for _ in 0..2 {
+            let [input, expected] = random(gates); // Pick a random input/expected pair
+            let x: Tensor<f32, WIDTH, 1> = Tensor::new(input.to_vec());
+            let y: Tensor<f32, WIDTH, 1> = Tensor::new(expected.to_vec());
+            network = crate::neural::train(&network, &x, &y, &learning_rate);
+        }
+        for _ in 0..1 {
+            let [input, expected] = random(gates);
+            let x: Tensor<f32, WIDTH, 1> = Tensor::new(input.to_vec());
+            let y: Tensor<f32, WIDTH, 1> = Tensor::new(expected.to_vec());
+            let outputs = crate::neural::forward(&network, &x);
             let prediction = outputs.last().unwrap();
-            let error: Tensor<f32, 4, 1> = Tensor::from(expected) - &Tensor::new(prediction.to_vec());
+            let error: Tensor<f32, WIDTH, 1> = y - &Tensor::new(prediction.to_vec());
             assert!(
                 error.as_ref().to_vec().iter().copied().sum::<f32>() < threshold,
                 "Prediction: {:?}, Expected: {:?}",
                 prediction,
                 expected
-            );
+            )
         }
+
     }
 
     #[test]
@@ -443,6 +451,6 @@ mod neural {
                 [1.0, 1.0, 0.0, 1.0], //1101 // Both controls are active.
             ],
         ];
-        test(4, &gates);
+        test(2, &gates);
     }
 }

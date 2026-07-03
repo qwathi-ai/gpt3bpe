@@ -105,7 +105,6 @@ impl<
             let mx: f32 = &self.weights[i] * &x;
             y[i] = mx + c;
         }
-        println!("forward: data: {:?}", y);
         self.activate(&tensor::Tensor::new(y), activation)
     }
 
@@ -113,7 +112,7 @@ impl<
     ///
     /// This method calculates the gradients for the weights and the error to be
     /// propagated to the previous layer.
-    pub fn backward<const PREV_INPUT: usize, const PREV_INPUT_LANES: usize>(
+    pub fn backward(
         &self,
         rate: &f32,
         dy: &Tensor<f32, OUTPUT, OUTPUT_LANES>,
@@ -122,9 +121,9 @@ impl<
         // 1. Calculate Weight Gradients (dw)
         // dw = dy * x^T
         // This is an outer product. For each output neuron's error, we scale the entire input vector.
-        let dw: [Tensor<f32, INPUT, INPUT_LANES>; OUTPUT] = dy
+        let dw: [Tensor<f32, INPUT, INPUT_LANES>; OUTPUT] = dy.as_ref()
             .iter()
-            .map(|&neuron_error| x.clone() * &neuron_error.reduce_add())
+            .map(|&neuron_error| x.clone() * &neuron_error)
             .collect::<Vec<_>>()
             .try_into()
             .unwrap();
@@ -353,13 +352,13 @@ pub fn forward<
 }
 
 /// Performs a single training iteration (forward and backward pass) and returns the updated network.
-fn train<
+pub fn train<
     const INPUT: usize,
     const INPUT_LANES: usize,
     const OUTPUT_LANES: usize,
     const OUTPUT: usize,
 >(
-    mut network: Vec<Layer<f32, INPUT, INPUT_LANES, OUTPUT_LANES, OUTPUT>>,
+    network: &Vec<Layer<f32, INPUT, INPUT_LANES, OUTPUT_LANES, OUTPUT>>,
     x: &Tensor<f32, INPUT, INPUT_LANES>,
     y: &Tensor<f32, OUTPUT, OUTPUT_LANES>,
     rate: &f32,
@@ -374,16 +373,15 @@ fn train<
     for i in (0..network.len()).rev() {
         let input = Tensor::new(inputs[i].clone());
         let mut output = Tensor::new(inputs[i + 1].clone());
-
         let activation = if i == network.len() - 1 {
             Activation::Softmax
         } else {
             Activation::Sigmoid
         };
         output = Layer::<f32, INPUT, INPUT_LANES, OUTPUT_LANES, OUTPUT>::derivative(&output, &activation);
-        // Multiply element-wise (Hadamard product) to get the error gradient for the layer's pre-activation output (logits)
+        println!("layer: {:?}\ninput: {:?}\noutput{:?}\nerror: {:?}", i, input.as_ref().to_vec(), output.as_ref().to_vec(), &error);
         let dy = output * Tensor::<f32, OUTPUT, OUTPUT_LANES>::new(error.try_into().unwrap()).as_ref();
-        let (layer, e) = net[i].backward::<OUTPUT, OUTPUT_LANES>(rate, &dy, &input);
+        let (layer, e) = net[i].backward(rate, &dy, &input);
         net[i] = layer;
         error = e.as_ref().to_vec();
     }

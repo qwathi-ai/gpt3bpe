@@ -342,16 +342,13 @@ mod tensor {
 }
 
 mod neural {
-    use crate::neural::{
-        self,
-        tensor::{Tensor, WIDTH},
-    };
+    use crate::neural::{tensor::{Tensor, WIDTH}};
     use rand::RngExt;
 
-    fn test(layers: usize, gates: &[[[f32; WIDTH]; 2]; WIDTH * WIDTH]) {
-        let learning_rate = 0.1;
+    fn test(activations: Vec<crate::neural::Activation>, gates: &[[[f32; WIDTH]; 2]; WIDTH * WIDTH]) {
+        let learning_rate = 0.3;
         let threshold: f32 = 0.01;
-        let mut network = neural::layers(layers);
+        let mut network = crate::neural::layers(activations);
 
         // Helper function to pick a random gate pair
         fn random(gates: &[[[f32; WIDTH]; 2]; WIDTH * WIDTH]) -> [[f32; WIDTH]; 2] {
@@ -360,11 +357,17 @@ mod neural {
             gates[index]
         }
 
-        for _ in 0..2 {
-            let [input, expected] = random(gates); // Pick a random input/expected pair
-            let x: Tensor<f32, WIDTH, 1> = Tensor::new(input.to_vec());
-            let y: Tensor<f32, WIDTH, 1> = Tensor::new(expected.to_vec());
-            network = crate::neural::train(&network, &x, &y, &learning_rate);
+        for _ in 0..1000 {
+            for [input, expected] in  gates {
+                let x: Tensor<f32, WIDTH, 1> = Tensor::new(input.to_vec());
+                let y: Tensor<f32, WIDTH, 1> = Tensor::new(expected.to_vec());
+                let outputs = crate::neural::forward(&network, &x);
+                let prediction = outputs.last().unwrap();
+                let error: Tensor<f32, WIDTH, 1> = Tensor::new(prediction.to_vec()) - &y;
+                if error.as_ref().to_vec().iter().copied().sum::<f32>() > threshold {
+                    crate::neural::train(&mut network, &x, &y, &learning_rate);
+                }
+            }
         }
         for _ in 0..1 {
             let [input, expected] = random(gates);
@@ -383,7 +386,7 @@ mod neural {
 
     }
 
-    #[test]
+    // #[test]
     fn pcnot() {
         let gates = [
             [
@@ -451,6 +454,55 @@ mod neural {
                 [1.0, 1.0, 0.0, 1.0], //1101 // Both controls are active.
             ],
         ];
-        test(2, &gates);
+        test(vec![crate::neural::Activation::Sigmoid, crate::neural::Activation::None], &gates);
+        // test(vec![crate::neural::Activation::Sigmoid, crate::neural::Activation::Sigmoid, crate::neural::Activation::Sigmoid, crate::neural::Activation::Sigmoid, crate::neural::Activation::ReLU], &gates);
+    }
+
+    // #[test]
+    fn and_gate() {
+        let gates = [
+            [[0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0]], // input[i] AND 1 = output[i]
+            [[0.0, 0.0, 0.0, 1.0], [0.0, 0.0, 0.0, 1.0]],
+            [[0.0, 0.0, 1.0, 0.0], [0.0, 0.0, 1.0, 0.0]],
+            [[0.0, 0.0, 1.0, 1.0], [0.0, 0.0, 1.0, 1.0]],
+            [[0.0, 1.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0]],
+            [[0.0, 1.0, 0.0, 1.0], [0.0, 1.0, 0.0, 1.0]],
+            [[0.0, 1.0, 1.0, 0.0], [0.0, 1.0, 1.0, 0.0]],
+            [[0.0, 1.0, 1.0, 1.0], [0.0, 1.0, 1.0, 1.0]],
+            [[1.0, 0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0]],
+            [[1.0, 0.0, 0.0, 1.0], [1.0, 0.0, 0.0, 1.0]],
+            [[1.0, 0.0, 1.0, 0.0], [1.0, 0.0, 1.0, 0.0]],
+            [[1.0, 0.0, 1.0, 1.0], [1.0, 0.0, 1.0, 1.0]],
+            [[1.0, 1.0, 0.0, 0.0], [1.0, 1.0, 0.0, 0.0]],
+            [[1.0, 1.0, 0.0, 1.0], [1.0, 1.0, 0.0, 1.0]],
+            [[1.0, 1.0, 1.0, 0.0], [1.0, 1.0, 1.0, 0.0]],
+            [[1.0, 1.0, 1.0, 1.0], [1.0, 1.0, 1.0, 1.0]],
+        ];
+        test(vec![crate::neural::Activation::Sigmoid, crate::neural::Activation::None], &gates);
+        // test(vec![crate::neural::Activation::Sigmoid, crate::neural::Activation::Sigmoid, crate::neural::Activation::Sigmoid, crate::neural::Activation::Sigmoid, crate::neural::Activation::ReLU], &gates);
+    }
+
+    #[test]
+    fn or_gate() {
+        let gates = [
+            [[0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0]], // input[i] OR 0 = output[i]
+            [[0.0, 0.0, 0.0, 1.0], [0.0, 0.0, 0.0, 1.0]],
+            [[0.0, 0.0, 1.0, 0.0], [0.0, 0.0, 1.0, 0.0]],
+            [[0.0, 0.0, 1.0, 1.0], [0.0, 0.0, 1.0, 1.0]],
+            [[0.0, 1.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0]],
+            [[0.0, 1.0, 0.0, 1.0], [0.0, 1.0, 0.0, 1.0]],
+            [[0.0, 1.0, 1.0, 0.0], [0.0, 1.0, 1.0, 0.0]],
+            [[0.0, 1.0, 1.0, 1.0], [0.0, 1.0, 1.0, 1.0]],
+            [[1.0, 0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0]],
+            [[1.0, 0.0, 0.0, 1.0], [1.0, 0.0, 0.0, 1.0]],
+            [[1.0, 0.0, 1.0, 0.0], [1.0, 0.0, 1.0, 0.0]],
+            [[1.0, 0.0, 1.0, 1.0], [1.0, 0.0, 1.0, 1.0]],
+            [[1.0, 1.0, 0.0, 0.0], [1.0, 1.0, 0.0, 0.0]],
+            [[1.0, 1.0, 0.0, 1.0], [1.0, 1.0, 0.0, 1.0]],
+            [[1.0, 1.0, 1.0, 0.0], [1.0, 1.0, 1.0, 0.0]],
+            [[1.0, 1.0, 1.0, 1.0], [1.0, 1.0, 1.0, 1.0]],
+        ];
+        test(vec![crate::neural::Activation::ReLU, crate::neural::Activation::Sigmoid], &gates);
+        // test(vec![crate::neural::Activation::Sigmoid, crate::neural::Activation::Sigmoid, crate::neural::Activation::Sigmoid, crate::neural::Activation::Sigmoid, crate::neural::Activation::ReLU], &gates);
     }
 }

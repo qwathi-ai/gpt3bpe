@@ -39,10 +39,11 @@ pub(crate) struct Layer<
     const OUTPUT_LANES: usize,
     const OUTPUT: usize,
 > {
-    pub weights: [tensor::Tensor<T, INPUT, INPUT_LANES>; OUTPUT],
+    pub activation: Activation,
+    weights: [tensor::Tensor<T, INPUT, INPUT_LANES>; OUTPUT],
     /// Pre-computed transpose of the weights matrix, used for efficient backpropagation.
-    pub transpose: [tensor::Tensor<T, OUTPUT, OUTPUT_LANES>; INPUT],
-    pub biases: [T; OUTPUT],
+    transpose: [tensor::Tensor<T, OUTPUT, OUTPUT_LANES>; INPUT],
+    biases: [T; OUTPUT]
 }
 
 /// Implementation of a `Layer` using `f32` for its computations.
@@ -54,7 +55,7 @@ impl<
     > Layer<f32, INPUT, INPUT_LANES, OUTPUT_LANES, OUTPUT>
 {
     /// Transposes a matrix of tensors.
-    pub fn transpose(
+    fn transpose(
         input: &[tensor::Tensor<f32, INPUT, INPUT_LANES>; OUTPUT],
     ) -> [tensor::Tensor<f32, OUTPUT, OUTPUT_LANES>; INPUT] {
         let mut transpose_data: Vec<Vec<f32>> = vec![vec![0.0; OUTPUT]; INPUT];
@@ -77,10 +78,12 @@ impl<
     ///
     /// The transposed weight matrix is automatically computed and stored.
     pub fn new(
+        activation: Activation,
         weights: [tensor::Tensor<f32, INPUT, INPUT_LANES>; OUTPUT],
         biases: [f32; OUTPUT],
     ) -> Self {
         Layer {
+            activation,
             transpose: Self::transpose(&weights),
             weights,
             biases,
@@ -97,7 +100,6 @@ impl<
     pub fn forward(
         &self,
         x: &[f32; INPUT],
-        activation: &Activation,
     ) -> Tensor<f32, OUTPUT, OUTPUT_LANES> {
         let mut y = vec![0.0; OUTPUT];
         let x = Tensor::new(x.to_vec());
@@ -105,7 +107,7 @@ impl<
             let mx: f32 = &self.weights[i] * &x;
             y[i] = mx + c;
         }
-        self.activate(&tensor::Tensor::new(y), activation)
+        self.activate(&tensor::Tensor::new(y))
     }
 
     /// Performs the backward pass (backpropagation) for the layer.
@@ -150,7 +152,7 @@ impl<
         }
 
         // 5. Return the updated layer and the error for the previous layer.
-        (Layer::new(weights, biases), dx)
+        (Layer::new(self.activation.to_owned(), weights, biases), dx)
     }
 
     /// Calculates the derivative of the activation function.
@@ -161,11 +163,11 @@ impl<
     /// * `y` - The post-activation output from the forward pass.
     /// * `activation` - The activation function that was used.
     fn derivative(
+        &self,
         y: &Tensor<f32, OUTPUT, OUTPUT_LANES>,
-        activation: &Activation,
     ) -> Tensor<f32, OUTPUT, OUTPUT_LANES> {
         let mut derivative = y.clone();
-        match activation {
+        match self.activation {
             Activation::None => derivative,
             Activation::ReLU => {
                 // f'(x) = 1 if f(x) > 0 else 0
@@ -224,11 +226,10 @@ impl<
     fn activate(
         &self,
         x: &Tensor<f32, OUTPUT, OUTPUT_LANES>,
-        activation: &Activation,
     ) -> Tensor<f32, OUTPUT, OUTPUT_LANES> {
         // Clone the input tensor to store the results.
         let mut result = x.clone();
-        match activation {
+        match self.activation {
             // ReLU (Rectified Linear Unit): f(x) = max(0, x)
             // This is computationally efficient and helps mitigate the vanishing gradient problem.
             Activation::ReLU => {
@@ -306,20 +307,20 @@ pub fn layers<
     const OUTPUT_LANES: usize,
     const OUTPUT: usize,
 >(
-    number: usize,
+    activations: Vec<Activation>,
 ) -> Network<f32, INPUT, INPUT_LANES, OUTPUT_LANES, OUTPUT> {
-    let layer = || {
+    let layer = |activation: &Activation| {
         let mut rng = rand::rng();
         let weights: [Tensor<f32, INPUT, INPUT_LANES>; OUTPUT] = std::array::from_fn(|_| {
             let data = (0..INPUT)
-                .map(|_| rng.random::<f32>())
+                .map(|_| rng.random_range(0.0..1.0f32))
                 .collect::<Vec<f32>>();
             Tensor::new(data)
         });
-        let biases: [f32; OUTPUT] = std::array::from_fn(|_| rng.random::<f32>());
-        Layer::new(weights, biases)
+        let biases: [f32; OUTPUT] = std::array::from_fn(|_| rng.random_range(0.0..1.0f32));
+        Layer::new(activation.to_owned(), weights, biases)
     };
-    (0..number).map(|_| layer()).collect()
+    activations.iter().map(|activation| layer(activation)).collect()
 }
 
 pub fn forward<
@@ -333,21 +334,13 @@ pub fn forward<
 ) -> Vec<Vec<f32>> {
     let mut inputs = vec![x.as_ref().to_vec()];
     for (i, layer) in network.iter().enumerate() {
-        // Use ReLU for all hidden layers and Sigmoid for the final output layer.
-        let activation = if i == network.len() - 1 {
-            Activation::Softmax
-        } else {
-            Activation::Sigmoid
-        };
-
         // The forward pass requires a fixed-size array. We convert our dynamic Vec.
         let x: &[f32; INPUT] = inputs[i]
             .as_slice()
             .try_into()
             .expect("Slice with incorrect length");
-        inputs.push(layer.forward(x, &activation).as_ref().to_vec());
+        inputs.push(layer.forward(x).as_ref().to_vec());
     }
-    // The final vector is converted back to a Tensor to be returned.
     inputs
 }
 
@@ -358,32 +351,30 @@ pub fn train<
     const OUTPUT_LANES: usize,
     const OUTPUT: usize,
 >(
-    network: &Vec<Layer<f32, INPUT, INPUT_LANES, OUTPUT_LANES, OUTPUT>>,
+    network: &mut Vec<Layer<f32, INPUT, INPUT_LANES, OUTPUT_LANES, OUTPUT>>,
     x: &Tensor<f32, INPUT, INPUT_LANES>,
     y: &Tensor<f32, OUTPUT, OUTPUT_LANES>,
     rate: &f32,
-) -> Vec<Layer<f32, INPUT, INPUT_LANES, OUTPUT_LANES, OUTPUT>> {
+) {
     // 1. Forward pass: We need to store the input and output of each layer for backpropagation.
     let inputs = forward(&network, x);
     // 2. Backward pass: Propagate the error from the output layer back to the input layer.
-    let output = Tensor::<f32, OUTPUT, OUTPUT_LANES>::new(inputs.last().unwrap().to_vec());
-    let mut error = (output.clone() - y).as_ref().to_vec(); // Initial error is the difference between prediction and target.
-    let mut net = network.clone();
+    let prediction = Tensor::<f32, OUTPUT, OUTPUT_LANES>::new(inputs.last().unwrap().to_vec());
+    let mut error = (prediction.clone() - y).as_ref().to_vec(); // Initial error is the difference between prediction and target.
 
-    for i in (0..network.len()).rev() {
+    for (i, layer) in network.iter_mut().enumerate().rev() {
+        // println!("layer: {:?}", i);
+        // println!("error: {:?}", &error);
         let input = Tensor::new(inputs[i].clone());
         let mut output = Tensor::new(inputs[i + 1].clone());
-        let activation = if i == network.len() - 1 {
-            Activation::Softmax
-        } else {
-            Activation::Sigmoid
-        };
-        output = Layer::<f32, INPUT, INPUT_LANES, OUTPUT_LANES, OUTPUT>::derivative(&output, &activation);
-        println!("layer: {:?}\ninput: {:?}\noutput{:?}\nerror: {:?}", i, input.as_ref().to_vec(), output.as_ref().to_vec(), &error);
-        let dy = output * Tensor::<f32, OUTPUT, OUTPUT_LANES>::new(error.try_into().unwrap()).as_ref();
-        let (layer, e) = net[i].backward(rate, &dy, &input);
-        net[i] = layer;
+        output = layer.derivative(&output);
+        // println!("output: {:?}",  &output.as_ref().to_vec());
+        
+        // println!("biases: {:?}", &layer.biases);
+        let dy =  Tensor::<f32, OUTPUT, OUTPUT_LANES>::new(error.try_into().unwrap()) * output.as_ref();
+        let (update, e) = layer.backward(rate, &dy, &input);
+        *layer = update;
         error = e.as_ref().to_vec();
+        // println!("input: {:?}", input.as_ref().to_vec());
     }
-    net
 }

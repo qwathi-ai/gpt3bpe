@@ -45,7 +45,6 @@ regex = "1.9.4"
 unicode-segmentation = "1.10.1"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0.114"
-wide = { version = "0.7.5", features = ["serde"] }
 
 # Main command line
 argh = "0.1.12"
@@ -56,6 +55,7 @@ sqlite-vec = { version = "0.1.6"}
 zerocopy = { version = "0.7.32"}
 
 # # Neural
+wide = { version = "0.7.5", features = ["serde"] }
 libm = { version = "0.2.8" }
 rand = { version = "0.10.1" }
 

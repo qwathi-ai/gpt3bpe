@@ -1,9 +1,19 @@
-// #![feature(portable_simd)]
+//! # GPT-BPE Command-Line Utility
+//!
+//! This binary provides a command-line interface (CLI) for performing Byte-Pair Encoding (BPE)
+//! tokenization tasks. It reads text from standard input and can either encode it into tokens,
+//! decode tokens back into text, or split it into its base grapheme clusters.
+//!
+//! The tool is designed to be used in a pipeline, for example:
+//! `echo "hello world" | gpt3bpe`
 mod bpe;
 mod cli;
-#[cfg(feature = "embeddings")]
+// #[cfg(feature = "embeddings")]
 mod embeddings;
+// #[cfg(feature = "instruments")]
 mod instruments;
+// #[cfg(feature = "neural")]
+mod neural;
 use std::{io::{self, BufRead}};
 
 /// The main entry point of the command-line utility.
@@ -11,6 +21,9 @@ use std::{io::{self, BufRead}};
 /// This function parses command-line arguments, reads from stdin, and performs
 /// the requested operation (grapheme splitting, encoding, or decoding).
 ///
+/// It processes input line by line, allowing it to be used with piped data streams.
+/// The default operation is encoding, but this can be changed with flags like `--decode`
+/// or by using a subcommand like `grapheme`.
 /// # Panics
 ///
 /// This function will panic if:
@@ -21,24 +34,34 @@ fn main() {
     let args: cli::Arguments = argh::from_env();
     let stdin = io::stdin();
 
+    // Ensure that --encode and --decode flags are not used simultaneously.
     if args.encode && args.decode {
         eprintln!("[ERROR]: --encode and --decode are mutually exclusive.");
         std::process::exit(1);
     };
 
+    // Process each line from standard input.
     for line in stdin.lock().lines() {
         let line = line.expect("Could not read line from stdin");
 
+        // Handle the 'grapheme' subcommand if present.
         if let Some(cli::Command::Grapheme(_)) = args.command {
             let _ = cli::grapheme(line, std::io::stdout());
             continue;
         };
+
+        // Handle the 'decode' operation if the --decode flag is used.
+        // if let Some(cli::Command::Generate(_)) = args.command {
+        //     let _ = cli::generate(line, std::io::stdout());
+        //     continue;
+        // };
 
         if args.decode {
             let _ = cli::decode(line, &args, std::io::stdout());
             continue;
         };
 
+        // The default operation is encoding.
         let tokens = match args.vocabulary {
             bpe::vocabulary::Vocabularies::R50K => {
                 bpe::encode(line.as_bytes(), &bpe::vocabulary::R50K_TOKENS)
@@ -53,6 +76,7 @@ fn main() {
                 bpe::encode(line.as_bytes(), &bpe::vocabulary::O200K_TOKENS)
             }
         };
+        // Format the resulting tokens into a space-separated string.
         let output = tokens
             .iter()
             .flat_map(|t| -> Vec<String> { t.iter().map(|u| u.to_string()).collect() })

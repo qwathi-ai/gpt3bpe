@@ -1,34 +1,3 @@
-
-#[cfg(test)]
-pub(crate) mod padding {
-
-    #[test]
-    pub(crate) fn test_padding_empty() {
-        let input = vec![];
-        assert!(crate::embeddings::padding::<3>(input).is_err());
-    }
-
-    #[test]
-    pub(crate) fn test_padding_smaller() {
-        let input = vec![1, 2];
-        let expected = [0, 1, 2];
-        assert_eq!(crate::embeddings::padding::<3>(input).unwrap(), expected);
-    }
-
-    #[test]
-    pub(crate) fn test_padding_equal() {
-        let input = vec![1, 2, 3];
-        let expected = [1, 2, 3];
-        assert_eq!(crate::embeddings::padding::<3>(input).unwrap(), expected);
-    }
-
-    #[test]
-    pub(crate) fn test_padding_larger() {
-        let input = vec![1, 2, 3, 4];
-        assert!(crate::embeddings::padding::<3>(input).is_err());
-    }
-}
-
 #[cfg(test)]
 static VECTORS: std::sync::LazyLock<Vec<(&str, [f32; 300])>> = {
     std::sync::LazyLock::new(|| {
@@ -230,109 +199,310 @@ static VECTORS: std::sync::LazyLock<Vec<(&str, [f32; 300])>> = {
 };
 
 #[cfg(test)]
-pub(crate) mod insert {
-    #[test]
-    #[should_panic(
-        expected = "[ERROR]: Expecting non-empty slice and vector of length 300"
-    )]
-    pub(crate) fn test_insert_empty_string() {
-        let conn = crate::embeddings::connection(None);
-        let row = crate::embeddings::unit::VECTORS[0];
-        crate::embeddings::insert(&conn, b"", &row.1).unwrap();
+mod tensor {
+    use crate::neural::tensor::Tensor;
+
+    fn assert_tensor_approx_eq<const D: usize, const L: usize>(
+        a: &Tensor<f32, D, L>,
+        b: &Tensor<f32, D, L>,
+    ) {
+        const EPSILON: f32 = 1e-6;
+        for (vec_a, vec_b) in a.iter().zip(b.iter()) {
+            let diff = *vec_a - *vec_b;
+            let max_diff = diff
+                .abs()
+                .to_array()
+                .iter()
+                .fold(f32::NEG_INFINITY, |a, &b| a.max(b));
+            assert!(
+                max_diff < EPSILON,
+                "Tensors are not approximately equal. Max diff: {}",
+                max_diff
+            );
+        }
     }
-    #[test]
-    #[should_panic(
-        expected = "called `Result::unwrap()` on an `Err` value: SqliteFailure(Error { code: ConstraintViolation, extended_code: 2067 }, Some(\"UNIQUE constraint failed: words.label\"))"
-    )]
-    pub(crate) fn test_insert_constraint_violation() {
-        let conn = crate::embeddings::connection(None);
-        for row in crate::embeddings::unit::VECTORS.iter() {
-            crate::embeddings::insert(
-                &conn,
-                row.0.as_bytes(),
-                &row.1,
-            )
-            .unwrap();
-        };
-        for row in crate::embeddings::unit::VECTORS.iter() {
-            crate::embeddings::insert(
-                &conn,
-                row.0.as_bytes(),
-                &row.1,
-            )
-            .unwrap();
-        };
+
+    fn assert_tensor_approx_scalar_eq<const D: usize, const L: usize>(
+        a: &Tensor<f32, D, L>,
+        scalar: f32,
+    ) {
+        const EPSILON: f32 = 1e-6;
+        for vec_a in a.iter() {
+            let scalar_vec = wide::f32x4::splat(scalar);
+            let diff = *vec_a - scalar_vec;
+            let max_diff = diff
+                .abs()
+                .to_array()
+                .iter()
+                .fold(f32::NEG_INFINITY, |a, &b| a.max(b));
+            assert!(
+                max_diff < EPSILON,
+                "Tensor not approximately equal to scalar. Max diff: {}",
+                max_diff
+            );
+        }
     }
+
+    #[test]
+    /// Tests tensor-scalar and tensor-tensor addition and subtraction.
+    fn addition() {
+        for (_, vector) in crate::neural::unit::VECTORS.iter() {
+            let a: f32 = 3.14;
+            let t: Tensor<f32, 300, 75> = crate::neural::tensor::Tensor::from(vector);
+            let s: Tensor<f32, 300, 75> = t.clone() - &a;
+            assert_tensor_approx_eq(&(s.clone() + &a), &t);
+            let r = s.clone() + &t;
+            assert_tensor_approx_eq(&(r - &s), &t);
+        }
+    }
+
+    #[test]
+    /// Tests tensor-scalar multiplication and division (scaling).
+    fn scale() {
+        for (_, vector) in crate::neural::unit::VECTORS.iter() {
+            let a: f32 = 3.14;
+            let t: Tensor<f32, 300, 75> = crate::neural::tensor::Tensor::from(vector);
+            let s: Tensor<f32, 300, 75> = t.clone() * &a;
+            assert_tensor_approx_eq(&(t.clone() * &a), &s);
+            assert_tensor_approx_eq(&t, &(s.clone() / &a));
+        }
+    }
+
+    #[test]
+    /// Verifies the properties of the zero tensor and negation.
+    /// - `T + 0 = T` (Identity element for addition)
+    /// - `T + (-T) = 0` (Inverse element for addition)
+    ///
+    /// where `-T` is `T * -1.0`.
+    fn zero_negation() {
+        for (_, vector) in crate::neural::unit::VECTORS.iter() {
+            let t: Tensor<f32, 300, 75> = crate::neural::tensor::Tensor::from(vector);
+            assert_tensor_approx_eq(&(t.clone() + &0.0), &t.clone());
+            assert_tensor_approx_scalar_eq(&(t.clone() + &(t.clone() * &-1.0)), 0.0);
+        }
+    }
+
+    #[test]
+    /// Verifies the distributive property of scalar multiplication over tensor addition.
+    ///
+    /// `a * (T + S) = a * T + a * S`
+    fn distribution() {
+        for (_, vector) in crate::neural::unit::VECTORS.iter() {
+            let a: f32 = 3.14;
+            let t: Tensor<f32, 300, 75> = crate::neural::tensor::Tensor::from(vector);
+            let s: Tensor<f32, 300, 75> = t.clone();
+            assert_tensor_approx_eq(&((t.clone() + &s) * &a), &(t * &a + &(s * &a)));
+        }
+    }
+
+    #[test]
+    /// Verifies the associative property of tensor addition.
+    ///
+    /// `(T + S) + R = T + (S + R)`
+    fn associative_addition() {
+        for (_, vector) in crate::neural::unit::VECTORS.iter() {
+            let t: Tensor<f32, 300, 75> = crate::neural::tensor::Tensor::from(vector);
+            let s: Tensor<f32, 300, 75> = t.clone();
+            let r: Tensor<f32, 300, 75> = s.clone();
+            assert_tensor_approx_eq(&((t.clone() + &s) + &r), &(t + &(s + &r)));
+        }
+    }
+
+    #[test]
+    /// Verifies the commutative property of tensor addition.
+    ///
+    /// `T + S = S + T`
+    fn commutative_addition() {
+        for (_, vector) in crate::neural::unit::VECTORS.iter() {
+            let t: Tensor<f32, 300, 75> = crate::neural::tensor::Tensor::from(vector);
+            let s: Tensor<f32, 300, 75> = t.clone();
+            assert_tensor_approx_eq(&(t.clone() + &s), &(s + &t));
+        }
+    }
+
+    // /// Verifies the multilinearity property of tensor operations.
+    // ///
+    // /// `u * (A*v + B*w) = A*(u*v) + B*(u*w)`
+    // ///
+    // // Wish me luck.
+    // #[test]
+    // fn multilinearity() {
+    //     let A: i8 = super::random_number();
+    //     let B: i8 = super::random_number();
+    //     let v = crate::tensor::new::<i8, 4>([-1,1], vec![1, 2, 3]);
+
+    //     const B: i8 = 7;
+    //     let w = v.clone();
+    //     let u = v.clone();
+    //     assert_eq!(
+    //         u.clone() * &((v.clone() * &A) + &(w.clone() * &B)),
+    //         (v * &u) * &A + &(u * &w) * &B
+    //     );
+    // }
 }
 
-#[cfg(test)]
-pub(crate) mod search {
-    #[test]
-    #[should_panic(expected = "[ERROR]: Expecting non-empty slice and non-zero k value")]
-    pub(crate) fn test_search_empty_string() {
-        let conn = crate::embeddings::connection(None);
-        crate::embeddings::search::<{crate::embeddings::DIMENSIONS}>(&conn, b"", 10).unwrap();
-    }
-    #[test]
-    #[should_panic(expected = "[ERROR]: Expecting non-empty slice and non-zero k value")]
-    pub(crate) fn test_search_zero_k() {
-        let conn = crate::embeddings::connection(None);
-        crate::embeddings::search::<{crate::embeddings::DIMENSIONS}>(&conn, b"let", 0).unwrap();
-    }
-    #[test]
-    pub(crate)fn test_search() {
-        let conn = crate::embeddings::connection(None);
-        for row in crate::embeddings::unit::VECTORS.iter() {
-            crate::embeddings::insert::<{ crate::embeddings::DIMENSIONS }>(
-                &conn,
-                row.0.as_bytes(),
-                &row.1,
-            )
-            .unwrap();
-        };
-        for (idx, row) in crate::embeddings::unit::VECTORS.iter().enumerate() {
-            let result = crate::embeddings::search::<{ crate::embeddings::DIMENSIONS }>(
-                &conn,
-                row.0.as_bytes(),
-                10,
-            )
-            .unwrap();
-            assert_eq!(result[0].vector, crate::embeddings::unit::VECTORS[idx].1);
-            assert_eq!(result[0].label, crate::embeddings::unit::VECTORS[idx].0);
-        };
-    }
-}
+mod neural {
+    use crate::neural::{tensor::{Tensor, WIDTH}};
+    use rand::RngExt;
 
-#[cfg(test)]
-pub(crate) mod nearest {
-    #[test]
-    #[should_panic(expected = "[ERROR]: Expecting a vector of length 300 and non-zero k value")]
-    pub(crate) fn test_nearest_zero_k() {
-        let conn = crate::embeddings::connection(None);
-        let row = crate::embeddings::unit::VECTORS[0];
-        crate::embeddings::nearest(&conn, &row.1, 0).unwrap();
-    }
-    #[test]
-    pub(crate) fn test_nearest() {
-        let conn = crate::embeddings::connection(None);
-        for row in crate::embeddings::unit::VECTORS.iter() {
-            crate::embeddings::insert(
-                &conn,
-                row.0.as_bytes(),
-                &row.1,
-            )
-            .unwrap();
-        };
+    fn test(activations: Vec<crate::neural::Activation>, gates: &[[[f32; WIDTH]; 2]; WIDTH * WIDTH]) {
+        let learning_rate = 0.3;
+        let threshold: f32 = 0.01;
+        let mut network = crate::neural::layers(activations);
 
-        for (idx, row) in crate::embeddings::unit::VECTORS.iter().enumerate() {
-            let result = crate::embeddings::nearest::<{ crate::embeddings::DIMENSIONS }>(
-                &conn,
-                &row.1,
-                10,
+        // Helper function to pick a random gate pair
+        fn random(gates: &[[[f32; WIDTH]; 2]; WIDTH * WIDTH]) -> [[f32; WIDTH]; 2] {
+            let mut rng = rand::rng();
+            let index = rng.random_range(0..gates.len());
+            gates[index]
+        }
+
+        for _ in 0..1000 {
+            for [input, expected] in  gates {
+                let x: Tensor<f32, WIDTH, 1> = Tensor::new(input.to_vec());
+                let y: Tensor<f32, WIDTH, 1> = Tensor::new(expected.to_vec());
+                let outputs = crate::neural::forward(&network, &x);
+                let prediction = outputs.last().unwrap();
+                let error: Tensor<f32, WIDTH, 1> = Tensor::new(prediction.to_vec()) - &y;
+                if error.as_ref().to_vec().iter().copied().sum::<f32>() > threshold {
+                    crate::neural::train(&mut network, &x, &y, &learning_rate);
+                }
+            }
+        }
+        for _ in 0..1 {
+            let [input, expected] = random(gates);
+            let x: Tensor<f32, WIDTH, 1> = Tensor::new(input.to_vec());
+            let y: Tensor<f32, WIDTH, 1> = Tensor::new(expected.to_vec());
+            let outputs = crate::neural::forward(&network, &x);
+            let prediction = outputs.last().unwrap();
+            let error: Tensor<f32, WIDTH, 1> = y - &Tensor::new(prediction.to_vec());
+            assert!(
+                error.as_ref().to_vec().iter().copied().sum::<f32>() < threshold,
+                "Prediction: {:?}, Expected: {:?}",
+                prediction,
+                expected
             )
-            .unwrap();
-            assert_eq!(result[0].vector, crate::embeddings::unit::VECTORS[idx].1);
-            assert_eq!(result[0].label, crate::embeddings::unit::VECTORS[idx].0);
-        };
+        }
+
+    }
+
+    // #[test]
+    fn pcnot() {
+        let gates = [
+            [
+                [0.0, 0.0, 0.0, 0.0], // 0000
+                [0.0, 0.0, 0.0, 0.0], // 0000 // No controls are active.
+            ],
+            [
+                [0.0, 0.0, 0.0, 1.0], // 0001
+                [0.0, 0.0, 1.0, 1.0], // 0011 // Control 2 is active.
+            ],
+            [
+                [0.0, 0.0, 1.0, 0.0], // 0010
+                [0.0, 0.0, 1.0, 0.0], // 0010 // No controls are active.
+            ],
+            [
+                [1.0, 1.0, 0.0, 0.0], // 0011
+                [0.0, 0.0, 0.0, 1.0], // 0001 // Control 2 is active.
+            ],
+            [
+                [0.0, 1.0, 0.0, 0.0], // 0100
+                [1.0, 1.0, 0.0, 0.0], // 1100 // Control 1 is active.
+            ],
+            [
+                [0.0, 1.0, 0.0, 1.0], // 0101
+                [1.0, 1.0, 1.0, 1.0], // 1111 // Both controls are active.
+            ],
+            [
+                [0.0, 1.0, 1.0, 0.0], // 0110
+                [1.0, 1.0, 1.0, 0.0], // 1110 // Control 1 is active.
+            ],
+            [
+                [0.0, 1.0, 1.0, 1.0], // 0111
+                [1.0, 1.0, 0.0, 1.0], // 1101 // Both controls are active.
+            ],
+            [
+                [1.0, 0.0, 0.0, 0.0], // 1000
+                [1.0, 0.0, 0.0, 0.0], // 1000 // No controls are active.
+            ],
+            [
+                [1.0, 0.0, 0.0, 1.0], // 1001
+                [1.0, 0.0, 1.0, 1.0], //1011 // Control 2 is active.
+            ],
+            [
+                [1.0, 0.0, 1.0, 0.0], // 1010
+                [1.0, 0.0, 1.0, 0.0], //1010 // No controls are active.
+            ],
+            [
+                [1.0, 0.0, 1.0, 1.0], // 1011
+                [1.0, 0.0, 0.0, 1.0], //1001 // Control 2 is active.
+            ],
+            [
+                [1.0, 1.0, 0.0, 0.0], // 1100
+                [1.0, 1.0, 0.0, 0.0], //1100 // Control 1 is active.
+            ],
+            [
+                [1.0, 1.0, 0.0, 1.0], // 1101
+                [1.0, 1.0, 1.0, 1.0], //1111 // Both controls are active.
+            ],
+            [
+                [1.0, 1.0, 1.0, 0.0], // 1110
+                [1.0, 1.0, 1.0, 0.0], //1110 // Control 1 is active.
+            ],
+            [
+                [1.0, 1.0, 1.0, 1.0], // 1111
+                [1.0, 1.0, 0.0, 1.0], //1101 // Both controls are active.
+            ],
+        ];
+        test(vec![crate::neural::Activation::Sigmoid, crate::neural::Activation::None], &gates);
+        // test(vec![crate::neural::Activation::Sigmoid, crate::neural::Activation::Sigmoid, crate::neural::Activation::Sigmoid, crate::neural::Activation::Sigmoid, crate::neural::Activation::ReLU], &gates);
+    }
+
+    // #[test]
+    fn and_gate() {
+        let gates = [
+            [[0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0]], // input[i] AND 1 = output[i]
+            [[0.0, 0.0, 0.0, 1.0], [0.0, 0.0, 0.0, 1.0]],
+            [[0.0, 0.0, 1.0, 0.0], [0.0, 0.0, 1.0, 0.0]],
+            [[0.0, 0.0, 1.0, 1.0], [0.0, 0.0, 1.0, 1.0]],
+            [[0.0, 1.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0]],
+            [[0.0, 1.0, 0.0, 1.0], [0.0, 1.0, 0.0, 1.0]],
+            [[0.0, 1.0, 1.0, 0.0], [0.0, 1.0, 1.0, 0.0]],
+            [[0.0, 1.0, 1.0, 1.0], [0.0, 1.0, 1.0, 1.0]],
+            [[1.0, 0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0]],
+            [[1.0, 0.0, 0.0, 1.0], [1.0, 0.0, 0.0, 1.0]],
+            [[1.0, 0.0, 1.0, 0.0], [1.0, 0.0, 1.0, 0.0]],
+            [[1.0, 0.0, 1.0, 1.0], [1.0, 0.0, 1.0, 1.0]],
+            [[1.0, 1.0, 0.0, 0.0], [1.0, 1.0, 0.0, 0.0]],
+            [[1.0, 1.0, 0.0, 1.0], [1.0, 1.0, 0.0, 1.0]],
+            [[1.0, 1.0, 1.0, 0.0], [1.0, 1.0, 1.0, 0.0]],
+            [[1.0, 1.0, 1.0, 1.0], [1.0, 1.0, 1.0, 1.0]],
+        ];
+        test(vec![crate::neural::Activation::Sigmoid, crate::neural::Activation::None], &gates);
+        // test(vec![crate::neural::Activation::Sigmoid, crate::neural::Activation::Sigmoid, crate::neural::Activation::Sigmoid, crate::neural::Activation::Sigmoid, crate::neural::Activation::ReLU], &gates);
+    }
+
+    #[test]
+    fn or_gate() {
+        let gates = [
+            [[0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0]], // input[i] OR 0 = output[i]
+            [[0.0, 0.0, 0.0, 1.0], [0.0, 0.0, 0.0, 1.0]],
+            [[0.0, 0.0, 1.0, 0.0], [0.0, 0.0, 1.0, 0.0]],
+            [[0.0, 0.0, 1.0, 1.0], [0.0, 0.0, 1.0, 1.0]],
+            [[0.0, 1.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0]],
+            [[0.0, 1.0, 0.0, 1.0], [0.0, 1.0, 0.0, 1.0]],
+            [[0.0, 1.0, 1.0, 0.0], [0.0, 1.0, 1.0, 0.0]],
+            [[0.0, 1.0, 1.0, 1.0], [0.0, 1.0, 1.0, 1.0]],
+            [[1.0, 0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0]],
+            [[1.0, 0.0, 0.0, 1.0], [1.0, 0.0, 0.0, 1.0]],
+            [[1.0, 0.0, 1.0, 0.0], [1.0, 0.0, 1.0, 0.0]],
+            [[1.0, 0.0, 1.0, 1.0], [1.0, 0.0, 1.0, 1.0]],
+            [[1.0, 1.0, 0.0, 0.0], [1.0, 1.0, 0.0, 0.0]],
+            [[1.0, 1.0, 0.0, 1.0], [1.0, 1.0, 0.0, 1.0]],
+            [[1.0, 1.0, 1.0, 0.0], [1.0, 1.0, 1.0, 0.0]],
+            [[1.0, 1.0, 1.0, 1.0], [1.0, 1.0, 1.0, 1.0]],
+        ];
+        test(vec![crate::neural::Activation::ReLU, crate::neural::Activation::Sigmoid], &gates);
+        // test(vec![crate::neural::Activation::Sigmoid, crate::neural::Activation::Sigmoid, crate::neural::Activation::Sigmoid, crate::neural::Activation::Sigmoid, crate::neural::Activation::ReLU], &gates);
     }
 }

@@ -2,7 +2,9 @@
 CREATE TABLE IF NOT EXISTS words (
     rid INTEGER PRIMARY KEY AUTOINCREMENT, -- Unique row identifier for each word.
     vocab TEXT NOT NULL CHECK (vocab IN ('P50K','R50K','CL100K','O200K')), -- The vocabulary set the word belongs to.
-    label TEXT NOT NULL UNIQUE -- The word/token itself, must be unique.
+    label TEXT NOT NULL UNIQUE, 
+    token BLOB NOT NULL, -- The binary representation of the word/token.
+    UNIQUE(vocab, label) -- Ensures that each word is unique within its vocabulary set.
 );
 
 -- This virtual table stores the vector embeddings for each word using the 'vec0' extension.
@@ -12,25 +14,25 @@ CREATE VIRTUAL TABLE IF NOT EXISTS embeddings using vec0 (
     vector FLOAT[300] -- The 300-dimensional floating-point vector representing the word embedding.
 );
 
--- This virtual table provides full-text search capabilities using the FTS5 extension.
--- It's configured to use trigram tokenization for substring matching.
-CREATE VIRTUAL TABLE IF NOT EXISTS search USING fts5 (
-    rid, -- The row identifier, linking back to the 'words' table.
-    label, -- The text content (the word/token) to be indexed for searching.
-    tokenize='trigram' -- Uses trigram tokenization, indexing overlapping 3-character sequences. This is useful for finding partial matches and handling typos.
-);
+-- -- This virtual table provides full-text search capabilities using the FTS5 extension.
+-- -- It's configured to use trigram tokenization for substring matching.
+-- CREATE VIRTUAL TABLE IF NOT EXISTS search USING fts5 (
+--     rid, -- The row identifier, linking back to the 'words' table.
+--     label, -- The text content (the word/token) to be indexed for searching.
+--     tokenize='trigram' -- Uses trigram tokenization, indexing overlapping 3-character sequences. This is useful for finding partial matches and handling typos.
+-- );
 
 -- This view provides a unified and convenient way to query for a word, its vocabulary, and its embedding vector.
 -- It joins the 'words', 'search', and 'embeddings' tables.
 CREATE VIEW IF NOT EXISTS word_embeddings AS
-SELECT 
+SELECT w
     w.rid, 
     s.label,
     w.vocab,
     e.vector 
 FROM words AS w
+LEFT JOIN embeddings AS e ON w.rid = e.rid;
 INNER JOIN search AS s ON w.rid = s.rid
-JOIN embeddings AS e ON w.rid = e.rid;
 
 -- This trigger allows direct insertion into the 'word_embeddings' view.
 -- Since views are not directly insertable, this trigger intercepts the INSERT operation

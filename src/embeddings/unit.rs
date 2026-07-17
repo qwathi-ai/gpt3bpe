@@ -284,13 +284,13 @@ pub(crate) mod search {
     pub(crate)fn test_search() {
         let conn = crate::embeddings::connection(None);
         for row in crate::embeddings::unit::VECTORS.iter() {
-            crate::embeddings::insert::<{ crate::embeddings::DIMENSIONS }>(
+            crate::embeddings::insert::<{ crate::embeddings::DIMENSIONS}, { crate::embeddings::TOKEN_LIMIT }>(
                 &conn,
                 row.0.as_bytes(),
                 &row.1,
             )
             .unwrap();
-        let result = crate::embeddings::search::<{ crate::embeddings::DIMENSIONS }>(
+        let result = crate::embeddings::search::<{ crate::embeddings::DIMENSIONS }, { crate::embeddings::TOKEN_LIMIT }>(
             &conn,
             row.0.as_bytes(),
             10,

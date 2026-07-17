@@ -1,12 +1,12 @@
 //! # Byte-Pair Encoding (BPE)
 //!
-//! This module provides the core implementation for Byte-Pair Encoding, a tokenization
-//! strategy used by GPT models. It includes functionality for:
+//! This module provides the core implementation for Byte-Pair Encoding
+//! It includes functionality for:
 //!
-//! - Splitting text into initial tokens based on a regex pattern.
-//! - Mapping raw bytes to a "safe" set of Unicode characters to handle arbitrary byte sequences.
+//! - Splitting text into initial tokens.
+//! - Mapping bytes to handle arbitrary byte sequences.
 //! - Applying BPE merges based on a predefined rank table.
-//! - Encoding text into token IDs and decoding them back into text.
+//! - Encoding text into tokens.
 //!
 //! The implementation is inspired by Andrej Karpathy's [picoGPT](https://github.com/jaymody/picoGPT) project.
 
@@ -27,7 +27,7 @@ type BytePair<Type> = (usize, Type);
 
 /// A regex pattern for the initial splitting of text into processable chunks.
 ///
-/// This pattern is designed to handle various text structures found in GPT-2/3 tokenization,
+/// This pattern is designed to handle various text structures found in GPT tokenization,
 /// including:
 /// - Contractions (e.g., "'s", "'t", "'re").
 /// - Words composed of letters (`\p{L}+`).
@@ -110,11 +110,10 @@ static BYTES_TO_UNICODE: LazyLock<BTreeMap<Vec<u8>, u16>> = LazyLock::new(|| {
 /// Lazily initialized map of BPE merge rules.
 ///
 /// This map contains the core logic of the Byte-Pair Encoding algorithm. It maps a pair of
-/// subword units (as a byte vector) to its merge rank (a `u32`). The lower the rank, the
-/// earlier the pair is merged.
-/// The `merges.txt` file is embedded at compile time, but can be overridden at runtime by setting the `MERGES` environment variable.
+/// subword units (as a byte vector) to its merge rank (a `u32`). The lower the rank, the earlier the pair is merged.
+/// The `merges.txt` file is embedded at compile time, but can be overridden at runtime by setting the `GPT3BPE_MERGES` environment variable.
 static MERGES: LazyLock<HashMap<Vec<u8>, u32>> = LazyLock::new(|| {
-    let merges_contents: &str = match std::env::var("MERGES") {
+    let merges_contents: &str = match std::env::var("GPT3BPE_MERGES") {
         Ok(l) => {
             // return the contents of the file by dynamically reading in the file.
             &std::fs::read_to_string(l).unwrap()
@@ -137,7 +136,7 @@ static MERGES: LazyLock<HashMap<Vec<u8>, u32>> = LazyLock::new(|| {
         .collect()
 });
 
-/// Splits a byte slice into a sequence of GPT-style Unicode graphemes.
+/// Splits a byte slice into a sequence of Unicode graphemes.
 ///
 /// This function first segments the input text into Unicode grapheme clusters to correctly
 /// handle multi-byte characters. It then converts each raw byte of the graphemes into its
@@ -163,11 +162,10 @@ pub fn grapheme(slice: &[u8]) -> Vec<Vec<u8>> {
         .collect()
 }
 
-/// Splits a byte slice into initial token chunks based on the `TOKENS_RE` regex.
+/// Splits a byte slice into initial token chunks.
 ///
 /// This function performs the first pass of tokenization, breaking the input text into
-/// larger, more manageable pieces like words, numbers, punctuation, and contractions before
-/// the BPE merging process begins.
+/// smaller, more manageable pieces like words, numbers, punctuation, and contractions.
 pub fn tokens(slice: &[u8]) -> Vec<&[u8]> {
     Regex::new(TOKENS_RE)
         .unwrap()

@@ -11,7 +11,7 @@
 //!   a raw embedding vector.
 //! - **Positional Encoding**: Generating sinusoidal positional encodings, a key component for
 //!   sequence models like Transformers to understand token order.
-// pub(crate) mod unit;
+pub(crate) mod unit;
 use crate::bpe;
 use rusqlite::{ffi::sqlite3_auto_extension, Connection};
 use sqlite_vec::sqlite3_vec_init;
@@ -62,7 +62,7 @@ pub(crate) fn padding<const P: usize>(input: Vec<u32>) -> Result<[u32; P], &'sta
 /// - The original text as a `String` label.
 /// - The resulting token vectors (`Vec<Vec<u32>>`).
 /// Returns `None` if no vocabulary can encode the slice into a valid, paddable sequence.
-fn encode(slice: &[u8]) -> Option<(&bpe::vocabulary::Vocabularies, String, Vec<Vec<u32>>)> {
+pub (crate) fn encode(slice: &[u8]) -> Option<(&bpe::vocabulary::Vocabularies, String, Vec<Vec<u32>>)> {
     let mut result = None;
     for vocab in bpe::vocabulary::Vocabularies::iter() {
         let tokens = match vocab {
@@ -119,11 +119,24 @@ pub(crate) fn connection(location: Option<&str>) -> Connection {
         // SAFETY: `sqlite3_vec_init` is a valid extension entry point.
         unsafe { sqlite3_auto_extension(Some(std::mem::transmute(sqlite3_vec_init as *const ()))) };
     });
+
     let connection = match location {
-        Some(location) => Connection::open(location).unwrap_or_else(|_| {
-            panic!("[ERROR]: Failed to open database in location {}", location)
-        }),
-        None => Connection::open_in_memory().expect("[ERROR]: Failed to open database in memory"),
+        Some(path) => Connection::open(path)
+            .unwrap_or_else(|_| panic!("[ERROR]: Failed to open database in location {}", path)),
+        None => match std::env::var("GPT3BPE_WORDS") {
+            Ok(global) => {
+                Connection::open(&global)
+                    .unwrap_or_else(|_| {
+                        panic!(
+                            "[ERROR]: Failed to open database in location {}",
+                            global
+                        )
+                    })
+            }
+            Err(_) => {
+                Connection::open_in_memory().expect("[ERROR]: Failed to open database in memory")
+            }
+        },
     };
     let schema = include_str!("./schema.sql");
     connection
@@ -162,13 +175,15 @@ pub(crate) fn insert<const D: usize>(
             D
         );
     };
-    if let Some((vocab, label, _)) = encode(slice) {
+    if let Some((vocab, label, graphs)) = encode(slice) {
         let mut stmt = conn.prepare_cached(
-            "INSERT INTO word_embeddings (label, vocab, vector) VALUES (?, ?, ?)",
+            "INSERT INTO word_embeddings (label, vocab, tokens, vector) VALUES (?, ?, ?, ?)",
         )?;
+        let tokens = padding::<PADDING>(graphs.concat()).unwrap();
         stmt.execute(rusqlite::params![
             label,
             vocab.to_string(),
+            serde_json::to_string(&tokens).unwrap(),
             vector.as_bytes()
         ])?;
     };
@@ -249,30 +264,43 @@ pub(crate) fn search<const D: usize>(
     slice: &[u8],
     k: u8,
 ) -> Result<Vec<Row<D>>, rusqlite::Error> {
-    if k <= 0 || slice.is_empty() {
-        panic!("[ERROR]: Expecting non-empty slice and non-zero k value");
+    if slice.len() <= 0 || k <= 0 {
+        panic!(
+            "[ERROR]: Expecting non-zero token and non-zero k value"
+        );
     };
-    let mut stmt = conn.prepare_cached("SELECT s.rid, s.label, w.vocab, s.rank as distance, e.vector FROM ( SELECT rid, label, rank FROM search WHERE label MATCH ? ORDER BY rank ASC LIMIT ?) AS s INNER JOIN words w ON s.rid = w.rid INNER JOIN embeddings e ON s.rid = e.rid ORDER BY s.rank ASC")?;
-    let label = String::from_utf8(slice.to_vec()).expect("[ERROR]: Not a valid utf-8 string.");
-    let result = stmt.query_map(rusqlite::params![label, k], |row| {
-        Ok(Row {
-            rid: row.get(0)?,
-            label: row.get(1)?,
-            distance: row.get(3)?,
-            vector: {
-                let bytes: Vec<u8> = row.get(4)?;
-                let mut arr = [0.0; D];
-                bytes
-                    .chunks_exact(4)
-                    .map(|a| f32::from_le_bytes(a.try_into().unwrap()))
-                    .enumerate()
-                    .for_each(|(i, f)| arr[i] = f);
-                arr
-            },
-        })
-    })?;
+    let mut result = Vec::new();
 
-    result.collect()
+    if let Some((vocab, label, graphs)) = encode(slice) {
+        let tokens = graphs.concat();
+        
+        let parts: u8 = k.div_ceil(tokens.len().try_into().unwrap());
+        let mut stmt = conn.prepare_cached(
+            "SELECT w.rid, w.tokens, w.label, w.vocab, e.vector, CAST(?1 AS REAL) / ((w.tokens->>0) + (w.tokens->>1) + (w.tokens->>2)) as distance FROM words AS w LEFT JOIN embeddings AS e ON w.rid = e.rid WHERE ((w.tokens->>0 = ?1) + (w.tokens->>1 = ?1) + (w.tokens->>2 = ?1)) > 0 ORDER BY CAST(?1 AS REAL) / ((w.tokens->>0) + (w.tokens->>1) + (w.tokens->>2)) DESC LIMIT ?2",
+        )?;
+        for token in tokens {
+            let r = stmt.query_map(rusqlite::params![token, parts], |row| {
+                Ok(Row {
+                    rid: row.get(0)?,
+                    label: row.get(2)?,
+                    distance: row.get(5)?,
+                    vector: {
+                        let bytes: Vec<u8> = row.get(4)?;
+                        let mut arr = [0.0; D];
+                        bytes
+                            .chunks_exact(4)
+                            .map(|a| f32::from_le_bytes(a.try_into().unwrap()))
+                            .enumerate()
+                            .for_each(|(i, f)| arr[i] = f);
+                        arr
+                    },
+                })
+            })?;
+            result.extend(r);
+        }
+    };
+
+    Ok(result.sort_by(|a, b| a.distance.partial_cmp(&b.distance).unwrap()).truncate(k as usize).collect());
 }
 
 /// Finds the `k` nearest neighbors to a given embedding vector in the database.
@@ -304,12 +332,12 @@ pub(crate) fn nearest<const D: usize>(
             D
         );
     };
-    let mut stmt = conn.prepare_cached("SELECT e.rid, s.label, w.vocab, e.distance, e.vector FROM ( SELECT rid, vector, distance FROM embeddings WHERE vector MATCH ? ORDER BY distance ASC LIMIT ?) AS e INNER JOIN words w ON e.rid = w.rid INNER JOIN search s ON e.rid = s.rid ORDER BY e.distance ASC")?;
+    let mut stmt = conn.prepare_cached("SELECT e.rid, w.tokens, w.label, w.vocab, e.vector, e.distance FROM ( SELECT rid, vector, distance FROM embeddings WHERE vector MATCH ? ORDER BY distance ASC LIMIT ?) AS e INNER JOIN words w ON e.rid = w.rid ORDER BY e.distance ASC")?;
     let result = stmt.query_map(rusqlite::params![vector.as_bytes(), k], |row| {
         Ok(Row {
             rid: row.get(0)?,
-            label: row.get(1)?,
-            distance: row.get(3)?,
+            label: row.get(2)?,
+            distance: row.get(5)?,
             vector: {
                 let bytes: Vec<u8> = row.get(4)?;
                 let mut arr = [0.0; D];

@@ -8,11 +8,11 @@
 //! `echo "hello world" | gpt3bpe`
 mod bpe;
 mod cli;
-// #[cfg(feature = "embeddings")]
+#[cfg(feature = "embeddings")]
 mod embeddings;
 // #[cfg(feature = "instruments")]
 mod instruments;
-// #[cfg(feature = "neural")]
+#[cfg(feature = "neural")]
 mod neural;
 use std::{io::{self, BufRead}};
 

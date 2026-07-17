@@ -299,7 +299,6 @@ pub(crate) fn search<const D: usize>(
             result.extend(r);
         }
     };
-
     Ok(result.sort_by(|a, b| a.distance.partial_cmp(&b.distance).unwrap()).truncate(k as usize).collect());
 }
 

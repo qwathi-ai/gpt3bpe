@@ -1,18 +1,17 @@
 import { readLines } from '../sdk/bun.encoder.ts';
-import { insert } from '../sdk/bun.embeddings.ts';
+import { load } from '../sdk/bun.embeddings.ts';
 
 const SOURCE = '/Users/athenkosimase/.amile/words.txt';
-const QUEUE_SIZE = 5000;
+const QUEUE_SIZE = 10000;
 let QUEUE: {buffer: Uint8Array, embedding: Float32Array }[] = [];
 let COUNT = 0;
 let inserted = 0;
 
 
 async function clearing () {
-    for await (const b of insert(QUEUE)) {
+    for await (const b of load(QUEUE)) {
         if (b) {
             inserted += 1;
-            console.log(`[INFO]: Row inserted.`);
         }
     }
     COUNT += 1

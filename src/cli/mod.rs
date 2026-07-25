@@ -6,24 +6,28 @@
 //! grapheme-splitting functions based on user input.
 pub(crate) mod unit;
 use crate::bpe;
+use crate::embeddings;
+use crate::neural::tensor;
 use argh::FromArgs;
-use std::io;
-use std::io::Write;
 
 /// Subcommand for splitting a string into GPT Unicode graphemes.
 #[derive(FromArgs, Debug)]
 #[argh(subcommand, name = "grapheme")]
 pub(crate) struct GraphemeCommand {}
 
+/// Returns vector representation of text embedding.
+#[derive(FromArgs, Debug)]
+#[argh(subcommand, name = "embed")]
+pub(crate) struct EmbedCommand {}
+
 /// An enumeration of all available subcommands.
 #[derive(FromArgs, Debug)]
 #[argh(subcommand)]
 pub(crate) enum Command {
     Grapheme(GraphemeCommand),
+    Embed(EmbedCommand)
 }
 
-/// Defines the command-line arguments for the GPT Byte-Pair-Encoder utility.
-#[derive(FromArgs, Debug)]
 /// A command-line utility for the GPT Byte-Pair-Encoder.
 ///
 /// This tool provides three main functions:
@@ -31,11 +35,13 @@ pub(crate) enum Command {
 ///   - encode: Encodes a string into tokens using a specified vocabulary (default).
 ///   - decode: Decodes a sequence of tokens back into a string.
 ///   - grapheme: Splits a string into GPT unicode grapheme characters.
+///   - embed: Returns vector representation of text embedding.
 ///
 /// Input should be piped to the command via stdin.
 /// For example:
 /// * `echo "hello world" | gpt3bpe` (encodes with p50k)
 /// * `echo "31373 995" | gpt3bpe -d -v r50k` (decodes with r50k)
+#[derive(FromArgs, Debug)]
 pub struct Arguments {
     /// Use the encode operation (this is the default behavior).
     #[argh(
@@ -76,19 +82,17 @@ pub struct Arguments {
 /// # Arguments
 ///
 /// * `line` - The input `String` to be split.
-/// * `writer` - An object implementing `io::Write` to which the output is written.
 ///
 /// # Returns
 ///
 /// An `io::Result<()>` indicating the success or failure of the write operation.
-pub fn grapheme(line: String, mut writer: impl Write) -> io::Result<()> {
+pub (crate) fn grapheme(line: String) -> String {
     let graphemes = bpe::grapheme(line.trim().as_bytes());
-    let output = graphemes
+    graphemes
         .iter()
         .map(|g| String::from_utf8_lossy(g))
         .collect::<Vec<_>>()
-        .join(" ");
-    writeln!(writer, "{output}")
+        .join(" ")
 }
 
 /// Decodes a space-separated string of token IDs into text and writes it to a writer.
@@ -101,17 +105,15 @@ pub fn grapheme(line: String, mut writer: impl Write) -> io::Result<()> {
 ///
 /// * `line` - The input `String` of space-separated token IDs.
 /// * `args` - A reference to the parsed `Arguments`, used to determine the vocabulary.
-/// * `writer` - An object implementing `io::Write` to which the decoded output is written.
 ///
 /// # Returns
 ///
 /// An `io::Result<()>` indicating the success or failure of the write operation.
-pub fn decode(line: String, args: &Arguments, mut writer: impl Write) -> io::Result<()> {
+pub (crate) fn decode(line: String, args: &Arguments) -> Vec<u8> {
     if line.trim().is_empty() {
-        return writeln!(writer);
+        return vec![]
     };
-
-    let decoded_bytes = match args.vocabulary {
+    match args.vocabulary {
         bpe::vocabulary::Vocabularies::R50K => {
             let tokens: Vec<u16> = line
                 .split_whitespace()
@@ -140,8 +142,50 @@ pub fn decode(line: String, args: &Arguments, mut writer: impl Write) -> io::Res
                 .collect();
             bpe::decode(&tokens, &bpe::vocabulary::O200K_UNICODES)
         }
-    };
+    }
+}
 
-    writer.write_all(&decoded_bytes)?;
-    writeln!(writer)
+pub (crate) fn embed<const DIMENSIONS: usize, const TOKENS: usize, const PADDING: usize>(line: String, args: &Arguments) -> Vec<f32> {
+    if line.trim().is_empty() {
+        return vec![]
+    };
+    // The default operation is encoding.
+    let sequence = match args.vocabulary {
+        bpe::vocabulary::Vocabularies::R50K => {
+            bpe::encode(line.as_bytes(), &bpe::vocabulary::R50K_TOKENS)
+        },
+        bpe::vocabulary::Vocabularies::P50K => {
+            bpe::encode(line.as_bytes(), &bpe::vocabulary::P50K_TOKENS)
+        },
+        bpe::vocabulary::Vocabularies::CL100K => {
+            bpe::encode(line.as_bytes(), &bpe::vocabulary::CL100K_TOKENS)
+        },
+        bpe::vocabulary::Vocabularies::O200K => {
+            bpe::encode(line.as_bytes(), &bpe::vocabulary::O200K_TOKENS)
+        }
+    };
+    let pos: usize = 0;
+    let mut context = Vec::with_capacity(PADDING);
+    let mut result = vec![];
+    for token in sequence.concat() {
+        context.push(token);
+        let search = embeddings::padding::<PADDING>(&context).expect("[ERROR]: Unknown token in sequence. Could not embed sequence.");
+        let word = context.iter()
+            .map(|t| -> String { t.to_string() })
+            .collect::<Vec<_>>()
+            .join(" ");
+
+        if let Ok(rows) = embeddings::search::<DIMENSIONS,PADDING>(&embeddings::connection(None), &decode(word, args), PADDING.try_into().unwrap()) {
+            if rows.is_empty() {
+                continue;
+            }
+            let pe = embeddings::position::<DIMENSIONS>(pos);
+            let denom = f32::sqrt(pe.iter().map(|&x| x * x).sum());
+            let embedding = &rows[0];
+            let nume = tensor::Tensor::<f32, DIMENSIONS, TOKENS>::new(pe.to_vec()) * &tensor::Tensor::<f32, DIMENSIONS, TOKENS>::from(&embedding.vector);
+            result.push(nume/denom);
+            context.clear();
+        }
+    }
+    result
 }

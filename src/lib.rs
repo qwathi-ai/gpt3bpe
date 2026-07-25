@@ -346,7 +346,7 @@ pub extern "C" fn search(
 ) {
     let slice = read::<u8>(buffer, buffer_length);
     let mut top =
-        embeddings::search::<{embeddings::DIMENSIONS}>(&embeddings::connection(None), slice, k).unwrap();
+        embeddings::search::<{embeddings::DIMENSIONS}, {embeddings::TOKEN_LIMIT}>(&embeddings::connection(None), slice, k).unwrap();
     for (rid, row) in top.drain(..).enumerate() {
         for (position, value) in row.vector.iter().enumerate() {
             callback(rid, row.distance, position, *value);

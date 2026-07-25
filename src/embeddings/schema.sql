@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS words (
     vocab TEXT NOT NULL CHECK (vocab IN ('P50K','R50K','CL100K','O200K')),
     label TEXT NOT NULL UNIQUE
 );
+CREATE INDEX IF NOT EXISTS idx_tokens ON words(tokens->>1, tokens->>2);
 
 CREATE VIRTUAL TABLE IF NOT EXISTS embeddings using vec0 (
     rid INTEGER PRIMARY KEY FOREIGN KEY REFERENCES words(rid) ON DELETE CASCADE,

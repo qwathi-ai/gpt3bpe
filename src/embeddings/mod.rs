@@ -17,8 +17,8 @@ use rusqlite::{ffi::sqlite3_auto_extension, Connection};
 use sqlite_vec::sqlite3_vec_init;
 use std::sync::Once;
 use zerocopy::AsBytes;
-const PADDING: usize = 3; // The fixed size for token padding.
-const TOKEN_LIMIT: usize = 5; // The maximum number of tokens allowed for a word.
+pub(crate) const PADDING: usize = 3; // The fixed size for token padding.
+pub(crate) const TOKEN_LIMIT: usize = 5; // The fixed size for sequence padding.
 pub(crate) const DIMENSIONS: usize = 300;
 
 /// Pads or truncates a vector of tokens to a fixed-size array.
@@ -39,7 +39,7 @@ pub(crate) const DIMENSIONS: usize = 300;
 /// # Generic Parameters
 ///
 /// * `P`: A `const` generic representing the desired size of the output array.
-pub(crate) fn padding<const P: usize>(input: Vec<u32>) -> Result<[u32; P], &'static str> {
+pub(crate) fn padding<const P: usize>(input: &Vec<u32>) -> Result<[u32; P], &'static str> {
     let mut result = [0u32; P];
     if input.len() > P || input.is_empty() {
         return Err("Invalid token.");
@@ -81,7 +81,7 @@ pub (crate) fn encode(slice: &[u8]) -> Option<(&bpe::vocabulary::Vocabularies, S
             }
         };
         let label = String::from_utf8(slice.to_vec()).expect("[ERROR]: Not a valid utf-8 string.");
-        if let Err(_) = padding::<PADDING>(tokens.concat()) {
+        if let Err(_) = padding::<PADDING>(&tokens.concat()) {
             #[cfg(debug_assertions)]
             println!(
                 "[WARNING]: Could not tokenize {:?} with vocabulary {:?}.",
@@ -180,7 +180,7 @@ pub(crate) fn insert<const D: usize>(
         let mut stmt = conn.prepare_cached(
             "INSERT INTO word_embeddings (label, vocab, tokens, vector) VALUES (?, ?, ?, ?)",
         )?;
-        let tokens = padding::<PADDING>(graphs.concat()).unwrap();
+        let tokens = padding::<PADDING>(&graphs.concat()).unwrap();
         stmt.execute(rusqlite::params![
             label,
             vocab.to_string(),
@@ -192,7 +192,7 @@ pub(crate) fn insert<const D: usize>(
 }
 
 /// Represents a row returned from a vector similarity search.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 #[repr(align(16))]
 pub(crate) struct Row<const D: usize> {
     /// The row ID from the database.
@@ -260,7 +260,7 @@ pub(crate) fn position<const D: usize>(position: usize) -> [f32; D] {
 ///
 /// # Panics
 /// Panics if `k` is zero, `slice` is empty, or `slice` is not a valid UTF-8 string.
-pub(crate) fn search<const D: usize, const K: u8>(
+pub(crate) fn search<const D: usize, const L: usize>(
     conn: &Connection,
     slice: &[u8],
     k: u8,
@@ -270,37 +270,44 @@ pub(crate) fn search<const D: usize, const K: u8>(
             "[ERROR]: Expecting non-zero token and non-zero k value"
         );
     };
-    let mut result = Vec::new();
-    if let Some((vocab, label, graphs)) = encode(slice) {
-        let tokens = graphs.concat();
-        if tokens.len() > K {
-            panic!(
-                "[ERROR]: Expecting slice of token length less than and equal to {}",
-                K
-            );
-        }; 
-        let mut stmt = conn.prepare_cached(
-            "SELECT w.rid, w.tokens, w.label, w.vocab, e.vector, CAST(p.value AS REAL) / ((w.tokens->>0) + (w.tokens->>1) + (w.tokens->>2)) AS distance FROM json_each(?1) AS p LEFT JOIN words AS w ON CAST(p.value AS REAL) IN (w.tokens->>0, w.tokens->>1, w.tokens->>2) INNER JOIN embeddings AS e ON w.rid = e.rid WHERE w.rid IS NOT NULL ORDER BY distance DESC LIMIT ?2",
-        )?;
-        let result = stmt.query_map(rusqlite::params![token, parts], |row| {
-            Ok(Row {
-                rid: row.get(0)?,
-                label: row.get(2)?,
-                distance: row.get(5)?,
-                vector: {
-                    let bytes: Vec<u8> = row.get(4)?;
-                    let mut arr = [0.0; D];
-                    bytes
-                        .chunks_exact(4)
-                        .map(|a| f32::from_le_bytes(a.try_into().unwrap()))
-                        .enumerate()
-                        .for_each(|(i, f)| arr[i] = f);
-                    arr
-                },
-            })
-        })?;
-    };
-    result.collect();
+    match encode(slice){ 
+        Some((_,_, graphs)) => {
+            let tokens = graphs.concat();
+            if tokens.len() > L {
+                panic!(
+                    "[ERROR]: Expecting slice of token length less than and equal to {:?}", L
+                );
+            }
+            let mut stmt = conn.prepare_cached(
+                "SELECT w.rid, w.tokens, w.label, w.vocab, e.vector, CAST(p.value AS REAL) / ((w.tokens->>0) + (w.tokens->>1) + (w.tokens->>2)) AS distance FROM json_each(?1) AS p LEFT JOIN words AS w ON CAST(p.value AS REAL) IN (w.tokens->>0, w.tokens->>1, w.tokens->>2) INNER JOIN embeddings AS e ON w.rid = e.rid WHERE w.rid IS NOT NULL ORDER BY distance DESC LIMIT ?2",
+            )?;
+
+            let result =  stmt.query_map(rusqlite::params![serde_json::to_string(&tokens).unwrap() , k], |row| {
+                Ok(Row {
+                    rid: row.get(0)?,
+                    label: row.get(2)?,
+                    distance: row.get(5)?,
+                    vector: {
+                        let bytes: Vec<u8> = row.get(4)?;
+                        let mut arr = [0.0; D];
+                        bytes
+                            .chunks_exact(4)
+                            .map(|a| f32::from_le_bytes(a.try_into().unwrap()))
+                            .enumerate()
+                            .for_each(|(i, f)| arr[i] = f);
+                        arr
+                    }
+                })
+            })?;
+            result.collect()
+        },
+        None => {
+            // Handle the case where encoding failed.  Return an empty result or a more informative error.
+            //  println!("[WARNING]: Could not tokenize {:?} with any vocabulary.", label); // Helpful for debugging.
+             return Ok(Vec::new());
+        }
+    }
+
 }
 
 /// Finds the `k` nearest neighbors to a given embedding vector in the database.

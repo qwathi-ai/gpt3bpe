@@ -12,9 +12,9 @@ mod cli;
 mod embeddings;
 // #[cfg(feature = "instruments")]
 mod instruments;
-#[cfg(feature = "neural")]
+// #[cfg(feature = "neural")]
 mod neural;
-use std::{io::{self, BufRead}};
+use std::io::{BufRead, Write, stdin, stdout};
 
 /// The main entry point of the command-line utility.
 ///
@@ -32,7 +32,7 @@ use std::{io::{self, BufRead}};
 /// * It fails to write the decoded bytes to stdout.
 fn main() {
     let args: cli::Arguments = argh::from_env();
-    let stdin = io::stdin();
+    let stdin = stdin();
 
     // Ensure that --encode and --decode flags are not used simultaneously.
     if args.encode && args.decode {
@@ -44,20 +44,30 @@ fn main() {
     for line in stdin.lock().lines() {
         let line = line.expect("Could not read line from stdin");
 
+        // Handle the 'embed' subcommand if present.
+        if let Some(cli::Command::Embed(_)) = args.command {
+            if !cfg!(feature = "embeddings"){
+                println!("[WARNING]: `embed` command can only be used if the `embeddings` feature is enabled.");
+                break;
+            }
+            let embedding = cli::embed::<{embeddings::DIMENSIONS}, 75, {embeddings::PADDING}>(line, &args);
+            let mut writer = stdout().lock();
+            write!(stdout().lock(), "{:?}", embedding).unwrap();
+            writer.flush().unwrap();
+            continue;
+        };
+        
         // Handle the 'grapheme' subcommand if present.
         if let Some(cli::Command::Grapheme(_)) = args.command {
-            let _ = cli::grapheme(line, std::io::stdout());
+            let grapheme = cli::grapheme(line);
+            stdout().write_all(grapheme.as_bytes()).unwrap();
             continue;
         };
 
-        // Handle the 'decode' operation if the --decode flag is used.
-        // if let Some(cli::Command::Generate(_)) = args.command {
-        //     let _ = cli::generate(line, std::io::stdout());
-        //     continue;
-        // };
 
         if args.decode {
-            let _ = cli::decode(line, &args, std::io::stdout());
+            let bytes = cli::decode(line, &args);
+            stdout().write_all(&bytes).unwrap();
             continue;
         };
 

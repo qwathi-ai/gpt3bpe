@@ -5,27 +5,27 @@ pub(crate) mod padding {
     #[test]
     pub(crate) fn test_padding_empty() {
         let input = vec![];
-        assert!(crate::embeddings::padding::<3>(input).is_err());
+        assert!(crate::embeddings::padding::<3>(&input).is_err());
     }
 
     #[test]
     pub(crate) fn test_padding_smaller() {
         let input = vec![1, 2];
         let expected = [0, 1, 2];
-        assert_eq!(crate::embeddings::padding::<3>(input).unwrap(), expected);
+        assert_eq!(crate::embeddings::padding::<3>(&input).unwrap(), expected);
     }
 
     #[test]
     pub(crate) fn test_padding_equal() {
         let input = vec![1, 2, 3];
         let expected = [1, 2, 3];
-        assert_eq!(crate::embeddings::padding::<3>(input).unwrap(), expected);
+        assert_eq!(crate::embeddings::padding::<3>(&input).unwrap(), expected);
     }
 
     #[test]
     pub(crate) fn test_padding_larger() {
         let input = vec![1, 2, 3, 4];
-        assert!(crate::embeddings::padding::<3>(input).is_err());
+        assert!(crate::embeddings::padding::<3>(&input).is_err());
     }
 }
 
@@ -265,43 +265,43 @@ pub(crate) mod insert {
     }
 }
 
+
 #[cfg(test)]
 pub(crate) mod search {
     #[test]
-    #[should_panic(expected = "[ERROR]: Expecting non-empty slice and non-zero k value")]
+    #[should_panic(expected = "[ERROR]: Expecting non-zero token and non-zero k value")]
     pub(crate) fn test_search_empty_string() {
         let conn = crate::embeddings::connection(None);
-        crate::embeddings::search::<{crate::embeddings::DIMENSIONS}>(&conn, b"", 10).unwrap();
+        crate::embeddings::search::<{crate::embeddings::DIMENSIONS},{crate::embeddings::TOKEN_LIMIT}>(&conn, b"", 10).unwrap();
     }
     #[test]
-    #[should_panic(expected = "[ERROR]: Expecting non-empty slice and non-zero k value")]
+    #[should_panic(expected = "[ERROR]: Expecting non-zero token and non-zero k value")]
     pub(crate) fn test_search_zero_k() {
         let conn = crate::embeddings::connection(None);
-        crate::embeddings::search::<{crate::embeddings::DIMENSIONS}>(&conn, b"let", 0).unwrap();
+        crate::embeddings::search::<{crate::embeddings::DIMENSIONS},{crate::embeddings::TOKEN_LIMIT}>(&conn, b"let", 0).unwrap();
     }
     #[test]
     pub(crate)fn test_search() {
         let conn = crate::embeddings::connection(None);
         for row in crate::embeddings::unit::VECTORS.iter() {
-            crate::embeddings::insert::<{ crate::embeddings::DIMENSIONS }>(
+            crate::embeddings::insert::<{ crate::embeddings::DIMENSIONS}>(
                 &conn,
                 row.0.as_bytes(),
                 &row.1,
             )
             .unwrap();
-        };
-        for (idx, row) in crate::embeddings::unit::VECTORS.iter().enumerate() {
-            let result = crate::embeddings::search::<{ crate::embeddings::DIMENSIONS }>(
-                &conn,
-                row.0.as_bytes(),
-                10,
-            )
-            .unwrap();
-            assert_eq!(result[0].vector, crate::embeddings::unit::VECTORS[idx].1);
-            assert_eq!(result[0].label, crate::embeddings::unit::VECTORS[idx].0);
-        };
+        let result = crate::embeddings::search::<{ crate::embeddings::DIMENSIONS },{ crate::embeddings::TOKEN_LIMIT }>(
+            &conn,
+            row.0.as_bytes(),
+            10,
+        ).expect("could not search result.");
+        assert_eq!(result[0].vector, row.1);
+        assert_eq!(result[0].label, row.0);
+    };
+
     }
 }
+
 
 #[cfg(test)]
 pub(crate) mod nearest {
@@ -322,17 +322,14 @@ pub(crate) mod nearest {
                 &row.1,
             )
             .unwrap();
-        };
-
-        for (idx, row) in crate::embeddings::unit::VECTORS.iter().enumerate() {
             let result = crate::embeddings::nearest::<{ crate::embeddings::DIMENSIONS }>(
                 &conn,
                 &row.1,
                 10,
             )
             .unwrap();
-            assert_eq!(result[0].vector, crate::embeddings::unit::VECTORS[idx].1);
-            assert_eq!(result[0].label, crate::embeddings::unit::VECTORS[idx].0);
+            assert_eq!(result[0].vector, row.1);
+            assert_eq!(result[0].label, row.0);
         };
     }
 }

@@ -176,24 +176,25 @@ mod flamegraph {
                 eprintln!("⚠️ Padding: Could not build report");
             }
         }
-        // {
-        //     let insert_guard = pprof::ProfilerGuardBuilder::default()
-        //         .frequency(100000)
-        //         .blocklist(&["libc", "libgcc", "pthread", "vdso"])
-        //         .build()
-        //         .unwrap();
-        //     crate::embeddings::unit::insert::test_insert_empty_string();
-        //     crate::embeddings::unit::insert::test_insert_constraint_violation();
-        //     if let Ok(report) = insert_guard.report().build() {
-        //         let file = std::fs::File::create("src/embeddings/flamegraph/insert.svg").unwrap();
-        //         let mut options = pprof::flamegraph::Options::default();
-        //         options.image_width = Some(2500);
-        //         report.flamegraph_with_options(file, &mut options).unwrap();
-        //         println!("✅ Insert: flamegraph saved");
-        //     } else {
-        //         eprintln!("⚠️ Insert: Could not build report");
-        //     }
-        // }
+        #[cfg(feature = "embeddings")]
+        {
+            let insert_guard = pprof::ProfilerGuardBuilder::default()
+                .frequency(100000)
+                .blocklist(&["libc", "libgcc", "pthread", "vdso"])
+                .build()
+                .unwrap();
+            crate::embeddings::unit::insert::test_insert_empty_string();
+            crate::embeddings::unit::insert::test_insert_constraint_violation();
+            if let Ok(report) = insert_guard.report().build() {
+                let file = std::fs::File::create("src/embeddings/flamegraph/insert.svg").unwrap();
+                let mut options = pprof::flamegraph::Options::default();
+                options.image_width = Some(2500);
+                report.flamegraph_with_options(file, &mut options).unwrap();
+                println!("✅ Insert: flamegraph saved");
+            } else {
+                eprintln!("⚠️ Insert: Could not build report");
+            }
+        }
 
         #[cfg(feature = "embeddings")]
         {

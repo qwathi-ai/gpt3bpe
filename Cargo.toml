@@ -35,7 +35,7 @@ strip = "debuginfo"
 
 [features]
 default = []
-# embeddings = ["dep:rusqlite", "dep:sqlite-vec", "dep:zerocopy"]
+embeddings = ["dep:rusqlite", "dep:sqlite-vec", "dep:zerocopy"]
 # neural = ["dep:libm"]
 
 
@@ -50,15 +50,20 @@ serde_json = "1.0.114"
 argh = "0.1.12"
 
 # Embeddings
-rusqlite = { version = "0.31.0", features = ["bundled"]}
-sqlite-vec = { version = "0.1.6"}
-zerocopy = { version = "0.7.32"}
+rusqlite = { version = "0.36.0", features = ["bundled"], optional = true }
+sqlite-vec = { version = "0.1.6", optional = true}
+zerocopy = { version = "0.7.32", optional = true}
+# rusqlite = { version = "0.36.0", features = ["bundled"] }
+# sqlite-vec = { version = "0.1.6"}
+# zerocopy = { version = "0.7.32"}
 
 # # Neural
-wide = { version = "0.7.5", features = ["serde"] }
-libm = { version = "0.2.8" }
-rand = { version = "0.10.1" }
+# wide = { version = "0.7.5", features = ["serde"] , optional = true }
+# libm = { version = "0.2.8", optional = true }
+# rand = { version = "0.10.1", optional = true }
+wide = { version = "0.7.5", features = ["serde"]}
+libm = { version = "0.2.8"}
+rand = { version = "0.10.1"}
 
 [dev-dependencies]
 pprof = { version = "0.15", features = ["flamegraph"] }
-## rand = { version = "0.10.1" }

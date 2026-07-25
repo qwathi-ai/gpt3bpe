@@ -9,36 +9,31 @@ pub(crate) mod grapheme {
     #[test]
     pub (crate) fn test_grapheme_split() {
         // Test case with simple ASCII text
-        let mut buffer: Vec<u8> = Vec::new();
-        crate::cli::grapheme("hello".to_string(), &mut buffer).unwrap();
-        assert_eq!(String::from_utf8(buffer).unwrap(), "h e l l o\n");
+        let buffer = crate::cli::grapheme("hello".to_string());
+        assert_eq!(buffer, "h e l l o");
 
         // Test case with multi-byte unicode characters (emoji)
-        let mut buffer: Vec<u8> = Vec::new();
-        crate::cli::grapheme("hello 👋".to_string(), &mut buffer).unwrap();
-        assert_eq!(String::from_utf8(buffer).unwrap(), "h e l l o Ġ ð Ł ĳ ĭ\n");
+        let buffer = crate::cli::grapheme("hello 👋".to_string());
+        assert_eq!(buffer, "h e l l o Ġ ð Ł ĳ ĭ");
     }
 
 
     #[test]
     pub (crate) fn test_grapheme_empty() {
-        let mut buffer: Vec<u8> = Vec::new();
-        crate::cli::grapheme("".to_string(), &mut buffer).unwrap();
-        assert_eq!(String::from_utf8(buffer).unwrap(), "\n");
+        let buffer = crate::cli::grapheme("".to_string());
+        assert_eq!(buffer, "");
     }
 
     #[test]
     pub (crate) fn test_grapheme_with_numbers() {
-        let mut buffer: Vec<u8> = Vec::new();
-        crate::cli::grapheme("123".to_string(), &mut buffer).unwrap();
-        assert_eq!(String::from_utf8(buffer).unwrap(), "1 2 3\n");
+        let buffer = crate::cli::grapheme("123".to_string());
+        assert_eq!(buffer, "1 2 3");
     }
 
     #[test]
     pub (crate) fn test_grapheme_special_chars() {
-        let mut buffer: Vec<u8> = Vec::new();
-        crate::cli::grapheme("!@#".to_string(), &mut buffer).unwrap();
-        assert_eq!(String::from_utf8(buffer).unwrap(), "! @ #\n");
+        let buffer = crate::cli::grapheme("!@#".to_string());
+        assert_eq!(buffer, "! @ #");
     }
 }
 
@@ -66,11 +61,10 @@ pub(crate) mod decoder {
     pub (crate) fn test_decode_p50k() {
         // Test decoding "Hello, world!" with the p50k vocabulary
         let args = create_decode_args(crate::bpe::vocabulary::Vocabularies::P50K);
-        let mut buffer: Vec<u8> = Vec::new();
-        crate::cli::decode("15496 11 995".to_string(), &args, &mut buffer).unwrap();
+        let buffer = crate::cli::decode("15496 11 995".to_string(), &args);
         assert_eq!(
             String::from_utf8(buffer).unwrap(),
-            "Hello, world\n"
+            "Hello, world"
         );
     }
 
@@ -78,11 +72,10 @@ pub(crate) mod decoder {
     pub (crate) fn test_decode_cl100k() {
         // Test decoding "Hello, world!" with the cl100k vocabulary
         let args = create_decode_args(crate::bpe::vocabulary::Vocabularies::CL100K);
-        let mut buffer: Vec<u8> = Vec::new();
-        crate::cli::decode("9906 11 1917".to_string(), &args, &mut buffer).unwrap();
+        let buffer = crate::cli::decode("9906 11 1917".to_string(), &args);
         assert_eq!(
             String::from_utf8(buffer).unwrap(),
-            "Hello, world\n"
+            "Hello, world"
         );
     }
 
@@ -90,30 +83,27 @@ pub(crate) mod decoder {
     pub (crate) fn test_decode_empty_input() {
         // Test that decoding an empty string results in just a newline
         let args = create_decode_args(crate::bpe::vocabulary::Vocabularies::P50K);
-        let mut buffer: Vec<u8> = Vec::new();
-        crate::cli::decode("".to_string(), &args, &mut buffer).unwrap();
-        assert_eq!(String::from_utf8(buffer).unwrap(), "\n");
+        let buffer = crate::cli::decode("".to_string(), &args);
+        assert_eq!(String::from_utf8(buffer).unwrap(), "");
     }
     #[test]
     pub (crate) fn test_decode_input_with_whitespace() {
         // Test that decoding a string with leading/trailing whitespace works correctly
         let args = create_decode_args(crate::bpe::vocabulary::Vocabularies::P50K);
-        let mut buffer: Vec<u8> = Vec::new();
-        crate::cli::decode("  15496 11 995  ".to_string(), &args, &mut buffer).unwrap();
+        let buffer = crate::cli::decode("  15496 11 995  ".to_string(), &args);
         assert_eq!(
             String::from_utf8(buffer).unwrap(),
-            "Hello, world\n"
+            "Hello, world"
         );
     }
     #[test]
     pub (crate) fn test_decode_invalid_token_is_ignored() {
         // Test that non-numeric tokens are gracefully ignored instead of panicking
         let args = create_decode_args(crate::bpe::vocabulary::Vocabularies::P50K);
-        let mut buffer: Vec<u8> = Vec::new();
-        crate::cli::decode("15496 not_a_token 11 995".to_string(), &args, &mut buffer).unwrap();
+        let buffer = crate::cli::decode("15496 not_a_token 11 995".to_string(), &args);
         assert_eq!(
             String::from_utf8(buffer).unwrap(),
-            "Hello, world\n"
+            "Hello, world"
         );
     }
 }

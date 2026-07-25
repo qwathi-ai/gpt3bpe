@@ -309,15 +309,6 @@ mod embeddings;
 /// # Returns
 ///
 /// Returns `true` if the insertion was successful or if the text already exists in the database, `false` otherwise.
-///
-/// # Panics
-///
-/// This function will panic if the `EMBEDDINGS` environment variable is not set to the
-/// path of the SQLite database file.
-///
-/// # Safety
-///
-/// This function will panic if the `EMBEDDINGS` environment variable is not set.
 #[cfg(feature = "embeddings")]
 #[no_mangle]
 pub extern "C" fn insert(
@@ -327,36 +318,10 @@ pub extern "C" fn insert(
     vector_length: usize,
 ) -> bool {
     let slice = read::<u8>(buffer, buffer_length);
-    let embeddings: &[f32; embeddings::DIMENSIONS] =
-        read::<f32>(vector, vector_length).try_into().unwrap();
-    let location = match std::env::var("EMBEDDINGS") {
-        Ok(l) => Some(l),
-        Err(_) => {
-            panic!(
-                "[ERROR]: `EMBEDDINGS` environment variable not set."
-            );           
-        }
-    };
-    match embeddings::insert(&embeddings::connection(location.as_deref()), slice, embeddings) {
+    let embeddings: &[f32; embeddings::DIMENSIONS] = read::<f32>(vector, vector_length).try_into().unwrap();
+    match embeddings::insert(&embeddings::connection(None), slice, embeddings) {
         Ok(_) => true,
-        Err(e) => {
-            if e.sqlite_error_code() == Some(rusqlite::ErrorCode::ConstraintViolation) {
-                #[cfg(debug_assertions)]
-                println!(
-                    "[WARNING]: {:?} aleardy exists",
-                    String::from_utf8(slice.to_vec()).unwrap_or_default()
-                );
-                true         
-            } else {
-                #[cfg(debug_assertions)]
-                println!(
-                    "[ERROR]: Could not insert {:?}.\n{:?}",
-                    String::from_utf8(slice.to_vec()).unwrap_or_default(),
-                    e
-                );
-                false
-            }
-        }
+        Err(e) => e.sqlite_error_code() == Some(rusqlite::ErrorCode::ConstraintViolation)
     }
 }
 
@@ -370,34 +335,18 @@ pub extern "C" fn insert(
 /// * `buffer_length` - The length of the text buffer.
 /// * `k` - The number of nearest neighbors to retrieve.
 /// * `callback` - A C-compatible function that is called for each element of the resulting
-///   vectors. It receives the row ID, distance, vector position, and vector value.
-///
-/// # Panics
-///
-/// This function will panic if the `EMBEDDINGS` environment variable is not set to the
-/// path of the SQLite database file.
-///
-/// # Safety
-/// This function will panic if the `EMBEDDINGS` environment variable is not set.
+///   vectors. It receives the row ID (in context), distance, vector position, and vector value.
 #[cfg(feature = "embeddings")]
 #[no_mangle]
 pub extern "C" fn search(
     buffer: *const u8,
     buffer_length: usize,
     k: u8,
-    callback: extern "C" fn(u16, f32, usize, f32),
+    callback: extern "C" fn(usize, f32, usize, f32),
 ) {
     let slice = read::<u8>(buffer, buffer_length);
-    let location = match std::env::var("EMBEDDINGS") {
-        Ok(l) => Some(l),
-        Err(_) => {
-            panic!(
-                "[ERROR]: `EMBEDDINGS` environment variable not set."
-            );           
-        }
-    };
     let mut top =
-        embeddings::search::<{embeddings::DIMENSIONS}>(&embeddings::connection(location.as_deref()), slice, k).unwrap();
+        embeddings::search::<{embeddings::DIMENSIONS}, {embeddings::TOKEN_LIMIT}>(&embeddings::connection(None), slice, k).unwrap();
     for (rid, row) in top.drain(..).enumerate() {
         for (position, value) in row.vector.iter().enumerate() {
             callback(rid, row.distance, position, *value);
@@ -415,34 +364,18 @@ pub extern "C" fn search(
 /// * `vector_length` - The length of the vector.
 /// * `k` - The number of nearest neighbors to retrieve.
 /// * `callback` - A C-compatible function that is called for each byte of the resulting
-///   labels. It receives the row ID, distance, label length, byte position, and byte value.
-///
-/// # Panics
-///
-/// This function will panic if the `EMBEDDINGS` environment variable is not set to the
-/// path of the SQLite database file.
-///
-/// # Safety
-/// This function will panic if the `EMBEDDINGS` environment variable is not set.
+///   labels. It receives the row ID (in context), distance, label length, byte position, and byte value.
 #[no_mangle]
 #[cfg(feature = "embeddings")]
 pub extern "C" fn nearest(
     vector: *const f32,
     vector_length: usize,
     k: u8,
-    callback: extern "C" fn(u16, f32, usize, usize, u8),
+    callback: extern "C" fn(usize, f32, usize, usize, u8),
 ) {
     let slice: &[f32; embeddings::DIMENSIONS] =
         read::<f32>(vector, vector_length).try_into().unwrap();
-    let location = match std::env::var("EMBEDDINGS") {
-        Ok(l) => Some(l),
-        Err(_) => {
-            panic!(
-                "[ERROR]: `EMBEDDINGS` environment variable not set."
-            );           
-        }
-    };
-    let mut top = embeddings::nearest::<{ embeddings::DIMENSIONS }>(&embeddings::connection(location.as_deref()), slice, k).unwrap();
+    let mut top = embeddings::nearest::<{ embeddings::DIMENSIONS }>(&embeddings::connection(None), slice, k).unwrap();
     for (rid, row) in top.drain(..).enumerate() {
         let bytes = row.label.as_bytes();
         let len = bytes.len();

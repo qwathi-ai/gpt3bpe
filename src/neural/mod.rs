@@ -4,7 +4,7 @@
 //! layer in a neural network. It includes methods for forward propagation (`forward`),
 //! backpropagation (`backward`), and a training step (`train`). This design allows for
 //! the flexible construction of multi-layered networks externally.
-mod tensor;
+pub(crate) mod tensor;
 mod unit;
 use crate::neural::tensor::Tensor;
 use wide::f32x4;
@@ -104,7 +104,7 @@ impl<
         let mut y = vec![0.0; OUTPUT];
         let x = Tensor::new(x.to_vec());
         for (i, &c) in self.biases.iter().enumerate() {
-            let mx: f32 = &self.weights[i] * &x;
+            let mx: f32 = x.clone() * &self.weights[i];
             y[i] = mx + c;
         }
         self.activate(&tensor::Tensor::new(y))
@@ -138,7 +138,7 @@ impl<
         // dx = weights^T * dy
         let mut dx_data = vec![0.0; INPUT];
         for (i, dx_neuron) in dx_data.iter_mut().enumerate() {
-            *dx_neuron = &self.transpose[i] * dy;
+            *dx_neuron = Tensor::from(dy.as_ref()) * &self.transpose[i];
         }
         let dx = Tensor::new(dx_data);
 

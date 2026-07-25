@@ -194,7 +194,7 @@ impl<const DIMENSIONS: usize, const TOKENS: usize> core::ops::Mul<&f32> for Tens
 
 
 // Tensor-to-Slice Operations
-/// Implements element-wise addition between a `Tensor` and a raw slice.
+/// Implements element-wise addition between a `Tensor` and a slice.
 impl<const DIMENSIONS: usize, const TOKENS: usize> core::ops::Add<&[f32;DIMENSIONS]>
     for Tensor<f32, DIMENSIONS, TOKENS>
 {
@@ -206,7 +206,7 @@ impl<const DIMENSIONS: usize, const TOKENS: usize> core::ops::Add<&[f32;DIMENSIO
     }
 }
 
-/// Implements element-wise subtraction between a `Tensor` and a raw slice.
+/// Implements element-wise subtraction between a `Tensor` and a slice.
 impl<const DIMENSIONS: usize, const TOKENS: usize> core::ops::Sub<&[f32;DIMENSIONS]>
     for Tensor<f32, DIMENSIONS, TOKENS>
 {
@@ -218,7 +218,7 @@ impl<const DIMENSIONS: usize, const TOKENS: usize> core::ops::Sub<&[f32;DIMENSIO
     }
 }
 
-/// Implements element-wise multiplication between a `Tensor` and a raw slice.
+/// Implements element-wise multiplication between a `Tensor` and a slice.
 impl<const DIMENSIONS: usize, const TOKENS: usize> core::ops::Mul<&[f32;DIMENSIONS]>
     for Tensor<f32, DIMENSIONS, TOKENS>
 {
@@ -286,14 +286,14 @@ impl<const DIMENSIONS: usize, const TOKENS: usize> core::ops::Sub<&Tensor<f32, D
 /// Tensors can be contracted, reducing the rank of the tensor by summing over one or more pairs of indices.
 /// This implementation computes the dot product, which is a form of contraction.
 /// $$ C = \sum_i T_i S_i $$
-impl<'b, const DIMENSIONS: usize, const TOKENS: usize> core::ops::Mul<&'b Tensor<f32, DIMENSIONS, TOKENS>>
-    for &Tensor<f32, DIMENSIONS, TOKENS>
+impl<const DIMENSIONS: usize, const TOKENS: usize> core::ops::Mul<&Tensor<f32, DIMENSIONS, TOKENS>>
+    for Tensor<f32, DIMENSIONS, TOKENS>
 {
     type Output = f32;
 
     /// Computes the dot product of two tensors using SIMD.
     /// This is a sum of the element-wise products.
-    fn mul(self, other: &'b Tensor<f32, DIMENSIONS, TOKENS>) -> Self::Output {
+    fn mul(self, other: &Tensor<f32, DIMENSIONS, TOKENS>) -> Self::Output {
         self.vector
             .iter()
             .zip(other.vector.iter())

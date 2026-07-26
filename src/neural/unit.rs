@@ -198,7 +198,6 @@ static VECTORS: std::sync::LazyLock<Vec<(&str, [f32; 300])>> = {
     })
 };
 
-#[cfg(test)]
 mod tensor {
     use crate::neural::tensor::Tensor;
 

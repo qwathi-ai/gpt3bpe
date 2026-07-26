@@ -135,6 +135,7 @@ pub(crate) fn connection(location: Option<&str>) -> Connection {
                     })
             }
             Err(_) => {
+                println!("[WARNING]: Using in memory vector store.");
                 Connection::open_in_memory().expect("[ERROR]: Failed to open database in memory")
             }
         },

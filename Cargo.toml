@@ -36,7 +36,7 @@ strip = "debuginfo"
 [features]
 default = []
 embeddings = ["dep:rusqlite", "dep:sqlite-vec", "dep:zerocopy"]
-neural = ["dep:wide", "dep:rand"]
+neural = ["dep:wide", "dep:rand", "dep:libm"]
 
 
 [dependencies]
@@ -59,8 +59,10 @@ zerocopy = { version = "0.7.32", optional = true}
 
 # # Neural
 wide = { version = "0.7.5", features = ["serde"] , optional = true }
+libm = { version = "0.2.8", optional = true }
 rand = { version = "0.10.1", optional = true }
 # wide = { version = "0.7.5", features = ["serde"]}
+# libm = { version = "0.2.8"}
 # rand = { version = "0.10.1"}
 
 [dev-dependencies]

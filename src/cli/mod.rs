@@ -147,8 +147,6 @@ pub (crate) fn decode(line: String, args: &Arguments) -> Vec<u8> {
     }
 }
 
-#[cfg(feature = "neural")]
-#[cfg(feature = "embeddings")]
 pub (crate) fn embed<const DIMENSIONS: usize, const TOKENS: usize, const PADDING: usize>(line: String, args: &Arguments) -> Vec<f32> {
     if line.trim().is_empty() {
         return vec![]
@@ -173,12 +171,14 @@ pub (crate) fn embed<const DIMENSIONS: usize, const TOKENS: usize, const PADDING
     let mut result = vec![];
     for token in sequence.concat() {
         context.push(token);
+        #[cfg(feature = "embeddings")]
         embeddings::padding::<PADDING>(&context).expect("[ERROR]: Unknown token in sequence. Could not embed sequence.");
         let word = context.iter()
             .map(|t| -> String { t.to_string() })
             .collect::<Vec<_>>()
             .join(" ");
 
+        #[cfg(feature = "embeddings")]
         if let Ok(rows) = embeddings::search::<DIMENSIONS,PADDING>(&embeddings::connection(None), &decode(word, args), PADDING.try_into().unwrap()) {
             if rows.is_empty() {
                 continue;
@@ -186,6 +186,7 @@ pub (crate) fn embed<const DIMENSIONS: usize, const TOKENS: usize, const PADDING
             let pe = embeddings::position::<DIMENSIONS>(pos);
             let denom = f32::sqrt(pe.iter().map(|&x| x * x).sum());
             let embedding = &rows[0];
+            #[cfg(feature = "neural")]
             let nume = neural::tensor::Tensor::<f32, DIMENSIONS, TOKENS>::new(pe.to_vec()) * &neural::tensor::Tensor::<f32, DIMENSIONS, TOKENS>::from(&embedding.vector);
             result.push(nume/denom);
             context.clear();

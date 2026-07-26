@@ -44,18 +44,22 @@ fn main() {
     for line in stdin.lock().lines() {
         let line = line.expect("Could not read line from stdin");
 
-        // // Handle the 'embed' subcommand if present.
-        // if let Some(cli::Command::Embed(_)) = args.command {
-        //     if !cfg!(feature = "embeddings") {
-        //         println!("[WARNING]: `embed` command can only be used if the `embeddings` feature is enabled.");
-        //         break;
-        //     }
-        //     let embedding = cli::embed::<{embeddings::DIMENSIONS}, 75, {embeddings::PADDING}>(line, &args);
-        //     let mut writer = stdout().lock();
-        //     write!(stdout().lock(), "{:?}", embedding).unwrap();
-        //     writer.flush().unwrap();
-        //     continue;
-        // };
+        // Handle the 'embed' subcommand if present.
+        if let Some(cli::Command::Embed(_)) = args.command {
+            if !cfg!(feature = "embeddings") | !cfg!(feature = "neural"){
+                println!("[WARNING]: `embed` command can only be used if the `embeddings` and `neural` feature is enabled.");
+                break;
+            }
+            #[cfg(feature = "embeddings")]
+            #[cfg(feature = "neural")]
+            let embedding = cli::embed::<{embeddings::DIMENSIONS}, 75, {embeddings::PADDING}>(line, &args);
+            let mut writer = stdout().lock();
+            #[cfg(feature = "embeddings")]
+            #[cfg(feature = "neural")]
+            write!(stdout().lock(), "{:?}", embedding).unwrap();
+            writer.flush().unwrap();
+            continue;
+        };
         
         // Handle the 'grapheme' subcommand if present.
         if let Some(cli::Command::Grapheme(_)) = args.command {

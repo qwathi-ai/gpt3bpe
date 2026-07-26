@@ -5,8 +5,8 @@
 //! backpropagation (`backward`), and a training step (`train`). This design allows for
 //! the flexible construction of multi-layered networks externally.
 pub(crate) mod tensor;
-mod unit;
-use crate::neural::tensor::Tensor;
+pub(crate) mod unit;
+use tensor::Tensor;
 use wide::f32x4;
 
 /// Represents the activation function to be applied to the output of a neural network Layer.

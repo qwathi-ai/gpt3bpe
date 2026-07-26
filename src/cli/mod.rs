@@ -6,9 +6,11 @@
 //! grapheme-splitting functions based on user input.
 pub(crate) mod unit;
 use crate::bpe;
-use crate::embeddings;
-use crate::neural::tensor;
 use argh::FromArgs;
+#[cfg(feature = "embeddings")]
+use crate::embeddings;
+#[cfg(feature = "neural")]
+use crate::neural;
 
 /// Subcommand for splitting a string into GPT Unicode graphemes.
 #[derive(FromArgs, Debug)]
@@ -145,6 +147,8 @@ pub (crate) fn decode(line: String, args: &Arguments) -> Vec<u8> {
     }
 }
 
+#[cfg(feature = "neural")]
+#[cfg(feature = "embeddings")]
 pub (crate) fn embed<const DIMENSIONS: usize, const TOKENS: usize, const PADDING: usize>(line: String, args: &Arguments) -> Vec<f32> {
     if line.trim().is_empty() {
         return vec![]
@@ -169,7 +173,7 @@ pub (crate) fn embed<const DIMENSIONS: usize, const TOKENS: usize, const PADDING
     let mut result = vec![];
     for token in sequence.concat() {
         context.push(token);
-        let search = embeddings::padding::<PADDING>(&context).expect("[ERROR]: Unknown token in sequence. Could not embed sequence.");
+        embeddings::padding::<PADDING>(&context).expect("[ERROR]: Unknown token in sequence. Could not embed sequence.");
         let word = context.iter()
             .map(|t| -> String { t.to_string() })
             .collect::<Vec<_>>()
@@ -182,7 +186,7 @@ pub (crate) fn embed<const DIMENSIONS: usize, const TOKENS: usize, const PADDING
             let pe = embeddings::position::<DIMENSIONS>(pos);
             let denom = f32::sqrt(pe.iter().map(|&x| x * x).sum());
             let embedding = &rows[0];
-            let nume = tensor::Tensor::<f32, DIMENSIONS, TOKENS>::new(pe.to_vec()) * &tensor::Tensor::<f32, DIMENSIONS, TOKENS>::from(&embedding.vector);
+            let nume = neural::tensor::Tensor::<f32, DIMENSIONS, TOKENS>::new(pe.to_vec()) * &neural::tensor::Tensor::<f32, DIMENSIONS, TOKENS>::from(&embedding.vector);
             result.push(nume/denom);
             context.clear();
         }

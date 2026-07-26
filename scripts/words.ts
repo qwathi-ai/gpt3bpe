@@ -1,5 +1,5 @@
-import { readLines } from '../sdk/bun.encoder.ts';
-import { load } from '../sdk/bun.embeddings.ts';
+import { readLines } from '../sdk/deno.encoder.ts';
+import { load } from '../sdk/deno.embeddings.ts';
 
 const SOURCE = '/Users/athenkosimase/.amile/words.txt';
 const QUEUE_SIZE = 10000;

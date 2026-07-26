@@ -202,7 +202,7 @@ static VECTORS: std::sync::LazyLock<Vec<(&str, [f32; 300])>> = {
 mod tensor {
     use crate::neural::tensor::Tensor;
 
-    fn assert_tensor_approx_eq<const D: usize, const L: usize>(
+    pub(crate) fn assert_tensor_approx_eq<const D: usize, const L: usize>(
         a: &Tensor<f32, D, L>,
         b: &Tensor<f32, D, L>,
     ) {
@@ -342,71 +342,23 @@ mod tensor {
 }
 
 mod neural {
-    use crate::neural::{tensor::{Tensor, WIDTH}};
-    use rand::RngExt;
-
-    fn test(activations: Vec<crate::neural::Activation>, gates: &[[[f32; WIDTH]; 2]; WIDTH * WIDTH]) {
-        let learning_rate = 0.3;
-        let threshold: f32 = 0.01;
-        let mut network = crate::neural::layers(activations);
-
-        // Helper function to pick a random gate pair
-        fn random(gates: &[[[f32; WIDTH]; 2]; WIDTH * WIDTH]) -> [[f32; WIDTH]; 2] {
-            let mut rng = rand::rng();
-            let index = rng.random_range(0..gates.len());
-            gates[index]
+    use crate::neural::{Layer, Activation, tensor::Tensor};
+    use crate::neural::unit::tensor::assert_tensor_approx_eq;
+    #[test]
+    fn backpropagation() {
+        let weights: &[Tensor<f32, 4, 1>;4] = &[Tensor::new(vec![ 0.1, 0.2, -0.1, 0.0]), Tensor::new(vec![-0.2, 0.1, 0.3, 0.1]), Tensor::new(vec![ 0.0, 0.0, 0.2, -0.2]), Tensor::new(vec![ 0.1, -0.1, 0.1, 0.2])];
+        let bias: [f32;4] = [0.1, -0.1, 0.0, 0.2];
+        let layer: Layer<f32, 4, 1, 1, 4> = Layer::new(Activation::None, weights.clone(), bias);
+        let y: Tensor<f32, 4, 1> = layer.forward(&[1.0, 1.0, 1.0, 1.0]);
+        assert_tensor_approx_eq(&y, &Tensor::new(vec![0.3,0.2,0.0,0.5]));
+        let yexp: Tensor<f32, 4, 1> = Tensor::new(vec![1.0, 0.0, 1.0, 0.0]);
+        let dy: Tensor<f32,4,1> = y.clone() - &yexp;
+        assert_tensor_approx_eq(&dy, &Tensor::new(vec![-0.7,0.2,-1.0,0.5]));
+        let backward = layer.backward(&0.1, &Tensor::new(vec![-0.7,0.2,-1.0,0.5]), &Tensor::new(vec![1.0, 1.0, 1.0, 1.0]));
+        assert_tensor_approx_eq::<4, 1>(&Tensor::from(&backward.0.biases), &Tensor::from(&[0.17, -0.12, 0.10, 0.15]));
+        let dweights: &[Tensor<f32, 4, 1>;4] = &[Tensor::from(&[ 0.17, 0.27, -0.03, 0.07]),Tensor::from(&[-0.22, 0.08, 0.28, 0.08]), Tensor::from(&[ 0.10, 0.10, 0.30, -0.10]), Tensor::from(&[ 0.05, -0.15, 0.05, 0.15])];
+        for (idx, weight) in backward.0.weights.iter().enumerate() {
+            assert_tensor_approx_eq( weight , &dweights[idx]);
         }
-
-        for _ in 0..1000 {
-            for [input, expected] in  gates {
-                let x: Tensor<f32, WIDTH, 1> = Tensor::new(input.to_vec());
-                let y: Tensor<f32, WIDTH, 1> = Tensor::new(expected.to_vec());
-                let outputs = crate::neural::forward(&network, &x);
-                let prediction = outputs.last().unwrap();
-                let error: Tensor<f32, WIDTH, 1> = Tensor::new(prediction.to_vec()) - &y;
-                if error.as_ref().to_vec().iter().copied().sum::<f32>() > threshold {
-                    crate::neural::train(&mut network, &x, &y, &learning_rate);
-                }
-            }
-        }
-        for _ in 0..1 {
-            let [input, expected] = random(gates);
-            let x: Tensor<f32, WIDTH, 1> = Tensor::new(input.to_vec());
-            let y: Tensor<f32, WIDTH, 1> = Tensor::new(expected.to_vec());
-            let outputs = crate::neural::forward(&network, &x);
-            let prediction = outputs.last().unwrap();
-            let error: Tensor<f32, WIDTH, 1> = y - &Tensor::new(prediction.to_vec());
-            assert!(
-                error.as_ref().to_vec().iter().copied().sum::<f32>() < threshold,
-                "Prediction: {:?}, Expected: {:?}",
-                prediction,
-                expected
-            )
-        }
-
-    }
-
-    // #[test]
-    fn or_gate() {
-        let gates = [
-            [[0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0]], // input[i] OR 0 = output[i]
-            [[0.0, 0.0, 0.0, 1.0], [0.0, 0.0, 0.0, 1.0]],
-            [[0.0, 0.0, 1.0, 0.0], [0.0, 0.0, 1.0, 0.0]],
-            [[0.0, 0.0, 1.0, 1.0], [0.0, 0.0, 1.0, 1.0]],
-            [[0.0, 1.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0]],
-            [[0.0, 1.0, 0.0, 1.0], [0.0, 1.0, 0.0, 1.0]],
-            [[0.0, 1.0, 1.0, 0.0], [0.0, 1.0, 1.0, 0.0]],
-            [[0.0, 1.0, 1.0, 1.0], [0.0, 1.0, 1.0, 1.0]],
-            [[1.0, 0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0]],
-            [[1.0, 0.0, 0.0, 1.0], [1.0, 0.0, 0.0, 1.0]],
-            [[1.0, 0.0, 1.0, 0.0], [1.0, 0.0, 1.0, 0.0]],
-            [[1.0, 0.0, 1.0, 1.0], [1.0, 0.0, 1.0, 1.0]],
-            [[1.0, 1.0, 0.0, 0.0], [1.0, 1.0, 0.0, 0.0]],
-            [[1.0, 1.0, 0.0, 1.0], [1.0, 1.0, 0.0, 1.0]],
-            [[1.0, 1.0, 1.0, 0.0], [1.0, 1.0, 1.0, 0.0]],
-            [[1.0, 1.0, 1.0, 1.0], [1.0, 1.0, 1.0, 1.0]],
-        ];
-        test(vec![crate::neural::Activation::ReLU, crate::neural::Activation::Sigmoid], &gates);
-        // test(vec![crate::neural::Activation::Sigmoid, crate::neural::Activation::Sigmoid, crate::neural::Activation::Sigmoid, crate::neural::Activation::Sigmoid, crate::neural::Activation::ReLU], &gates);
     }
 }

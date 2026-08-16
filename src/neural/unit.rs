@@ -323,25 +323,25 @@ mod tensor {
         }
     }
 
-    // /// Verifies the multilinearity property of tensor operations.
-    // ///
-    // /// `u * (A*v + B*w) = A*(u*v) + B*(u*w)`
-    // ///
-    // // Wish me luck.
-    // #[test]
-    // fn multilinearity() {
-    //     let mut rng = rand::rng();
-    //     for window in crate::neural::unit::VECTORS.windows(2){
-    //         let u: f32 = rng.random();
-    //         let v: f32 = rng.random();  
-    //         let w: f32 = rng.random(); 
-    //         let a: Tensor<f32, 300, 75> = Tensor::from(&window[0].1);
-    //         let b: Tensor<f32, 300, 75> = Tensor::from(&window[1].1);
-    //         let left = a.clone() * &v + &(b.clone() * &w);
-    //         let right = a * &(u * v) + &(b * &(u*w));
-    //         assert_tensor_approx_eq(&left, &right);
-    //     }
-    // }
+    /// Verifies the multilinearity property of tensor operations.
+    ///
+    /// `u * (A*v + B*w) = A*(u*v) + B*(u*w)`
+    ///
+    // Wish me luck.
+    #[test]
+    fn multilinearity() {
+        let mut rng = rand::rng();
+        for window in crate::neural::unit::VECTORS.windows(2){
+            let u: f32 = rng.random();
+            let v: f32 = rng.random();  
+            let w: f32 = rng.random(); 
+            let A: Tensor<f32, 300, 75> = Tensor::from(&window[0].1);
+            let B: Tensor<f32, 300, 75> = Tensor::from(&window[1].1);
+            let left = A.clone() * &v + &(B.clone() * &w);
+            let right = A * &(u * v) + &(B * &(u*w));
+            assert_tensor_approx_eq(&left, &right);
+        }
+    }
 }
 
 mod neural {

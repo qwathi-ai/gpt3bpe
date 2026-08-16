@@ -339,7 +339,7 @@ mod tensor {
             let B: Tensor<f32, 300, 75> = Tensor::from(&window[1].1);
             let left = A.clone() * &v + &(B.clone() * &w);
             let right = A * &(u * v) + &(B * &(u*w));
-            assert_tensor_approx_eq(&left, &right);
+            assert_tensor_approx_eq(&(left * &u), &right);
         }
     }
 }

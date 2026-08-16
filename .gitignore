@@ -44,3 +44,4 @@ makefile
 # VSCode
 # Ignore VSCode settings and workspace settings
 .vscode/
+.sublime/

@@ -241,13 +241,15 @@ mod tensor {
             );
         }
     }
+    use rand::RngExt;
 
     #[test]
     /// Tests tensor-scalar and tensor-tensor addition and subtraction.
     fn addition() {
+        let mut rng = rand::rng();
         for (_, vector) in crate::neural::unit::VECTORS.iter() {
-            let a: f32 = 3.14;
-            let t: Tensor<f32, 300, 75> = crate::neural::tensor::Tensor::from(vector);
+            let a: f32 = rng.random();
+            let t: Tensor<f32, 300, 75> = Tensor::from(vector);
             let s: Tensor<f32, 300, 75> = t.clone() - &a;
             assert_tensor_approx_eq(&(s.clone() + &a), &t);
             let r = s.clone() + &t;
@@ -258,9 +260,10 @@ mod tensor {
     #[test]
     /// Tests tensor-scalar multiplication and division (scaling).
     fn scale() {
+        let mut rng = rand::rng();
         for (_, vector) in crate::neural::unit::VECTORS.iter() {
-            let a: f32 = 3.14;
-            let t: Tensor<f32, 300, 75> = crate::neural::tensor::Tensor::from(vector);
+            let a: f32 = rng.random();
+            let t: Tensor<f32, 300, 75> = Tensor::from(vector);
             let s: Tensor<f32, 300, 75> = t.clone() * &a;
             assert_tensor_approx_eq(&(t.clone() * &a), &s);
             assert_tensor_approx_eq(&t, &(s.clone() / &a));
@@ -275,7 +278,7 @@ mod tensor {
     /// where `-T` is `T * -1.0`.
     fn zero_negation() {
         for (_, vector) in crate::neural::unit::VECTORS.iter() {
-            let t: Tensor<f32, 300, 75> = crate::neural::tensor::Tensor::from(vector);
+            let t: Tensor<f32, 300, 75> = Tensor::from(vector);
             assert_tensor_approx_eq(&(t.clone() + &0.0), &t.clone());
             assert_tensor_approx_scalar_eq(&(t.clone() + &(t.clone() * &-1.0)), 0.0);
         }
@@ -286,9 +289,10 @@ mod tensor {
     ///
     /// `a * (T + S) = a * T + a * S`
     fn distribution() {
+        let mut rng = rand::rng();
         for (_, vector) in crate::neural::unit::VECTORS.iter() {
-            let a: f32 = 3.14;
-            let t: Tensor<f32, 300, 75> = crate::neural::tensor::Tensor::from(vector);
+            let a: f32 = rng.random();
+            let t: Tensor<f32, 300, 75> = Tensor::from(vector);
             let s: Tensor<f32, 300, 75> = t.clone();
             assert_tensor_approx_eq(&((t.clone() + &s) * &a), &(t * &a + &(s * &a)));
         }
@@ -300,7 +304,7 @@ mod tensor {
     /// `(T + S) + R = T + (S + R)`
     fn associative_addition() {
         for (_, vector) in crate::neural::unit::VECTORS.iter() {
-            let t: Tensor<f32, 300, 75> = crate::neural::tensor::Tensor::from(vector);
+            let t: Tensor<f32, 300, 75> = Tensor::from(vector);
             let s: Tensor<f32, 300, 75> = t.clone();
             let r: Tensor<f32, 300, 75> = s.clone();
             assert_tensor_approx_eq(&((t.clone() + &s) + &r), &(t + &(s + &r)));
@@ -313,7 +317,7 @@ mod tensor {
     /// `T + S = S + T`
     fn commutative_addition() {
         for (_, vector) in crate::neural::unit::VECTORS.iter() {
-            let t: Tensor<f32, 300, 75> = crate::neural::tensor::Tensor::from(vector);
+            let t: Tensor<f32, 300, 75> = Tensor::from(vector);
             let s: Tensor<f32, 300, 75> = t.clone();
             assert_tensor_approx_eq(&(t.clone() + &s), &(s + &t));
         }
@@ -326,37 +330,53 @@ mod tensor {
     // // Wish me luck.
     // #[test]
     // fn multilinearity() {
-    //     let A: i8 = super::random_number();
-    //     let B: i8 = super::random_number();
-    //     let v = crate::tensor::new::<i8, 4>([-1,1], vec![1, 2, 3]);
-
-    //     const B: i8 = 7;
-    //     let w = v.clone();
-    //     let u = v.clone();
-    //     assert_eq!(
-    //         u.clone() * &((v.clone() * &A) + &(w.clone() * &B)),
-    //         (v * &u) * &A + &(u * &w) * &B
-    //     );
+    //     let mut rng = rand::rng();
+    //     for window in crate::neural::unit::VECTORS.windows(2){
+    //         let u: f32 = rng.random();
+    //         let v: f32 = rng.random();  
+    //         let w: f32 = rng.random(); 
+    //         let a: Tensor<f32, 300, 75> = Tensor::from(&window[0].1);
+    //         let b: Tensor<f32, 300, 75> = Tensor::from(&window[1].1);
+    //         let left = a.clone() * &v + &(b.clone() * &w);
+    //         let right = a * &(u * v) + &(b * &(u*w));
+    //         assert_tensor_approx_eq(&left, &right);
+    //     }
     // }
 }
 
 mod neural {
-    use crate::neural::{Layer, Activation, tensor::Tensor};
+    use crate::neural::{Layer, Activation, tensor::Tensor, forward, train };
     use crate::neural::unit::tensor::assert_tensor_approx_eq;
     #[test]
-    fn backpropagation() {
+    fn layer() {
         let weights: &[Tensor<f32, 4, 1>;4] = &[Tensor::new(vec![ 0.1, 0.2, -0.1, 0.0]), Tensor::new(vec![-0.2, 0.1, 0.3, 0.1]), Tensor::new(vec![ 0.0, 0.0, 0.2, -0.2]), Tensor::new(vec![ 0.1, -0.1, 0.1, 0.2])];
         let bias: [f32;4] = [0.1, -0.1, 0.0, 0.2];
-        let layer: Layer<f32, 4, 1, 1, 4> = Layer::new(Activation::None, weights.clone(), bias);
-        let y: Tensor<f32, 4, 1> = layer.forward(&[1.0, 1.0, 1.0, 1.0]);
-        assert_tensor_approx_eq(&y, &Tensor::new(vec![0.3,0.2,0.0,0.5]));
+        let layer: Layer<f32, 4, 1, 1, 4> = Layer::new(Activation::None, weights.clone(), bias, None);
+        let y: Tensor<f32, 4, 1> = layer.forward(&Tensor::from(&[1.0, 1.0, 1.0, 1.0]));
+        assert_tensor_approx_eq::<4, 1>(&y, &Tensor::new(vec![0.3,0.2,0.0,0.5]));
         let yexp: Tensor<f32, 4, 1> = Tensor::new(vec![1.0, 0.0, 1.0, 0.0]);
         let dy: Tensor<f32,4,1> = y.clone() - &yexp;
-        assert_tensor_approx_eq(&dy, &Tensor::new(vec![-0.7,0.2,-1.0,0.5]));
+        assert_tensor_approx_eq::<4, 1>(&dy, &Tensor::new(vec![-0.7,0.2,-1.0,0.5]));
         let backward = layer.backward(&0.1, &Tensor::new(vec![-0.7,0.2,-1.0,0.5]), &Tensor::new(vec![1.0, 1.0, 1.0, 1.0]));
-        assert_tensor_approx_eq::<4, 1>(&Tensor::from(&backward.0.biases), &Tensor::from(&[0.17, -0.12, 0.10, 0.15]));
+        assert_tensor_approx_eq::<4, 1>(&Tensor::from(&backward.biases), &Tensor::from(&[0.17, -0.12, 0.10, 0.15]));
         let dweights: &[Tensor<f32, 4, 1>;4] = &[Tensor::from(&[ 0.17, 0.27, -0.03, 0.07]),Tensor::from(&[-0.22, 0.08, 0.28, 0.08]), Tensor::from(&[ 0.10, 0.10, 0.30, -0.10]), Tensor::from(&[ 0.05, -0.15, 0.05, 0.15])];
-        for (idx, weight) in backward.0.weights.iter().enumerate() {
+        for (idx, weight) in backward.weights.iter().enumerate() {
+            assert_tensor_approx_eq::<4, 1>( weight , &dweights[idx]);
+        };
+    }
+    #[test]
+    fn network() {
+        let weights: &[Tensor<f32, 4, 1>;4] = &[Tensor::new(vec![0.1, 0.2, -0.1, 0.4]), Tensor::new(vec![-0.3, 0.5, 0.1, 0.2]), Tensor::new(vec![0.2, -0.4, 0.3, -0.1]), Tensor::new(vec![0.4, 0.1, 0.5, 0.3])];
+        let bias: [f32;4] = [0.1, -0.1, 0.05, 0.2];
+        let mut net: Vec<Layer<f32, 4, 1, 1, 4>> = vec![Layer::new(Activation::None, weights.clone(), bias, None)];
+        let outputs = forward(&net, &Tensor::from(&[0.5, 0.1, -0.2, 0.8]));
+        let output = outputs.last().unwrap();
+        assert_tensor_approx_eq::<4, 1>(output, &Tensor::from(&[0.51000005,-0.05999999,-0.03000001,0.55]));
+        net = vec![Layer::new(Activation::Sigmoid, weights.clone(), bias, None)];
+        train(&mut net, &Tensor::from(&[0.5, 0.1, -0.2, 0.8]), &Tensor::from(&[1.0, 0.0, 0.0, 1.0]), &0.1);
+        assert_tensor_approx_eq::<4, 1>(&Tensor::from(&net[0].biases), &Tensor::from(&[0.108795,-0.112114,0.037690,0.208488]));
+        let dweights: &[Tensor<f32, 4, 1>;4] = &[Tensor::from(&[0.10439771,0.20087954,-0.10175908,0.40703633]),Tensor::from(&[-0.30605713,0.49878857,0.10242284,0.19030863]), Tensor::from(&[0.19384514,-0.401231,0.30246195,-0.1098478 ]), Tensor::from(&[0.40424418,0.10084883,0.49830234,0.30679068])];
+        for (idx, weight) in net[0].weights.iter().enumerate() {
             assert_tensor_approx_eq( weight , &dweights[idx]);
         }
     }

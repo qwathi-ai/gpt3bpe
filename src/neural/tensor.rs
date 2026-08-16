@@ -5,9 +5,9 @@
 // building block for neural network layers, offering an ergonomic API for common linear algebra
 // operations.
 use wide::f32x4;
-
 /// The width of a single SIMD vector, corresponding to the number of `f32` elements it can hold.
 pub(crate) const WIDTH: usize = 4;
+
 
 /// A tensor for efficient SIMD operations on multi-dimensional data.
 ///
@@ -27,7 +27,7 @@ pub(crate) const WIDTH: usize = 4;
 /// # Generic Parameters
 /// - `T`: The underlying scalar type of the tensor's data.
 /// - `DIMENSIONS`: A `const` generic for the total number of elements in the tensor.
-/// - `LANES`: A `const` generic for the number of SIMD vectors required to store the data.
+/// - `TOKENS`: A `const` generic for the number of SIMD vectors required to store the tensor data.
 ///   This is typically `DIMENSIONS / WIDTH`.
 #[derive(Debug)]
 pub struct Tensor<T, const DIMENSIONS: usize, const TOKENS: usize> where T: Copy {
@@ -46,12 +46,13 @@ impl<const DIMENSIONS: usize, const TOKENS: usize> Tensor<f32, DIMENSIONS, TOKEN
         assert_eq!(data.len(), DIMENSIONS, "Data length must match the tensor's DIMENSIONS");
         let (chunks, remainder) = data.as_chunks::<{WIDTH}>();
         assert!(remainder.is_empty(), "Data length must be a multiple of {WIDTH}");
-
+        assert_eq!(DIMENSIONS/WIDTH, TOKENS, "TOKENS must be equal to DIMENSIONS / {WIDTH}");
+        
         Tensor {
             vector: chunks
                 .iter()
                 .map(|array: &[f32; WIDTH]| f32x4::new(*array))
-                .collect::<Vec<_>>()
+                .collect::<Vec<f32x4>>()
                 .try_into()
                 .unwrap(),
             data,
@@ -64,10 +65,23 @@ impl<const DIMENSIONS: usize, const TOKENS: usize> Tensor<f32, DIMENSIONS, TOKEN
     pub fn iter(&self) -> std::slice::Iter<'_, f32x4> {
         self.vector.iter()
     }
-
-    /// Returns a mutable iterator over the SIMD vectors of the tensor.
-    pub fn iter_mut(&mut self) -> std::slice::IterMut<'_, f32x4> {
-        self.vector.iter_mut()
+    pub fn floor(mut self, other: &f32, default: Option<f32>) -> Self {
+        for (simd, chunk) in self.vector.iter_mut().zip(self.data.chunks_mut(WIDTH)) {
+            for (s, c) in simd.as_array_mut().iter_mut().zip(chunk) {
+                *s = if *s > *other { match default {Some(d)=> d, None => *s} } else { *other };
+                *c = s.clone();
+            }
+        }
+        self
+    }
+    pub fn ceil(mut self, other: &f32, default: Option<f32>) -> Self {
+        for (simd, chunk) in self.vector.iter_mut().zip(self.data.chunks_mut(WIDTH)) {
+            for (s, c) in simd.as_array_mut().iter_mut().zip(chunk) {
+                *s = if *s < *other { match default {Some(d)=> d, None => *s} } else { *other };
+                *c = s.clone();
+            }
+        }
+        self    
     }
 }
 
@@ -97,6 +111,8 @@ impl<const DIMENSIONS: usize, const TOKENS: usize> AsRef<[f32; DIMENSIONS]> for 
     }
 }
 
+// Tensor-to-scalar Operations
+/// Implements element-wise equality to a scalar value.
 impl<const DIMENSIONS: usize, const TOKENS: usize> PartialEq<f32> for Tensor<f32, DIMENSIONS, TOKENS>
 {
     /// Checks if all elements in the tensor are equal to a scalar value.
@@ -105,15 +121,6 @@ impl<const DIMENSIONS: usize, const TOKENS: usize> PartialEq<f32> for Tensor<f32
         self.vector.iter().all(|&value| value == splat)
     }
 }
-
-impl<T: Copy, const DIMENSIONS: usize, const TOKENS: usize> PartialEq<Tensor<T, DIMENSIONS, TOKENS>> for Tensor<T, DIMENSIONS, TOKENS>
-{
-    /// Checks if two tensors are equal by comparing their `vector` fields.
-    fn eq(&self, other: &Self) -> bool {
-        self.vector.iter().zip(other.vector.iter()).all(|(a, b)| a == b)
-    }
-}
-
 
 /// Implements element-wise subtraction of a scalar from a `Tensor`.
 ///
@@ -131,7 +138,10 @@ impl<const DIMENSIONS: usize, const TOKENS: usize> core::ops::Sub<&f32> for Tens
     fn sub(mut self, rhs: &f32) -> Self::Output {
         // Splat the scalar into a SIMD vector for parallel subtraction.
         let splat = f32x4::splat(*rhs);
-        for val in self.vector.iter_mut() { *val -= splat; }
+        for (simd, chunk) in self.vector.iter_mut().zip(self.data.chunks_mut(WIDTH)) {
+            *simd -= splat;
+            chunk.copy_from_slice(&simd.to_array());
+        }
         self
     }
 }
@@ -152,7 +162,10 @@ impl<const DIMENSIONS: usize, const TOKENS: usize> core::ops::Add<&f32> for Tens
     fn add(mut self, rhs: &f32) -> Self::Output {
         // Splat the scalar into a SIMD vector for parallel addition.
         let splat = f32x4::splat(*rhs);
-        for val in self.vector.iter_mut() { *val += splat; }
+        for (simd, chunk) in self.vector.iter_mut().zip(self.data.chunks_mut(WIDTH)) {
+            *simd += splat;
+            chunk.copy_from_slice(&simd.to_array());
+        }
         self
     }
 }
@@ -165,8 +178,11 @@ impl<const DIMENSIONS: usize, const TOKENS: usize> core::ops::Div<&f32> for Tens
 
     fn div(mut self, rhs: &f32) -> Self::Output {
         // Splat the scalar into a SIMD vector for parallel division.
-        let rhs_splat = f32x4::splat(*rhs);
-        for val in self.vector.iter_mut() { *val /= rhs_splat; }
+        let splat = f32x4::splat(*rhs);
+        for (simd, chunk) in self.vector.iter_mut().zip(self.data.chunks_mut(WIDTH)) {
+            *simd /= splat;
+            chunk.copy_from_slice(&simd.to_array());
+        }
         self
     }
 }
@@ -186,37 +202,39 @@ impl<const DIMENSIONS: usize, const TOKENS: usize> core::ops::Mul<&f32> for Tens
     /// Performs element-wise multiplication of the tensor by a scalar.
     fn mul(mut self, rhs: &f32) -> Self::Output {
         // Splat the scalar into a SIMD vector for parallel multiplication.
-        let rhs_splat = f32x4::splat(*rhs);
-        for val in self.vector.iter_mut() { *val *= rhs_splat; }
+        let splat = f32x4::splat(*rhs);
+        for (simd, chunk) in self.vector.iter_mut().zip(self.data.chunks_mut(WIDTH)) {
+            *simd *= splat;
+            chunk.copy_from_slice(&simd.to_array());
+        }
         self
     }
 }
 
-
 // Tensor-to-Slice Operations
-/// Implements element-wise addition between a `Tensor` and a slice.
-impl<const DIMENSIONS: usize, const TOKENS: usize> core::ops::Add<&[f32;DIMENSIONS]>
-    for Tensor<f32, DIMENSIONS, TOKENS>
-{
-    type Output = Self;
+// /// Implements element-wise addition between a `Tensor` and a slice.
+// impl<const DIMENSIONS: usize, const TOKENS: usize> core::ops::Add<&[f32;DIMENSIONS]>
+//     for Tensor<f32, DIMENSIONS, TOKENS>
+// {
+//     type Output = Self;
 
-    /// Performs element-wise addition by converting the slice to a `Tensor` first.
-    fn add(self, other: &[f32;DIMENSIONS]) -> Self::Output {
-        self + &Tensor::from(other)
-    }
-}
+//     /// Performs element-wise addition by converting the slice to a `Tensor` first.
+//     fn add(self, other: &[f32;DIMENSIONS]) -> Self::Output {
+//         self + &Tensor::from(other)
+//     }
+// }
 
-/// Implements element-wise subtraction between a `Tensor` and a slice.
-impl<const DIMENSIONS: usize, const TOKENS: usize> core::ops::Sub<&[f32;DIMENSIONS]>
-    for Tensor<f32, DIMENSIONS, TOKENS>
-{
-    type Output = Self;
+// /// Implements element-wise subtraction between a `Tensor` and a slice.
+// impl<const DIMENSIONS: usize, const TOKENS: usize> core::ops::Sub<&[f32;DIMENSIONS]>
+//     for Tensor<f32, DIMENSIONS, TOKENS>
+// {
+//     type Output = Self;
 
-    /// Performs element-wise subtraction by converting the slice to a `Tensor` first.
-    fn sub(self, other: &[f32;DIMENSIONS]) -> Self::Output {
-        self - &Tensor::from(other)
-    }
-}
+//     /// Performs element-wise subtraction by converting the slice to a `Tensor` first.
+//     fn sub(self, other: &[f32;DIMENSIONS]) -> Self::Output {
+//         self - &Tensor::from(other)
+//     }
+// }
 
 /// Implements element-wise multiplication between a `Tensor` and a slice.
 impl<const DIMENSIONS: usize, const TOKENS: usize> core::ops::Mul<&[f32;DIMENSIONS]>
@@ -226,14 +244,23 @@ impl<const DIMENSIONS: usize, const TOKENS: usize> core::ops::Mul<&[f32;DIMENSIO
 
     /// Performs element-wise multiplication of two tensors.
     fn mul(mut self, other: &[f32;DIMENSIONS]) -> Self::Output {
-        for (lhs, rhs) in self.data.iter_mut().zip(other.iter()) {
-            *lhs *= rhs;
+        let tense = self.vector.iter_mut().zip(self.data.chunks_mut(WIDTH));
+        for ((simd, chunk), rhs) in tense.zip(other.chunks_exact(4)) {
+            *simd *= f32x4::from(rhs);
+            chunk.copy_from_slice(&simd.to_array());
         }
         self
     }
 }
 
 // Tensor-to-Tensor Operations
+impl<T: Copy, const DIMENSIONS: usize, const TOKENS: usize> PartialEq<Tensor<T, DIMENSIONS, TOKENS>> for Tensor<T, DIMENSIONS, TOKENS>
+{
+    /// Checks if two tensors are equal by comparing their `vector` fields.
+    fn eq(&self, other: &Self) -> bool {
+        self.vector.iter().zip(other.vector.iter()).all(|(a, b)| a == b)
+    }
+}
 /// Implements element-wise addition between two `Tensor`s.
 ///
 /// ### Additivity
@@ -258,8 +285,10 @@ impl<const DIMENSIONS: usize, const TOKENS: usize> core::ops::Add<&Tensor<f32, D
 
     /// Performs element-wise addition of two tensors.
     fn add(mut self, other: &Tensor<f32, DIMENSIONS, TOKENS>) -> Self::Output {
-        for (lhs, rhs) in self.vector.iter_mut().zip(other.vector.iter()) {
-            *lhs += rhs;
+        let tense = self.vector.iter_mut().zip(self.data.chunks_mut(WIDTH));
+        for ((simd, chunk), rhs) in tense.zip(other.vector) {
+            *simd += rhs;
+            chunk.copy_from_slice(&simd.to_array());
         }
         self
     }
@@ -273,8 +302,10 @@ impl<const DIMENSIONS: usize, const TOKENS: usize> core::ops::Sub<&Tensor<f32, D
 
     /// Performs element-wise subtraction of two tensors.
     fn sub(mut self, other: &Tensor<f32, DIMENSIONS, TOKENS>) -> Self::Output {
-        for (lhs, rhs) in self.vector.iter_mut().zip(other.vector.iter()) {
-            *lhs -= rhs;
+        let tense = self.vector.iter_mut().zip(self.data.chunks_mut(WIDTH));
+        for ((simd, chunk), rhs) in tense.zip(other.vector) {
+            *simd -= rhs;
+            chunk.copy_from_slice(&simd.to_array());
         }
         self
     }

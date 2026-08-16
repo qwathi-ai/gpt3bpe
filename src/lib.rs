@@ -384,3 +384,36 @@ pub extern "C" fn nearest(
         };
     };
 }
+
+// #[cfg(feature = "neural")]
+// mod neural;
+
+// /// Finds the nearest neighbors to a given embedding vector.
+// ///
+// /// This function is only available when the `embeddings` feature is enabled.
+// ///
+// /// # Arguments
+// ///
+// /// * `vector` - A raw pointer to the embedding vector.
+// /// * `vector_length` - The length of the vector.
+// /// * `k` - The number of nearest neighbors to retrieve.
+// /// * `callback` - A C-compatible function that is called for each byte of the resulting
+// #[no_mangle]
+// #[cfg(feature = "neural")]
+// #[cfg(feature = "embeddings")]
+// pub extern "C" fn forward(
+//     vector: *const f32,
+//     vector_length: usize,
+//     callback: extern "C" fn(usize, f32, usize, usize, u8),
+// ) {
+//     let slice: &[f32; embeddings::DIMENSIONS] = read::<f32>(vector, vector_length).try_into().unwrap();
+//     let feed = neural::forward::<{ embeddings::DIMENSIONS }, 75, 75, { embeddings::DIMENSIONS }>().unwrap();
+
+//     for (rid, row) in top.drain(..).enumerate() {
+//         let bytes = row.label.as_bytes();
+//         let len = bytes.len();
+//         for (position, value) in bytes.iter().enumerate() {
+//             callback( rid, row.distance, len, position, *value);
+//         };
+//     };
+// }

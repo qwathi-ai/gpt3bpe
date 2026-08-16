@@ -57,7 +57,7 @@ zerocopy = { version = "0.7.32", optional = true}
 # sqlite-vec = { version = "0.1.6"}
 # zerocopy = { version = "0.7.32"}
 
-# # Neural
+# Neural
 wide = { version = "0.7.5", features = ["serde"] , optional = true }
 libm = { version = "0.2.8", optional = true }
 rand = { version = "0.10.1", optional = true }

@@ -198,7 +198,7 @@ static VECTORS: std::sync::LazyLock<Vec<(&str, [f32; 300])>> = {
     })
 };
 
-mod tensor {
+pub(crate) mod tensor {
     use crate::neural::tensor::Tensor;
 
     pub(crate) fn assert_tensor_approx_eq<const D: usize, const L: usize>(
@@ -245,7 +245,7 @@ mod tensor {
 
     #[test]
     /// Tests tensor-scalar and tensor-tensor addition and subtraction.
-    fn addition() {
+    pub(crate) fn addition() {
         let mut rng = rand::rng();
         for (_, vector) in crate::neural::unit::VECTORS.iter() {
             let a: f32 = rng.random();
@@ -259,7 +259,7 @@ mod tensor {
 
     #[test]
     /// Tests tensor-scalar multiplication and division (scaling).
-    fn scale() {
+    pub(crate) fn scale() {
         let mut rng = rand::rng();
         for (_, vector) in crate::neural::unit::VECTORS.iter() {
             let a: f32 = rng.random();
@@ -276,7 +276,7 @@ mod tensor {
     /// - `T + (-T) = 0` (Inverse element for addition)
     ///
     /// where `-T` is `T * -1.0`.
-    fn zero_negation() {
+    pub(crate) fn zero_negation() {
         for (_, vector) in crate::neural::unit::VECTORS.iter() {
             let t: Tensor<f32, 300, 75> = Tensor::from(vector);
             assert_tensor_approx_eq(&(t.clone() + &0.0), &t.clone());
@@ -288,7 +288,7 @@ mod tensor {
     /// Verifies the distributive property of scalar multiplication over tensor addition.
     ///
     /// `a * (T + S) = a * T + a * S`
-    fn distribution() {
+    pub(crate) fn distribution() {
         let mut rng = rand::rng();
         for (_, vector) in crate::neural::unit::VECTORS.iter() {
             let a: f32 = rng.random();
@@ -302,7 +302,7 @@ mod tensor {
     /// Verifies the associative property of tensor addition.
     ///
     /// `(T + S) + R = T + (S + R)`
-    fn associative_addition() {
+    pub(crate) fn associative_addition() {
         for (_, vector) in crate::neural::unit::VECTORS.iter() {
             let t: Tensor<f32, 300, 75> = Tensor::from(vector);
             let s: Tensor<f32, 300, 75> = t.clone();
@@ -315,7 +315,7 @@ mod tensor {
     /// Verifies the commutative property of tensor addition.
     ///
     /// `T + S = S + T`
-    fn commutative_addition() {
+    pub(crate) fn commutative_addition() {
         for (_, vector) in crate::neural::unit::VECTORS.iter() {
             let t: Tensor<f32, 300, 75> = Tensor::from(vector);
             let s: Tensor<f32, 300, 75> = t.clone();
@@ -329,7 +329,7 @@ mod tensor {
     ///
     // Wish me luck.
     #[test]
-    fn multilinearity() {
+    pub(crate) fn multilinearity() {
         let mut rng = rand::rng();
         for window in crate::neural::unit::VECTORS.windows(2){
             let u: f32 = rng.random();
@@ -344,11 +344,11 @@ mod tensor {
     }
 }
 
-mod neural {
+pub(crate) mod neural {
     use crate::neural::{Layer, Activation, tensor::Tensor, forward, train };
     use crate::neural::unit::tensor::assert_tensor_approx_eq;
     #[test]
-    fn layer() {
+    pub(crate) fn layer() {
         let weights: &[Tensor<f32, 4, 1>;4] = &[Tensor::new(vec![ 0.1, 0.2, -0.1, 0.0]), Tensor::new(vec![-0.2, 0.1, 0.3, 0.1]), Tensor::new(vec![ 0.0, 0.0, 0.2, -0.2]), Tensor::new(vec![ 0.1, -0.1, 0.1, 0.2])];
         let bias: [f32;4] = [0.1, -0.1, 0.0, 0.2];
         let layer: Layer<f32, 4, 1, 1, 4> = Layer::new(Activation::None, weights.clone(), bias, None);
@@ -365,7 +365,7 @@ mod neural {
         };
     }
     #[test]
-    fn network() {
+    pub(crate) fn network() {
         let weights: &[Tensor<f32, 4, 1>;4] = &[Tensor::new(vec![0.1, 0.2, -0.1, 0.4]), Tensor::new(vec![-0.3, 0.5, 0.1, 0.2]), Tensor::new(vec![0.2, -0.4, 0.3, -0.1]), Tensor::new(vec![0.4, 0.1, 0.5, 0.3])];
         let bias: [f32;4] = [0.1, -0.1, 0.05, 0.2];
         let mut net: Vec<Layer<f32, 4, 1, 1, 4>> = vec![Layer::new(Activation::None, weights.clone(), bias, None)];

@@ -176,25 +176,25 @@ mod flamegraph {
                 eprintln!("⚠️ Padding: Could not build report");
             }
         }
-        #[cfg(feature = "embeddings")]
-        {
-            let insert_guard = pprof::ProfilerGuardBuilder::default()
-                .frequency(100000)
-                .blocklist(&["libc", "libgcc", "pthread", "vdso"])
-                .build()
-                .unwrap();
-            crate::embeddings::unit::insert::test_insert_empty_string();
-            crate::embeddings::unit::insert::test_insert_constraint_violation();
-            if let Ok(report) = insert_guard.report().build() {
-                let file = std::fs::File::create("src/embeddings/flamegraph/insert.svg").unwrap();
-                let mut options = pprof::flamegraph::Options::default();
-                options.image_width = Some(2500);
-                report.flamegraph_with_options(file, &mut options).unwrap();
-                println!("✅ Insert: flamegraph saved");
-            } else {
-                eprintln!("⚠️ Insert: Could not build report");
-            }
-        }
+        // #[cfg(feature = "embeddings")]
+        // {
+        //     let insert_guard = pprof::ProfilerGuardBuilder::default()
+        //         .frequency(100000)
+        //         .blocklist(&["libc", "libgcc", "pthread", "vdso"])
+        //         .build()
+        //         .unwrap();
+        //     crate::embeddings::unit::insert::test_insert_empty_string();
+        //     crate::embeddings::unit::insert::test_insert_constraint_violation();
+        //     if let Ok(report) = insert_guard.report().build() {
+        //         let file = std::fs::File::create("src/embeddings/flamegraph/insert.svg").unwrap();
+        //         let mut options = pprof::flamegraph::Options::default();
+        //         options.image_width = Some(2500);
+        //         report.flamegraph_with_options(file, &mut options).unwrap();
+        //         println!("✅ Insert: flamegraph saved");
+        //     } else {
+        //         eprintln!("⚠️ Insert: Could not build report");
+        //     }
+        // }
 
         #[cfg(feature = "embeddings")]
         {
@@ -230,9 +230,52 @@ mod flamegraph {
                 let mut options = pprof::flamegraph::Options::default();
                 options.image_width = Some(100000);
                 report.flamegraph_with_options(file, &mut options).unwrap();
-                println!("✅ Search: flamegraph saved");
+                println!("✅ Nearest: flamegraph saved");
             } else {
-                eprintln!("⚠️ Search: Could not build report");
+                eprintln!("⚠️ Nearest: Could not build report");
+            }
+        }
+        #[cfg(feature = "neural")]
+        {
+            let tensor_guard = pprof::ProfilerGuardBuilder::default()
+                .frequency(100000)
+                .blocklist(&["libc", "libgcc", "pthread", "vdso"])
+                .build()
+                .unwrap();
+            crate::neural::unit::tensor::addition();
+            crate::neural::unit::tensor::scale();
+            crate::neural::unit::tensor::zero_negation();
+            crate::neural::unit::tensor::distribution();
+            crate::neural::unit::tensor::associative_addition();
+            crate::neural::unit::tensor::commutative_addition();
+            crate::neural::unit::tensor::multilinearity();
+            if let Ok(report) = tensor_guard.report().build() {
+                let file = std::fs::File::create("src/neural/flamegraph/tensor.svg").unwrap();
+                let mut options = pprof::flamegraph::Options::default();
+                options.image_width = Some(100000);
+                report.flamegraph_with_options(file, &mut options).unwrap();
+                println!("✅ Tensor: flamegraph saved");
+            } else {
+                eprintln!("⚠️ Tensor: Could not build report");
+            }
+        }
+        #[cfg(feature = "neural")]
+        {
+            let neural_guard = pprof::ProfilerGuardBuilder::default()
+                .frequency(100000)
+                .blocklist(&["libc", "libgcc", "pthread", "vdso"])
+                .build()
+                .unwrap();
+            crate::neural::unit::neural::layer();
+            crate::neural::unit::neural::network();
+            if let Ok(report) = neural_guard.report().build() {
+                let file = std::fs::File::create("src/neural/flamegraph/neural.svg").unwrap();
+                let mut options = pprof::flamegraph::Options::default();
+                options.image_width = Some(100000);
+                report.flamegraph_with_options(file, &mut options).unwrap();
+                println!("✅ Neural: flamegraph saved");
+            } else {
+                eprintln!("⚠️ Neural: Could not build report");
             }
         }
 

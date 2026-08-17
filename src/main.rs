@@ -10,9 +10,8 @@ mod bpe;
 mod cli;
 #[cfg(feature = "embeddings")]
 mod embeddings;
-// #[cfg(feature = "instruments")]
 mod instruments;
-// #[cfg(feature = "neural")]
+#[cfg(feature = "neural")]
 mod neural;
 use std::io::{BufRead, Write, stdin, stdout};
 
